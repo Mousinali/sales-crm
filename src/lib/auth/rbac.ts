@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser, SESSION_COOKIE_NAME } from "./session";
 import type { Role } from "./roles";
 
-export type AuthUser = { id: number; role: Role; name: string; email: string };
+export type AuthUser = { id: number; role: Role; name: string; email: string; mustChangePassword: boolean };
 
 /**
  * Resolves the currently signed-in user from the session cookie, or `null`
@@ -18,7 +18,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const user = await getSessionUser(token);
   if (!user) return null;
 
-  return { id: user.id, role: user.role, name: user.name, email: user.email };
+  return { id: user.id, role: user.role, name: user.name, email: user.email, mustChangePassword: user.must_change_password };
 }
 
 /**
@@ -74,5 +74,5 @@ export async function getCurrentUserFromRequest(request: Request): Promise<AuthU
   const user = await getSessionUser(token);
   if (!user) return null;
 
-  return { id: user.id, role: user.role, name: user.name, email: user.email };
+  return { id: user.id, role: user.role, name: user.name, email: user.email, mustChangePassword: user.must_change_password };
 }

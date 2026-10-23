@@ -24,6 +24,7 @@ describe("session lifecycle", () => {
     const { token } = await createSession(userId);
     const user = await getSessionUser(token);
     expect(user?.id).toBe(userId);
+    expect(user?.must_change_password).toBe(false);
   });
 
   it("returns null for a revoked session", async () => {

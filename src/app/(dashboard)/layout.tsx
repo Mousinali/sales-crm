@@ -25,6 +25,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Same UX-convenience caveat as above: a user flagged must_change_password
+  // (by Task 3's createUser or Task 6's resetUserAccess) is bounced to
+  // /change-password before seeing the dashboard chrome. This isn't a new
+  // security boundary either — the Route Handlers Task 8's dashboard pages
+  // call remain unaffected and work normally regardless of this flag.
+  if (user.mustChangePassword) {
+    redirect("/change-password");
+  }
+
   return (
     <DashboardShell user={user} navItems={NAV_ITEMS}>
       {children}

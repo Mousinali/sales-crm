@@ -35,7 +35,7 @@ export async function createSession(userId: number): Promise<{ token: string; ex
  */
 export async function getSessionUser(
   token: string,
-): Promise<{ id: number; role: Role; name: string; email: string; status: "ACTIVE" | "INACTIVE" } | null> {
+): Promise<{ id: number; role: Role; name: string; email: string; status: "ACTIVE" | "INACTIVE"; must_change_password: boolean } | null> {
   const tokenHash = hashToken(token);
 
   const { rows } = await pool.query<{
@@ -44,8 +44,9 @@ export async function getSessionUser(
     name: string;
     email: string;
     status: "ACTIVE" | "INACTIVE";
+    must_change_password: boolean;
   }>(
-    `SELECT u.id, u.role, u.name, u.email, u.status
+    `SELECT u.id, u.role, u.name, u.email, u.status, u.must_change_password
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1
