@@ -68,3 +68,13 @@ export async function revokeSession(token: string): Promise<void> {
     [tokenHash],
   );
 }
+
+/** Revokes every session for `userId` except the one named by `keepToken` — used after a password change to cut off any other active sessions (e.g. one held by an attacker) while leaving the caller's own session intact. */
+export async function revokeOtherSessions(userId: number, keepToken: string): Promise<void> {
+  const keepTokenHash = hashToken(keepToken);
+
+  await pool.query(
+    `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL AND token_hash <> $2`,
+    [userId, keepTokenHash],
+  );
+}

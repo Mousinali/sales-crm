@@ -52,6 +52,16 @@ export async function requireRole(roles: Role[]): Promise<AuthUser> {
   return user;
 }
 
+/** Extracts the raw session token from a Request's Cookie header, or undefined if absent. */
+export function sessionTokenFromRequest(request: Request): string | undefined {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const match = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
+  return match?.slice(SESSION_COOKIE_NAME.length + 1);
+}
+
 /**
  * Like `getCurrentUser`, but for Route Handlers: resolves the session from
  * the `Request`'s own `Cookie` header instead of `next/headers`'s
@@ -63,12 +73,7 @@ export async function requireRole(roles: Role[]): Promise<AuthUser> {
  * invocation) should keep using `getCurrentUser`/`requireUser`/`requireRole`.
  */
 export async function getCurrentUserFromRequest(request: Request): Promise<AuthUser | null> {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  const match = cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
-  const token = match?.slice(SESSION_COOKIE_NAME.length + 1);
+  const token = sessionTokenFromRequest(request);
   if (!token) return null;
 
   const user = await getSessionUser(token);

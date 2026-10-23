@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 
-export default function ChangePasswordForm() {
+export default function ChangePasswordForm({ requireCurrentPassword }: { requireCurrentPassword: boolean }) {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -10,6 +11,11 @@ export default function ChangePasswordForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (requireCurrentPassword && currentPassword.length === 0) {
+      setError("Enter your current password.");
+      return;
+    }
 
     if (password.length < 8 || confirmPassword.length < 8) {
       setError("Enter a password with at least 8 characters.");
@@ -28,11 +34,13 @@ export default function ChangePasswordForm() {
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(
+          requireCurrentPassword ? { currentPassword, password } : { password },
+        ),
       });
 
       if (!response.ok) {
-        setError("Something went wrong. Try again.");
+        setError(response.status === 403 ? "Current password is incorrect." : "Something went wrong. Try again.");
         setSubmitting(false);
         return;
       }
@@ -46,6 +54,23 @@ export default function ChangePasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      {requireCurrentPassword && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="currentPassword" className="text-sm font-medium text-zinc-700">
+            Current password
+          </label>
+          <input
+            id="currentPassword"
+            name="currentPassword"
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-sm font-medium text-zinc-700">
           New password
