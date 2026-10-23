@@ -51,3 +51,28 @@ export async function requireRole(roles: Role[]): Promise<AuthUser> {
   }
   return user;
 }
+
+/**
+ * Like `getCurrentUser`, but for Route Handlers: resolves the session from
+ * the `Request`'s own `Cookie` header instead of `next/headers`'s
+ * `cookies()`. Route Handlers must use this, not `getCurrentUser`, because
+ * `cookies()` requires Next's own request-dispatch context, which exists
+ * when the Next.js server actually invokes the handler but not when this
+ * project's Route Handler tests call the exported function directly.
+ * Pages/Server Components (which this project never unit-tests via direct
+ * invocation) should keep using `getCurrentUser`/`requireUser`/`requireRole`.
+ */
+export async function getCurrentUserFromRequest(request: Request): Promise<AuthUser | null> {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const match = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
+  const token = match?.slice(SESSION_COOKIE_NAME.length + 1);
+  if (!token) return null;
+
+  const user = await getSessionUser(token);
+  if (!user) return null;
+
+  return { id: user.id, role: user.role, name: user.name, email: user.email };
+}
