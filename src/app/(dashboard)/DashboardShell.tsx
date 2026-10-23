@@ -8,6 +8,35 @@ import type { AuthUser } from "../../lib/auth/rbac";
 
 export type NavItem = { href: string; label: string; icon: string };
 
+function NavLinks({
+  navItems,
+  isActive,
+  navLinkClasses,
+  onNavigate,
+}: {
+  navItems: NavItem[];
+  isActive: (href: string) => boolean;
+  navLinkClasses: (href: string) => string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      {navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onNavigate}
+          aria-current={isActive(item.href) ? "page" : undefined}
+          className={navLinkClasses(item.href)}
+        >
+          <i className={`${item.icon} text-lg`} aria-hidden="true" />
+          {item.label}
+        </Link>
+      ))}
+    </>
+  );
+}
+
 export default function DashboardShell({
   user,
   navItems,
@@ -68,18 +97,12 @@ export default function DashboardShell({
             className="relative z-50 flex h-full w-64 flex-col gap-1 bg-white p-4 shadow-xl"
           >
             <p className="mb-4 px-2 text-lg font-semibold text-zinc-900">Sales CRM</p>
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileNavOpen(false)}
-                aria-current={isActive(item.href) ? "page" : undefined}
-                className={navLinkClasses(item.href)}
-              >
-                <i className={`${item.icon} text-lg`} aria-hidden="true" />
-                {item.label}
-              </Link>
-            ))}
+            <NavLinks
+              navItems={navItems}
+              isActive={isActive}
+              navLinkClasses={navLinkClasses}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
           </nav>
         </div>
       )}
@@ -88,17 +111,7 @@ export default function DashboardShell({
       <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white px-4 py-6 lg:flex">
         <p className="mb-6 px-2 text-lg font-semibold text-zinc-900">Sales CRM</p>
         <nav aria-label="Primary" className="flex flex-col gap-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(item.href) ? "page" : undefined}
-              className={navLinkClasses(item.href)}
-            >
-              <i className={`${item.icon} text-lg`} aria-hidden="true" />
-              {item.label}
-            </Link>
-          ))}
+          <NavLinks navItems={navItems} isActive={isActive} navLinkClasses={navLinkClasses} />
         </nav>
       </aside>
 
