@@ -1,0 +1,1 @@
+CREATE TABLE demo_items (id BIGSERIAL PRIMARY KEY, label TEXT NOT NULL);
