@@ -4,12 +4,19 @@ import { pool } from "../../../lib/db";
 import { getCurrentUserFromRequest } from "../../../lib/auth/rbac";
 import { ROLES } from "../../../lib/auth/roles";
 import { createUser } from "../../../lib/users/create";
+import { listUsers } from "../../../lib/users/list";
 import { RoleNotManageableError, EmailAlreadyExistsError } from "../../../lib/users/errors";
 
 const createUserSchema = z.object({
   role: z.enum(ROLES),
   name: z.string().trim().min(1),
   email: z.string().trim().email(),
+});
+
+const listQuerySchema = z.object({
+  role: z.enum(ROLES).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  q: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -42,4 +49,24 @@ export async function POST(request: Request): Promise<Response> {
     }
     throw error;
   }
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const user = await getCurrentUserFromRequest(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const parsed = listQuerySchema.safeParse({
+    role: url.searchParams.get("role") ?? undefined,
+    status: url.searchParams.get("status") ?? undefined,
+    q: url.searchParams.get("q") ?? undefined,
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+  }
+
+  const users = await listUsers(pool, user.role, parsed.data);
+  return NextResponse.json({ users });
 }

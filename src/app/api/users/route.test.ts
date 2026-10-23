@@ -5,7 +5,7 @@ import { runMigrations } from "../../../lib/migrate";
 import { seedSuperAdmin } from "../../../lib/auth/seed";
 import { createSession } from "../../../lib/auth/session";
 import { SESSION_COOKIE_NAME } from "../../../lib/auth/session";
-import { POST } from "./route";
+import { POST, GET } from "./route";
 
 const superAdminEmail = `route-create-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -62,5 +62,26 @@ describe("POST /api/users", () => {
       `${SESSION_COOKIE_NAME}=${superAdminToken}`,
     );
     expect(res.status).toBe(403);
+  });
+});
+
+function getUsers(query: string, cookie?: string) {
+  return GET(
+    new Request(`http://localhost/api/users${query}`, {
+      headers: cookie ? { cookie } : {},
+    }),
+  );
+}
+
+describe("GET /api/users", () => {
+  it("rejects an unauthenticated request", async () => {
+    expect((await getUsers("")).status).toBe(401);
+  });
+
+  it("returns the role-scoped list for an authenticated SUPER_ADMIN", async () => {
+    const res = await getUsers("", `${SESSION_COOKIE_NAME}=${superAdminToken}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.users)).toBe(true);
   });
 });
