@@ -19,6 +19,7 @@ describe("seedSuperAdmin", () => {
   it("creates a SUPER_ADMIN user with a hashed password", async () => {
     const result = await seedSuperAdmin(pool, { email, name: "Seed Admin", password: "1234" });
     expect(result.created).toBe(true);
+    expect(typeof result.id).toBe("number");
 
     const { rows } = await pool.query("SELECT role, password_hash, created_by FROM users WHERE id = $1", [result.id]);
     expect(rows[0].role).toBe("SUPER_ADMIN");
