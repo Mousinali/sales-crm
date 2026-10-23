@@ -38,3 +38,16 @@ export async function requireUser(): Promise<AuthUser> {
   }
   return user;
 }
+
+/**
+ * Like `requireUser`, but also requires the signed-in user's role to be one
+ * of `roles` — redirecting to `/dashboard` (not `/login`, since the user IS
+ * authenticated, just not authorized for this page) otherwise.
+ */
+export async function requireRole(roles: Role[]): Promise<AuthUser> {
+  const user = await requireUser();
+  if (!roles.includes(user.role)) {
+    redirect("/dashboard");
+  }
+  return user;
+}
