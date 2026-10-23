@@ -13,6 +13,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // This check is a UX convenience only — it avoids a flash of the dashboard
+  // chrome for an obviously-unauthenticated visit. It is NOT the security
+  // boundary: Next.js layouts don't re-render on navigation and don't block
+  // their child segments from being included in the RSC payload, so a
+  // layout-only check cannot be relied on to protect the pages inside it.
+  // Every protected page and route handler must independently call
+  // `requireUser()` (or a future role-checking variant) from rbac.ts.
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
