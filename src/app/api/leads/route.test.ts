@@ -6,7 +6,7 @@ import { seedSuperAdmin } from "../../../lib/auth/seed";
 import { createSession } from "../../../lib/auth/session";
 import { SESSION_COOKIE_NAME } from "../../../lib/auth/session";
 import { createUser } from "../../../lib/users/create";
-import { POST } from "./route";
+import { POST, GET } from "./route";
 
 const adminEmail = `leads-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -65,5 +65,28 @@ describe("POST /api/leads", () => {
   it("rejects a Salesperson", async () => {
     const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }, salespersonCookie);
     expect(res.status).toBe(403);
+  });
+});
+
+function getLeads(cookie?: string) {
+  return GET(new Request("http://localhost/api/leads", { headers: cookie ? { cookie } : {} }));
+}
+
+describe("GET /api/leads", () => {
+  it("rejects an unauthenticated request", async () => {
+    expect((await getLeads()).status).toBe(401);
+  });
+
+  it("scopes the list to the caller's visible leads", async () => {
+    await postLeads({ companyName: "Scope Co", phone: "9", serviceRequirements: "y", leadSource: "OTHER" }, preSalesCookie);
+    const res = await getLeads(preSalesCookie);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(
+      body.leads.every(
+        (l: { pre_sales_owner_id: number | null; created_by: number }) =>
+          l.created_by === sessionUserIds[2] || l.pre_sales_owner_id === sessionUserIds[2],
+      ),
+    ).toBe(true);
   });
 });

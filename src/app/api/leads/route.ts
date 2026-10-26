@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "../../../lib/db";
 import { getCurrentUserFromRequest } from "../../../lib/auth/rbac";
-import { LEAD_SOURCES, LEAD_PRIORITIES } from "../../../lib/leads/types";
+import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES } from "../../../lib/leads/types";
 import { createLead } from "../../../lib/leads/create";
+import { listLeads } from "../../../lib/leads/list";
 import { LeadActionNotAllowedError } from "../../../lib/leads/errors";
 
 const createLeadSchema = z.object({
@@ -20,6 +21,20 @@ const createLeadSchema = z.object({
   leadSource: z.enum(LEAD_SOURCES),
   priority: z.enum(LEAD_PRIORITIES).optional(),
   notes: z.string().trim().min(1).optional(),
+});
+
+const listQuerySchema = z.object({
+  status: z.enum(LEAD_STATUSES).optional(),
+  source: z.enum(LEAD_SOURCES).optional(),
+  priority: z.enum(LEAD_PRIORITIES).optional(),
+  ownerId: z.coerce.number().int().optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  q: z.string().trim().min(1).optional(),
+  includeArchived: z
+    .string()
+    .optional()
+    .transform((value) => value === "true"),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -50,4 +65,32 @@ export async function POST(request: Request): Promise<Response> {
     }
     throw error;
   }
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const user = await getCurrentUserFromRequest(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.mustChangePassword) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const url = new URL(request.url);
+  const parsed = listQuerySchema.safeParse({
+    status: url.searchParams.get("status") ?? undefined,
+    source: url.searchParams.get("source") ?? undefined,
+    priority: url.searchParams.get("priority") ?? undefined,
+    ownerId: url.searchParams.get("ownerId") ?? undefined,
+    dateFrom: url.searchParams.get("dateFrom") ?? undefined,
+    dateTo: url.searchParams.get("dateTo") ?? undefined,
+    q: url.searchParams.get("q") ?? undefined,
+    includeArchived: url.searchParams.get("includeArchived") ?? undefined,
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+  }
+
+  const leads = await listLeads(pool, user, parsed.data);
+  return NextResponse.json({ leads });
 }
