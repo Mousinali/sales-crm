@@ -33,6 +33,7 @@ export default async function DashboardLayout({
     ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
       ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
       : []),
+    ...(user.role !== "HR" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
   ];
 
   return (
