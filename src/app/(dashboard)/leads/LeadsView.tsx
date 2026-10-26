@@ -2,10 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES, type LeadSource, type LeadPriority, type LeadStatus } from "../../../lib/leads/types";
-import type { LeadRow } from "../../../lib/leads/types";
-import type { Role } from "../../../lib/auth/roles";
-import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "../leadDisplay";
+import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES, type LeadSource, type LeadPriority, type LeadStatus } from "@/lib/leads/types";
+import type { LeadRow } from "@/lib/leads/types";
+import type { Role } from "@/lib/auth/roles";
+import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
 
 type DuplicateMatch = { id: number; companyName: string; status: LeadStatus };
 

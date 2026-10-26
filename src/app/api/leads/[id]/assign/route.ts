@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../../lib/auth/rbac";
-import { assignLead } from "../../../../../lib/leads/assign";
-import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "../../../../../lib/leads/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { assignLead } from "@/lib/leads/assign";
+import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const assignSchema = z
   .object({

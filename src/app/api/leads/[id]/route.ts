@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../lib/auth/rbac";
-import { LEAD_PRIORITIES } from "../../../../lib/leads/types";
-import { assertLeadVisible } from "../../../../lib/leads/guard";
-import { updateLead } from "../../../../lib/leads/update";
-import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "../../../../lib/leads/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { LEAD_PRIORITIES } from "@/lib/leads/types";
+import { assertLeadVisible } from "@/lib/leads/guard";
+import { updateLead } from "@/lib/leads/update";
+import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const updateLeadSchema = z
   .object({

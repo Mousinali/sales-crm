@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../lib/auth/rbac";
+import { getCurrentUser } from "@/lib/auth/rbac";
 import DashboardShell, { type NavItem } from "./DashboardShell";
 
 export default async function DashboardLayout({

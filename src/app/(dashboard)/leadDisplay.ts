@@ -1,4 +1,4 @@
-import type { LeadStatus, LeadPriority } from "../../lib/leads/types";
+import type { LeadStatus, LeadPriority } from "@/lib/leads/types";
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: "New",

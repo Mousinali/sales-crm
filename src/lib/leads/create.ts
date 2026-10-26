@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
+import type { Role } from "@/lib/auth/roles";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
 import { LeadActionNotAllowedError } from "./errors";
 import type { LeadRow, LeadSource, LeadPriority } from "./types";

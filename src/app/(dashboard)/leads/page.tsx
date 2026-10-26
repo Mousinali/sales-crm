@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { requireRole } from "../../../lib/auth/rbac";
-import { pool } from "../../../lib/db";
-import { listLeads } from "../../../lib/leads/list";
+import { requireRole } from "@/lib/auth/rbac";
+import { pool } from "@/lib/db";
+import { listLeads } from "@/lib/leads/list";
 import LeadsView from "./LeadsView";
 
 export default async function LeadsPage() {

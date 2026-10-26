@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
+import type { Role } from "@/lib/auth/roles";
 import type { LeadRow, LeadStatus, LeadSource, LeadPriority } from "./types";
 
 export async function listLeads(

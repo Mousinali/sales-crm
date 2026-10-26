@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../lib/auth/rbac";
-import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES } from "../../../lib/leads/types";
-import { createLead } from "../../../lib/leads/create";
-import { listLeads } from "../../../lib/leads/list";
-import { LeadActionNotAllowedError } from "../../../lib/leads/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES } from "@/lib/leads/types";
+import { createLead } from "@/lib/leads/create";
+import { listLeads } from "@/lib/leads/list";
+import { LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const createLeadSchema = z.object({
   companyName: z.string().trim().min(1),

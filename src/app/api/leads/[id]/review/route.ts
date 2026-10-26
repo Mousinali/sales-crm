@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../../lib/auth/rbac";
-import { reviewLead } from "../../../../../lib/leads/review";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { reviewLead } from "@/lib/leads/review";
 import {
   LeadNotFoundError,
   LeadNotAccessibleError,
   LeadActionNotAllowedError,
   InvalidLeadReasonError,
-} from "../../../../../lib/leads/errors";
+} from "@/lib/leads/errors";
 
 const reviewSchema = z.object({
   action: z.enum(["QUALIFY", "REJECT", "RETURN"]),

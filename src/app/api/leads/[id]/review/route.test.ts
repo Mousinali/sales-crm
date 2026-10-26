@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../../../../../lib/db";
-import { runMigrations } from "../../../../../lib/migrate";
-import { seedSuperAdmin } from "../../../../../lib/auth/seed";
-import { createSession, SESSION_COOKIE_NAME } from "../../../../../lib/auth/session";
-import { createUser } from "../../../../../lib/users/create";
-import { createLead } from "../../../../../lib/leads/create";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { createUser } from "@/lib/users/create";
+import { createLead } from "@/lib/leads/create";
 import { POST } from "./route";
 
 const adminEmail = `review-route-admin-${Date.now()}@example.com`;

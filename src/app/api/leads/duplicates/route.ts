@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../lib/auth/rbac";
-import { findPotentialDuplicates } from "../../../../lib/leads/duplicates";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { findPotentialDuplicates } from "@/lib/leads/duplicates";
 
 const duplicatesQuerySchema = z.object({
   companyName: z.string().trim().min(1),

@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
+import type { Role } from "@/lib/auth/roles";
 import { LeadNotFoundError, LeadNotAccessibleError } from "./errors";
 import type { LeadRow } from "./types";
 

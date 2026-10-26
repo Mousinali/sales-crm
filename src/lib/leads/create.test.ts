@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../db";
-import { runMigrations } from "../migrate";
-import { seedSuperAdmin } from "../auth/seed";
-import { createUser } from "../users/create";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { LeadActionNotAllowedError } from "./errors";
 

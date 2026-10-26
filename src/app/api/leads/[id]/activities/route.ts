@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../../lib/auth/rbac";
-import { assertLeadVisible } from "../../../../../lib/leads/guard";
-import { recordLeadActivity, listLeadActivities } from "../../../../../lib/leads/activities";
-import { LeadNotFoundError, LeadNotAccessibleError } from "../../../../../lib/leads/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { assertLeadVisible } from "@/lib/leads/guard";
+import { recordLeadActivity, listLeadActivities } from "@/lib/leads/activities";
+import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 
 const postActivitySchema = z.object({
   type: z.enum(["NOTE", "CALL", "MEETING", "OTHER"]),
