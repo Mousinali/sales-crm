@@ -18,6 +18,7 @@ const createdEmails: string[] = [];
 const leadIds: number[] = [];
 
 let qualifiedLead: { id: number };
+let pendingLead: { id: number };
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
@@ -39,7 +40,8 @@ beforeAll(async () => {
 
   qualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Assign Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
-  leadIds.push(qualifiedLead.id);
+  pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Assign Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
+  leadIds.push(qualifiedLead.id, pendingLead.id);
 });
 
 afterAll(async () => {
@@ -85,6 +87,12 @@ describe("assignLead", () => {
   it("rejects a Pre-sales user calling assign", async () => {
     await expect(
       assignLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: qualifiedLead.id, salespersonId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects assigning a lead that hasn't been qualified yet", async () => {
+    await expect(
+      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, salespersonId }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 });
