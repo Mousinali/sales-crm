@@ -4,6 +4,7 @@ import { pool } from "../db";
 import { runMigrations } from "../migrate";
 import { seedSuperAdmin } from "../auth/seed";
 import { verifyPassword } from "../auth/passwords";
+import { createSession, getSessionUser } from "../auth/session";
 import { createUser } from "./create";
 import { resetUserAccess } from "./resetAccess";
 import { RoleNotManageableError } from "./errors";
@@ -21,8 +22,10 @@ afterAll(async () => {
   // createUser's and resetUserAccess's audit log rows reference superAdminId
   // as actor_user_id (FK, no cascade), so they must be deleted before the
   // users themselves or the DELETE below violates that foreign key — same
-  // pattern as src/lib/users/create.test.ts.
+  // pattern as src/lib/users/create.test.ts. Sessions created in the
+  // revocation test below reference target users the same way.
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [superAdminId]);
+  await pool.query("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1))", [createdEmails]);
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, superAdminEmail]]);
 });
 
@@ -51,5 +54,15 @@ describe("resetUserAccess", () => {
     await expect(
       resetUserAccess(pool, { actorId: superAdminId, actorRole: "MARKETING_HEAD", targetId: target.id }),
     ).rejects.toThrow(RoleNotManageableError);
+  });
+
+  it("revokes a session created before the reset, so it cannot survive the reset", async () => {
+    const target = await makeMarketingHead();
+    const { token: preResetToken } = await createSession(target.id);
+    expect(await getSessionUser(preResetToken)).not.toBeNull();
+
+    await resetUserAccess(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id });
+
+    expect(await getSessionUser(preResetToken)).toBeNull();
   });
 });

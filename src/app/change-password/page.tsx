@@ -2,7 +2,7 @@ import { requireUser } from "../../lib/auth/rbac";
 import ChangePasswordForm from "./ChangePasswordForm";
 
 export default async function ChangePasswordPage() {
-  const user = await requireUser();
+  const user = await requireUser({ skipMustChangePasswordCheck: true });
 
   return (
     <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-16">

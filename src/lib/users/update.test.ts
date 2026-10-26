@@ -6,6 +6,7 @@ import { seedSuperAdmin } from "../auth/seed";
 import { createUser } from "./create";
 import { updateUserProfile, setUserStatus } from "./update";
 import { RoleNotManageableError } from "./errors";
+import { createSession, getSessionUser } from "../auth/session";
 
 const superAdminEmail = `update-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -19,8 +20,10 @@ beforeAll(async () => {
 afterAll(async () => {
   // updateUserProfile/setUserStatus's audit log rows reference superAdminId
   // as actor_user_id (FK, no cascade), so they must be deleted before the
-  // users themselves - same pattern as create.test.ts.
+  // users themselves - same pattern as create.test.ts. Sessions created in
+  // the revocation test below reference target users the same way.
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [superAdminId]);
+  await pool.query("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1))", [createdEmails]);
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, superAdminEmail]]);
 });
 
@@ -67,5 +70,17 @@ describe("setUserStatus", () => {
 
     const { rows: logs } = await pool.query("SELECT action FROM audit_logs WHERE target_id = $1 AND action = 'user.deactivated'", [target.id]);
     expect(logs).toHaveLength(1);
+  });
+
+  it("revokes existing sessions on deactivation, so reactivating later doesn't resurrect old logins", async () => {
+    const target = await makeMarketingHead();
+    const { token: preDeactivateToken } = await createSession(target.id);
+    expect(await getSessionUser(preDeactivateToken)).not.toBeNull();
+
+    await setUserStatus(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id, status: "INACTIVE" });
+    expect(await getSessionUser(preDeactivateToken)).toBeNull();
+
+    await setUserStatus(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id, status: "ACTIVE" });
+    expect(await getSessionUser(preDeactivateToken)).toBeNull();
   });
 });

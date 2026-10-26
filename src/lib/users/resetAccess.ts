@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "../auth/roles";
 import { hashPassword, generateTempPassword } from "../auth/passwords";
 import { recordAuditLog } from "../audit/log";
+import { revokeAllSessions } from "../auth/session";
 import { assertManageable } from "./guard";
 
 export async function resetUserAccess(
@@ -17,6 +18,12 @@ export async function resetUserAccess(
     `UPDATE users SET password_hash = $1, must_change_password = true, updated_at = now() WHERE id = $2`,
     [passwordHash, input.targetId],
   );
+
+  // A session created before this reset (e.g. an attacker's) must not
+  // survive it — otherwise mustChangePassword's "no current password
+  // needed" exemption would let that session set a brand-new password
+  // with zero verification.
+  await revokeAllSessions(input.targetId);
 
   await recordAuditLog(pool, {
     actorUserId: input.actorId,

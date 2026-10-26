@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { Role } from "../auth/roles";
 import { recordAuditLog } from "../audit/log";
+import { revokeAllSessions } from "../auth/session";
 import { assertManageable } from "./guard";
 import { EmailAlreadyExistsError } from "./errors";
 
@@ -50,6 +51,12 @@ export async function setUserStatus(
   await assertManageable(pool, input.actorRole, input.targetId);
 
   await pool.query(`UPDATE users SET status = $1, updated_at = now() WHERE id = $2`, [input.status, input.targetId]);
+
+  // Deactivating must also cut off any session already issued, so a
+  // reactivation later doesn't silently resurrect old logins.
+  if (input.status === "INACTIVE") {
+    await revokeAllSessions(input.targetId);
+  }
 
   await recordAuditLog(pool, {
     actorUserId: input.actorId,

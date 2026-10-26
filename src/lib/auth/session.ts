@@ -78,3 +78,12 @@ export async function revokeOtherSessions(userId: number, keepToken: string): Pr
     [userId, keepTokenHash],
   );
 }
+
+/**
+ * Revokes every active session for `userId`, with no exception — used when
+ * an admin resets a user's access or deactivates the account, so a session
+ * obtained before that change (e.g. by an attacker) cannot survive it.
+ */
+export async function revokeAllSessions(userId: number): Promise<void> {
+  await pool.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+}

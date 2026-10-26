@@ -24,6 +24,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (user.mustChangePassword) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = createUserSchema.safeParse(body);
@@ -55,6 +58,12 @@ export async function GET(request: Request): Promise<Response> {
   const user = await getCurrentUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.mustChangePassword) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const url = new URL(request.url);
