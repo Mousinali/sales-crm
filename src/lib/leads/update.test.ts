@@ -62,4 +62,13 @@ describe("updateLead", () => {
       updateLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: myLead.id, fields: { notes: "x" } }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
+
+  it("archives a lead by setting archived_at, one-way", async () => {
+    const toArchive = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Archive Me Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
+    leadIds.push(toArchive.id);
+
+    await updateLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: toArchive.id, fields: { archived: true } });
+    const { rows } = await pool.query("SELECT archived_at FROM leads WHERE id = $1", [toArchive.id]);
+    expect(rows[0].archived_at).not.toBeNull();
+  });
 });

@@ -22,6 +22,7 @@ const updateLeadSchema = z
     priority: z.enum(LEAD_PRIORITIES).optional(),
     nextFollowUpAt: z.coerce.date().optional(),
     notes: z.string().trim().min(1).optional(),
+    archived: z.literal(true).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "No fields to update" });
 

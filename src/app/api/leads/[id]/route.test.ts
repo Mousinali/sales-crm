@@ -87,4 +87,9 @@ describe("PATCH /api/leads/[id]", () => {
     const res = await patchLead(otherPreSalesLead.id, { notes: "x" }, preSalesCookie);
     expect(res.status).toBe(403);
   });
+
+  it("lets the owning Pre-sales user archive their lead", async () => {
+    const res = await patchLead(myLead.id, { archived: true }, preSalesCookie);
+    expect(res.status).toBe(200);
+  });
 });
