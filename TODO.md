@@ -2,10 +2,11 @@
 
 Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-26.
 
-**Branch note:** Phase 3 below is implemented only on the worktree branch
-`worktree-phase3-6-crm-build` (not yet merged to `main`). `API.md` at the
-repo root documents the full API as it stands on this branch, including
-the Phase 3 endpoints `main` does not yet have.
+Phase 3 (merged to `main`). `API.md` at the repo root documents the full
+API, including the Phase 3 Leads endpoints. Phase 4's unfinished work-in-
+progress still lives only on `worktree-phase3-6-crm-build`
+(`/Users/skmousin/my-products/sales-crm/.claude/worktrees/phase3-6-crm-build`),
+not on `main` — see the Phase 4 section below.
 
 ## Phase 1 — Project foundation ✅ done
 
