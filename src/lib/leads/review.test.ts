@@ -12,6 +12,7 @@ import { LeadActionNotAllowedError, InvalidLeadReasonError } from "./errors";
 const adminEmail = `review-admin-${Date.now()}@example.com`;
 let mhId: number;
 let preSalesId: number;
+let salespersonId: number;
 const createdEmails: string[] = [];
 const leadIds: number[] = [];
 
@@ -24,10 +25,12 @@ beforeAll(async () => {
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `review-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `review-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `review-ps-${Date.now()}@example.com` });
+  const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `review-sp-${Date.now()}@example.com` });
 
   mhId = mh.id;
   preSalesId = ps.id;
-  createdEmails.push(hr.email, mh.email, ps.email);
+  salespersonId = sp.id;
+  createdEmails.push(hr.email, mh.email, ps.email, sp.email);
 
   pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Review Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   alreadyQualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Qualified Co", phone: "2", serviceRequirements: "x", leadSource: "OTHER" });
@@ -76,6 +79,12 @@ describe("reviewLead", () => {
   it("rejects reviewing a lead that isn't Pending Review or More Info Required", async () => {
     await expect(
       reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: alreadyQualifiedLead.id, action: "QUALIFY" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects a Salesperson calling review", async () => {
+    await expect(
+      reviewLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: pendingLead.id, action: "QUALIFY" }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 

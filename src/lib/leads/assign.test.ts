@@ -17,6 +17,8 @@ let inactiveSalespersonId: number;
 const createdEmails: string[] = [];
 const leadIds: number[] = [];
 
+let inactivePreSalesId: number;
+
 let qualifiedLead: { id: number };
 let pendingLead: { id: number };
 
@@ -29,14 +31,16 @@ beforeAll(async () => {
   const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `assign-sp-${Date.now()}@example.com` });
   const otherSp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Other SP", email: `assign-osp-${Date.now()}@example.com` });
   const inactiveSp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Inactive SP", email: `assign-isp-${Date.now()}@example.com` });
-  await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = $1", [inactiveSp.id]);
+  const inactivePs = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "Inactive PS", email: `assign-ips-${Date.now()}@example.com` });
+  await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = ANY($1)", [[inactiveSp.id, inactivePs.id]]);
 
   mhId = mh.id;
   preSalesId = ps.id;
   salespersonId = sp.id;
   otherSalespersonId = otherSp.id;
   inactiveSalespersonId = inactiveSp.id;
-  createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email);
+  inactivePreSalesId = inactivePs.id;
+  createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email, inactivePs.email);
 
   qualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Assign Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
@@ -93,6 +97,29 @@ describe("assignLead", () => {
   it("rejects assigning a lead that hasn't been qualified yet", async () => {
     await expect(
       assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, salespersonId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("lets a Marketing Head change the Pre-sales owner on a lead that isn't qualified yet", async () => {
+    const updated = await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, preSalesOwnerId: preSalesId });
+    expect(updated.pre_sales_owner_id).toBe(preSalesId);
+  });
+
+  it("rejects assigning an inactive Pre-sales owner", async () => {
+    await expect(
+      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, preSalesOwnerId: inactivePreSalesId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects assigning a user who isn't a Pre-sales owner", async () => {
+    await expect(
+      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, preSalesOwnerId: salespersonId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects a Salesperson calling assign", async () => {
+    await expect(
+      assignLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: qualifiedLead.id, salespersonId: otherSalespersonId }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 });

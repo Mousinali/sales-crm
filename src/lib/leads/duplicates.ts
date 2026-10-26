@@ -12,12 +12,12 @@ const MIN_PHONE_DIGITS = 7;
 
 export async function findPotentialDuplicates(pool: Pool, input: {
   companyName: string;
-  phone: string;
+  phone?: string;
   email?: string;
   website?: string;
 }): Promise<LeadRow[]> {
   const normalizedCompanyName = normalizeCompanyName(input.companyName);
-  const normalizedPhone = normalizePhone(input.phone);
+  const normalizedPhone = normalizePhone(input.phone ?? "");
   const domain = extractDomain(input.website);
 
   const conditions: string[] = [];

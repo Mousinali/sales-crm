@@ -58,4 +58,18 @@ describe("LeadDetailView", () => {
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
     expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
   });
+
+  it("shows the assignment panel for Marketing Head even on a Pending Review lead, fetching only active users", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ users: [] })));
+    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    expect(screen.getByLabelText(/pre-sales owner/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("role=PRE_SALES"));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=PRE_SALES.*status=ACTIVE|status=ACTIVE.*role=PRE_SALES/));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=SALESPERSON.*status=ACTIVE|status=ACTIVE.*role=SALESPERSON/));
+  });
+
+  it("hides the assignment panel for a non-Marketing-Head viewer", () => {
+    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
+    expect(screen.queryByLabelText(/pre-sales owner/i)).not.toBeInTheDocument();
+  });
 });

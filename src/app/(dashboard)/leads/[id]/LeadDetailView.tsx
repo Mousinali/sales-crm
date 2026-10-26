@@ -52,7 +52,10 @@ export default function LeadDetailView({
     (viewerRole === "PRE_SALES" && (lead.pre_sales_owner_id === viewerId || lead.created_by === viewerId));
   const canReview =
     viewerRole === "MARKETING_HEAD" && (lead.status === "PENDING_REVIEW" || lead.status === "MORE_INFO_REQUIRED");
-  const canAssign = viewerRole === "MARKETING_HEAD" && (lead.status === "QUALIFIED" || lead.status === "CONVERTED");
+  // No status gate here: a Marketing Head can change the Pre-sales owner at
+  // any point (req.md §3.3/§6.2); only assigning a Salesperson is itself
+  // gated on Qualified/Converted, enforced server-side in assignLead.
+  const canAssign = viewerRole === "MARKETING_HEAD";
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -179,11 +182,11 @@ export default function LeadDetailView({
 
   useEffect(() => {
     if (!canAssign) return;
-    fetch("/api/users?role=PRE_SALES")
+    fetch("/api/users?role=PRE_SALES&status=ACTIVE")
       .then((res) => (res.ok ? res.json() : { users: [] }))
       .then((body) => setPreSalesOptions(body.users ?? []))
       .catch(() => {});
-    fetch("/api/users?role=SALESPERSON")
+    fetch("/api/users?role=SALESPERSON&status=ACTIVE")
       .then((res) => (res.ok ? res.json() : { users: [] }))
       .then((body) => setSalespersonOptions(body.users ?? []))
       .catch(() => {});

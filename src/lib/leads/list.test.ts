@@ -82,4 +82,18 @@ describe("listLeads", () => {
   it("HR sees no leads", async () => {
     expect(await listLeads(pool, { id: hrId, role: "HR" }, {})).toEqual([]);
   });
+
+  it("filters by dateFrom alone, excluding leads created before it, without requiring dateTo too", async () => {
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    const rows = await listLeads(pool, { id: adminId, role: "SUPER_ADMIN" }, { dateFrom: tomorrow });
+    expect(rows.some((l) => l.id === leadByOtherPreSales.id)).toBe(false);
+  });
+
+  it("includes leads created on the dateTo day itself, not just before midnight", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const rows = await listLeads(pool, { id: adminId, role: "SUPER_ADMIN" }, { dateFrom: yesterday, dateTo: todayMidnight });
+    expect(rows.some((l) => l.id === leadByOtherPreSales.id)).toBe(true);
+  });
 });

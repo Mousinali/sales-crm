@@ -73,4 +73,11 @@ describe("GET /api/leads/duplicates", () => {
     expect(body.duplicates[0]).not.toHaveProperty("service_requirements");
     expect(body.duplicates[0]).not.toHaveProperty("notes");
   });
+
+  it("checks by company name alone, before phone has been filled in", async () => {
+    const res = await getDuplicates("?companyName=Dup+Route+Co", preSalesCookie);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.duplicates.some((d: { id: number }) => d.id === leadIds[0])).toBe(true);
+  });
 });

@@ -40,4 +40,13 @@ describe("createLead", () => {
     expect(lead.pre_sales_owner_id).toBe(preSalesId);
     expect(lead.status).toBe("PENDING_REVIEW");
   });
+
+  it("lets two different leads share the same email — unlike users.email, leads.email is not unique", async () => {
+    const sharedEmail = `shared-contact-${Date.now()}@example.com`;
+    const leadA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Shared Email A", phone: "11", email: sharedEmail, serviceRequirements: "z", leadSource: "OTHER" });
+    const leadB = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Shared Email B", phone: "22", email: sharedEmail, serviceRequirements: "z", leadSource: "OTHER" });
+    leadIds.push(leadA.id, leadB.id);
+    expect(leadA.email).toBe(sharedEmail);
+    expect(leadB.email).toBe(sharedEmail);
+  });
 });

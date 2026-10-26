@@ -6,7 +6,7 @@ import { findPotentialDuplicates } from "@/lib/leads/duplicates";
 
 const duplicatesQuerySchema = z.object({
   companyName: z.string().trim().min(1),
-  phone: z.string().trim().min(1),
+  phone: z.string().trim().min(1).optional(),
   email: z.string().trim().min(1).optional(),
   website: z.string().trim().min(1).optional(),
 });

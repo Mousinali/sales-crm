@@ -12,6 +12,7 @@ const adminEmail = `review-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let mhCookie: string;
 let preSalesCookie: string;
+let salespersonCookie: string;
 const createdEmails: string[] = [];
 const sessionUserIds: number[] = [];
 const leadIds: number[] = [];
@@ -24,12 +25,14 @@ beforeAll(async () => {
   const hr = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `review-route-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `review-route-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `review-route-ps-${Date.now()}@example.com` });
-  createdEmails.push(hr.email, mh.email, ps.email);
-  sessionUserIds.push(hr.id, mh.id, ps.id);
+  const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `review-route-sp-${Date.now()}@example.com` });
+  createdEmails.push(hr.email, mh.email, ps.email, sp.email);
+  sessionUserIds.push(hr.id, mh.id, ps.id, sp.id);
 
-  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id]]);
+  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id, sp.id]]);
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
+  salespersonCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
 
   pendingLead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Review Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(pendingLead.id);
@@ -62,6 +65,11 @@ describe("POST /api/leads/[id]/review", () => {
 
   it("403s a Pre-sales user calling review", async () => {
     const res = await postReview(pendingLead.id, { action: "QUALIFY" }, preSalesCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("403s a Salesperson calling review", async () => {
+    const res = await postReview(pendingLead.id, { action: "QUALIFY" }, salespersonCookie);
     expect(res.status).toBe(403);
   });
 

@@ -48,9 +48,18 @@ export async function listLeads(
     params.push(filters.ownerId);
     conditions.push(`(pre_sales_owner_id = $${params.length} OR salesperson_owner_id = $${params.length})`);
   }
-  if (filters.dateFrom && filters.dateTo) {
-    params.push(filters.dateFrom, filters.dateTo);
-    conditions.push(`created_at BETWEEN $${params.length - 1} AND $${params.length}`);
+  if (filters.dateFrom) {
+    params.push(filters.dateFrom);
+    conditions.push(`created_at >= $${params.length}`);
+  }
+  if (filters.dateTo) {
+    // Exclusive upper bound one day past dateTo, so a same-day lead (any
+    // time after midnight) is still included — "to 2026-10-26" means
+    // through the end of that day, not only up to its first instant.
+    const exclusiveUpperBound = new Date(filters.dateTo);
+    exclusiveUpperBound.setDate(exclusiveUpperBound.getDate() + 1);
+    params.push(exclusiveUpperBound);
+    conditions.push(`created_at < $${params.length}`);
   }
   if (filters.q) {
     params.push(`%${filters.q}%`);

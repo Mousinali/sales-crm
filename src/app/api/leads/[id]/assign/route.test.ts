@@ -11,6 +11,7 @@ import { POST } from "./route";
 const adminEmail = `assign-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let mhCookie: string;
+let preSalesCookie: string;
 let salespersonId: number;
 let inactiveSalespersonId: number;
 const createdEmails: string[] = [];
@@ -34,8 +35,9 @@ beforeAll(async () => {
   salespersonId = sp.id;
   inactiveSalespersonId = inactiveSp.id;
 
-  await pool.query("UPDATE users SET must_change_password = false WHERE id = $1", [mh.id]);
+  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id]]);
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
+  preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
 
   qualifiedLead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Assign Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
@@ -71,5 +73,10 @@ describe("POST /api/leads/[id]/assign", () => {
   it("assigns an active salesperson", async () => {
     const res = await postAssign(qualifiedLead.id, { salespersonId }, mhCookie);
     expect(res.status).toBe(200);
+  });
+
+  it("rejects a Pre-sales user calling assign", async () => {
+    const res = await postAssign(qualifiedLead.id, { salespersonId }, preSalesCookie);
+    expect(res.status).toBe(403);
   });
 });

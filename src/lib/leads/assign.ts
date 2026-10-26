@@ -31,9 +31,14 @@ export async function assignLead(
   }
 
   const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
-  if (lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+  // Only a Salesperson assignment is gated on Qualified/Converted (req.md
+  // §6.1 step 5). Changing the Pre-sales owner has no such gate — §3.3/§6.2
+  // let a Marketing Head "change the Pre-sales owner when needed" at any
+  // point, including on a lead that's still Pending Review.
+  const requiresQualified = input.salespersonId !== undefined;
+  if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
     throw new LeadActionNotAllowedError(
-      `Lead ${input.leadId} must be qualified or converted before it can be assigned (status: ${lead.status})`,
+      `Lead ${input.leadId} must be qualified or converted before it can be assigned a Salesperson (status: ${lead.status})`,
     );
   }
 
@@ -53,7 +58,7 @@ export async function assignLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3 AND status IN ('QUALIFIED', 'CONVERTED')
+       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
        RETURNING *`,
       [input.salespersonId ?? null, input.preSalesOwnerId ?? null, input.leadId],
     );

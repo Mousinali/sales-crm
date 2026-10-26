@@ -23,4 +23,11 @@ describe("extractDomain", () => {
     expect(extractDomain(null)).toBeNull();
     expect(extractDomain("")).toBeNull();
   });
+
+  it("rejects placeholder values that don't look like a real domain", () => {
+    expect(extractDomain("N/A")).toBeNull();
+    expect(extractDomain("n/a")).toBeNull();
+    expect(extractDomain("none")).toBeNull();
+    expect(extractDomain("-")).toBeNull();
+  });
 });

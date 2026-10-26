@@ -64,4 +64,34 @@ describe("findPotentialDuplicates", () => {
     const result = await findPotentialDuplicates(pool, { companyName: "Some Unrelated Name Co", phone: "99" } as never);
     expect(result).toEqual([]);
   });
+
+  it("flags a lead sharing only the website domain", async () => {
+    const original = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Domain Match Co", phone: "2223334444", website: "https://domainmatch.example", serviceRequirements: "x", leadSource: "OTHER",
+    });
+    leadIds.push(original.id);
+    const result = await findPotentialDuplicates(pool, { companyName: "Totally Different Name", phone: "5556667777", website: "www.domainmatch.example" } as never);
+    expect(result.some((l) => l.id === original.id)).toBe(true);
+  });
+
+  it("flags a lead sharing only the email", async () => {
+    const original = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Email Match Co", phone: "3334445555", email: "shared@example.com", serviceRequirements: "x", leadSource: "OTHER",
+    });
+    leadIds.push(original.id);
+    const result = await findPotentialDuplicates(pool, { companyName: "Totally Different Name", phone: "6667778888", email: "SHARED@example.com" } as never);
+    expect(result.some((l) => l.id === original.id)).toBe(true);
+  });
+
+  it("does not cross-match unrelated leads sharing a placeholder website like 'N/A'", async () => {
+    const leadA = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Placeholder A", phone: "1231231234", website: "N/A", serviceRequirements: "a", leadSource: "OTHER",
+    });
+    const leadB = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Placeholder B", phone: "3213214321", website: "n/a", serviceRequirements: "b", leadSource: "OTHER",
+    });
+    leadIds.push(leadA.id, leadB.id);
+    const result = await findPotentialDuplicates(pool, { companyName: "Unrelated Third Name", phone: "9879876543", website: "N/A" } as never);
+    expect(result.some((l) => l.id === leadA.id || l.id === leadB.id)).toBe(false);
+  });
 });
