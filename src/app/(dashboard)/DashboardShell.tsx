@@ -4,9 +4,21 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SignOutButton from "./SignOutButton";
+import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "./roleDisplay";
 import type { AuthUser } from "../../lib/auth/rbac";
 
 export type NavItem = { href: string; label: string; icon: string };
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-2.5 px-2">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500 text-xs font-semibold text-white">
+        S
+      </span>
+      <span className="text-base font-semibold tracking-tight text-white">Sales CRM</span>
+    </div>
+  );
+}
 
 function NavLinks({
   navItems,
@@ -37,6 +49,24 @@ function NavLinks({
   );
 }
 
+function UserBadge({ user, compact = false }: { user: AuthUser; compact?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+        {initialsOf(user.name)}
+      </span>
+      <div className={compact ? "" : "text-right"}>
+        <p className="text-sm font-medium text-zinc-900">{user.name}</p>
+        <span
+          className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[user.role]}`}
+        >
+          {ROLE_LABELS[user.role]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardShell({
   user,
   navItems,
@@ -54,31 +84,31 @@ export default function DashboardShell({
   }
 
   function navLinkClasses(href: string) {
-    return `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+    return `flex items-center gap-3 rounded-r-md border-l-2 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
       isActive(href)
-        ? "bg-indigo-50 text-indigo-700"
-        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+        ? "border-indigo-400 bg-slate-800/60 text-white"
+        : "border-transparent text-slate-300 hover:bg-slate-800/40 hover:text-white"
     }`;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-slate-50 lg:flex-row">
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
+      <header className="flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
         <button
           type="button"
           aria-label="Toggle navigation"
           aria-expanded={mobileNavOpen}
           aria-controls="mobile-sidebar"
           onClick={() => setMobileNavOpen((open) => !open)}
-          className="rounded-md p-2 text-zinc-600 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
         >
           <i
             className={mobileNavOpen ? "ri-close-line text-xl" : "ri-menu-line text-xl"}
             aria-hidden="true"
           />
         </button>
-        <span className="text-base font-semibold text-zinc-900">Sales CRM</span>
+        <Brand />
         <div className="w-9" aria-hidden="true" />
       </header>
 
@@ -94,9 +124,11 @@ export default function DashboardShell({
           <nav
             id="mobile-sidebar"
             aria-label="Primary"
-            className="relative z-50 flex h-full w-64 flex-col gap-1 bg-white p-4 shadow-xl"
+            className="relative z-50 flex h-full w-64 flex-col gap-1 bg-slate-900 p-4"
           >
-            <p className="mb-4 px-2 text-lg font-semibold text-zinc-900">Sales CRM</p>
+            <div className="mb-6">
+              <Brand />
+            </div>
             <NavLinks
               navItems={navItems}
               isActive={isActive}
@@ -108,8 +140,10 @@ export default function DashboardShell({
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white px-4 py-6 lg:flex">
-        <p className="mb-6 px-2 text-lg font-semibold text-zinc-900">Sales CRM</p>
+      <aside className="hidden w-64 flex-col bg-slate-900 px-4 py-6 lg:flex">
+        <div className="mb-6">
+          <Brand />
+        </div>
         <nav aria-label="Primary" className="flex flex-col gap-1">
           <NavLinks navItems={navItems} isActive={isActive} navLinkClasses={navLinkClasses} />
         </nav>
@@ -118,19 +152,13 @@ export default function DashboardShell({
       <div className="flex flex-1 flex-col">
         {/* Desktop top bar */}
         <header className="hidden items-center justify-end gap-4 border-b border-zinc-200 bg-white px-6 py-3 lg:flex">
-          <div className="text-right">
-            <p className="text-sm font-medium text-zinc-900">{user.name}</p>
-            <p className="text-xs text-zinc-500">{user.role}</p>
-          </div>
+          <UserBadge user={user} />
           <SignOutButton />
         </header>
 
         {/* Mobile user row */}
         <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-2 lg:hidden">
-          <div>
-            <p className="text-sm font-medium text-zinc-900">{user.name}</p>
-            <p className="text-xs text-zinc-500">{user.role}</p>
-          </div>
+          <UserBadge user={user} compact />
           <SignOutButton />
         </div>
 

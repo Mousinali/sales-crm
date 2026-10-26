@@ -1,21 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Role } from "../../../lib/auth/roles";
+import { ROLES, type Role } from "../../../lib/auth/roles";
 import type { UserRow } from "../../../lib/users/types";
+import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "../roleDisplay";
 
 type StatusFilter = "ACTIVE" | "INACTIVE" | "";
 
 type ConfirmAction = { type: "activate" | "deactivate"; user: UserRow };
 
 type TempPasswordReveal = { email: string; tempPassword: string };
-
-const ROLE_LABELS: Record<Role, string> = {
-  SUPER_ADMIN: "Super Admin",
-  MARKETING_HEAD: "Marketing Head",
-  PRE_SALES: "Pre-sales",
-  SALESPERSON: "Salesperson",
-};
 
 async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -45,8 +39,7 @@ export default function TeamView({
   // scope the filter dropdown's options to roles the viewer can actually
   // see. This is a UX nicety, not a security boundary — `listUsers` on the
   // server enforces visibility regardless of what this component sends.
-  const visibleRoleOptions: Role[] =
-    viewerRole === "SUPER_ADMIN" ? ["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"] : creatableRoles;
+  const visibleRoleOptions: Role[] = viewerRole === "SUPER_ADMIN" ? [...ROLES] : creatableRoles;
 
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [search, setSearch] = useState("");
@@ -317,126 +310,143 @@ export default function TeamView({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="search" className="text-sm font-medium text-zinc-700">
-              Search
-            </label>
-            <input
-              id="search"
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name or email"
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            />
-          </div>
+      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 sm:flex-row sm:items-end sm:justify-between">
+          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="search" className="text-sm font-medium text-zinc-700">
+                Search
+              </label>
+              <input
+                id="search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email"
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="roleFilter" className="text-sm font-medium text-zinc-700">
-              Role
-            </label>
-            <select
-              id="roleFilter"
-              value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value as Role | "")}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            >
-              <option value="">All roles</option>
-              {visibleRoleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {ROLE_LABELS[role]}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="roleFilter" className="text-sm font-medium text-zinc-700">
+                Role
+              </label>
+              <select
+                id="roleFilter"
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value as Role | "")}
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">All roles</option>
+                {visibleRoleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="statusFilter" className="text-sm font-medium text-zinc-700">
-              Status
-            </label>
-            <select
-              id="statusFilter"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="statusFilter" className="text-sm font-medium text-zinc-700">
+                Status
+              </label>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">All statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
-              <option value="">All statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
-          </div>
+              Apply filters
+            </button>
+          </form>
 
           <button
-            type="submit"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
           >
-            Apply filters
+            <i className="ri-user-add-line text-base" aria-hidden="true" />
+            New User
           </button>
-        </form>
+        </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-        >
-          <i className="ri-user-add-line text-base" aria-hidden="true" />
-          New User
-        </button>
-      </div>
+        {listError && (
+          <p role="alert" className="px-4 pt-4 text-sm text-red-600">
+            {listError}
+          </p>
+        )}
 
-      {listError && (
-        <p role="alert" className="text-sm text-red-600">
-          {listError}
-        </p>
-      )}
-
-      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <table className="min-w-full divide-y divide-zinc-200 text-sm">
-          <thead className="bg-zinc-50">
-            <tr>
-              <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
-                Name
-              </th>
-              <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
-                Email
-              </th>
-              <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
-                Role
-              </th>
-              <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
-                Status
-              </th>
-              <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {users.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-zinc-200 text-sm">
+            <thead className="bg-zinc-50">
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
-                  No team members found.
-                </td>
+                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                  Name
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                  Role
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                  Status
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                  Actions
+                </th>
               </tr>
-            )}
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="px-4 py-3 text-zinc-900">{user.name}</td>
-                <td className="px-4 py-3 text-zinc-700">{user.email}</td>
-                <td className="px-4 py-3 text-zinc-700">{ROLE_LABELS[user.role]}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      user.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-600"
-                    }`}
-                  >
-                    {user.status === "ACTIVE" ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                    No team members found.
+                  </td>
+                </tr>
+              )}
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
+                        {initialsOf(user.name)}
+                      </span>
+                      <div>
+                        <p className="font-medium text-zinc-900">{user.name}</p>
+                        <p className="text-xs text-zinc-500">{user.email}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[user.role]}`}
+                    >
+                      {ROLE_LABELS[user.role]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        user.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${user.status === "ACTIVE" ? "bg-emerald-500" : "bg-zinc-400"}`}
+                        aria-hidden="true"
+                      />
+                      {user.status === "ACTIVE" ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => openEditModal(user)}
@@ -473,7 +483,8 @@ export default function TeamView({
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {createModalOpen && (
