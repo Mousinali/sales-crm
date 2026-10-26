@@ -62,7 +62,7 @@ export async function GET(request: Request): Promise<Response> {
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+  if (user.role !== "SUPER_ADMIN" && user.role !== "HR" && user.role !== "MARKETING_HEAD") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -30,7 +30,7 @@ export default async function DashboardLayout({
 
   const NAV_ITEMS: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
-    ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
+    ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
       ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
       : []),
   ];

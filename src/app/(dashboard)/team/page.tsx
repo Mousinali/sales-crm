@@ -5,7 +5,7 @@ import { listUsers } from "../../../lib/users/list";
 import TeamView from "./TeamView";
 
 export default async function TeamPage() {
-  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD"]);
+  const user = await requireRole(["SUPER_ADMIN", "HR", "MARKETING_HEAD"]);
   const users = await listUsers(pool, user.role, {});
 
   return (

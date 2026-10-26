@@ -3,7 +3,8 @@ import type { Role } from "../auth/roles";
 import type { UserRow } from "./types";
 
 const VISIBLE_ROLES: Record<Role, readonly Role[]> = {
-  SUPER_ADMIN: ["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
+  SUPER_ADMIN: ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
+  HR: ["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
   MARKETING_HEAD: ["PRE_SALES", "SALESPERSON"],
   PRE_SALES: [],
   SALESPERSON: [],

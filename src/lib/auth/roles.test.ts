@@ -2,11 +2,20 @@ import { describe, it, expect } from "vitest";
 import { canManage, creatableRolesFor } from "./roles";
 
 describe("canManage", () => {
-  it("lets SUPER_ADMIN manage only MARKETING_HEAD", () => {
+  it("lets SUPER_ADMIN manage only HR and MARKETING_HEAD", () => {
+    expect(canManage("SUPER_ADMIN", "HR")).toBe(true);
     expect(canManage("SUPER_ADMIN", "MARKETING_HEAD")).toBe(true);
     expect(canManage("SUPER_ADMIN", "PRE_SALES")).toBe(false);
     expect(canManage("SUPER_ADMIN", "SALESPERSON")).toBe(false);
     expect(canManage("SUPER_ADMIN", "SUPER_ADMIN")).toBe(false);
+  });
+
+  it("lets HR manage only MARKETING_HEAD, PRE_SALES and SALESPERSON", () => {
+    expect(canManage("HR", "MARKETING_HEAD")).toBe(true);
+    expect(canManage("HR", "PRE_SALES")).toBe(true);
+    expect(canManage("HR", "SALESPERSON")).toBe(true);
+    expect(canManage("HR", "HR")).toBe(false);
+    expect(canManage("HR", "SUPER_ADMIN")).toBe(false);
   });
 
   it("lets MARKETING_HEAD manage only PRE_SALES and SALESPERSON", () => {
@@ -24,7 +33,8 @@ describe("canManage", () => {
 
 describe("creatableRolesFor", () => {
   it("returns the exact creatable set per role", () => {
-    expect(creatableRolesFor("SUPER_ADMIN")).toEqual(["MARKETING_HEAD"]);
+    expect(creatableRolesFor("SUPER_ADMIN")).toEqual(["HR", "MARKETING_HEAD"]);
+    expect(creatableRolesFor("HR")).toEqual(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
     expect(creatableRolesFor("MARKETING_HEAD")).toEqual(["PRE_SALES", "SALESPERSON"]);
     expect(creatableRolesFor("PRE_SALES")).toEqual([]);
     expect(creatableRolesFor("SALESPERSON")).toEqual([]);
