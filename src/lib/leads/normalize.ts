@@ -1,5 +1,5 @@
 export function normalizeCompanyName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 export function normalizePhone(phone: string): string {

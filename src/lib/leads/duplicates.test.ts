@@ -46,4 +46,22 @@ describe("findPotentialDuplicates", () => {
     const noMatch = await findPotentialDuplicates(pool, { companyName: "Nobody Co", phone: "000" } as never);
     expect(noMatch.some((l) => l.id === original.id)).toBe(false);
   });
+
+  it("does not cross-match unrelated leads whose company name is symbols-only (normalizes to empty)", async () => {
+    const leadA = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "---", phone: "1112223333", serviceRequirements: "a", leadSource: "OTHER",
+    });
+    const leadB = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "...", phone: "4445556666", serviceRequirements: "b", leadSource: "OTHER",
+    });
+    leadIds.push(leadA.id, leadB.id);
+
+    const result = await findPotentialDuplicates(pool, { companyName: "???", phone: "9998887777" } as never);
+    expect(result.some((l) => l.id === leadA.id || l.id === leadB.id)).toBe(false);
+  });
+
+  it("does not match on a too-short phone fragment", async () => {
+    const result = await findPotentialDuplicates(pool, { companyName: "Some Unrelated Name Co", phone: "99" } as never);
+    expect(result).toEqual([]);
+  });
 });

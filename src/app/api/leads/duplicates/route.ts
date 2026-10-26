@@ -19,6 +19,12 @@ export async function GET(request: Request): Promise<Response> {
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Only the roles that can create a lead (req.md §5.1) need to check for
+  // duplicates before saving one; every other role gets 403 rather than a
+  // free-form search over every lead's contact details.
+  if (user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const url = new URL(request.url);
   const parsed = duplicatesQuerySchema.safeParse({
@@ -32,5 +38,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const duplicates = await findPotentialDuplicates(pool, parsed.data);
-  return NextResponse.json({ duplicates });
+  // A minimal projection — enough for a "this looks like it might already
+  // exist" warning, not a way to read another lead's full contact/service
+  // details through the duplicate-check endpoint.
+  return NextResponse.json({
+    duplicates: duplicates.map((lead) => ({ id: lead.id, companyName: lead.company_name, status: lead.status })),
+  });
 }
