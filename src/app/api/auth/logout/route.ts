@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revokeSession, SESSION_COOKIE_NAME } from "../../../../lib/auth/session";
+import { revokeSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 export async function POST(request: Request): Promise<Response> {
   const cookieHeader = request.headers.get("cookie") ?? "";

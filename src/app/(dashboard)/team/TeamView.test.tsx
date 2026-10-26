@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import TeamView from "./TeamView";
-import type { UserRow } from "../../../lib/users/types";
+import type { UserRow } from "@/lib/users/types";
 
 const sampleUsers: UserRow[] = [
   { id: 1, role: "PRE_SALES", name: "Alice", email: "alice@example.com", status: "ACTIVE", created_by: 2, created_at: "2026-01-01T00:00:00Z" as unknown as Date, updated_at: "2026-01-01T00:00:00Z" as unknown as Date },

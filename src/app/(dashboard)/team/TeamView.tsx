@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ROLES, type Role } from "../../../lib/auth/roles";
-import type { UserRow } from "../../../lib/users/types";
-import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "../roleDisplay";
+import { ROLES, type Role } from "@/lib/auth/roles";
+import type { UserRow } from "@/lib/users/types";
+import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "@/app/(dashboard)/roleDisplay";
 
 type StatusFilter = "ACTIVE" | "INACTIVE" | "";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../db";
-import { runMigrations } from "../migrate";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "./seed";
 import { createSession, getSessionUser, revokeSession } from "./session";
 

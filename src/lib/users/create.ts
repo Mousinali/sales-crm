@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
-import { hashPassword, generateTempPassword } from "../auth/passwords";
-import { canManage, type Role } from "../auth/roles";
-import { recordAuditLog } from "../audit/log";
+import { hashPassword, generateTempPassword } from "@/lib/auth/passwords";
+import { canManage, type Role } from "@/lib/auth/roles";
+import { recordAuditLog } from "@/lib/audit/log";
 import { RoleNotManageableError, EmailAlreadyExistsError } from "./errors";
 
 const POSTGRES_UNIQUE_VIOLATION = "23505";

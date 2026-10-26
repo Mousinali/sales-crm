@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../lib/db";
-import { getCurrentUserFromRequest, sessionTokenFromRequest } from "../../../../lib/auth/rbac";
-import { changePassword } from "../../../../lib/auth/changePassword";
-import { verifyPassword } from "../../../../lib/auth/passwords";
-import { revokeOtherSessions } from "../../../../lib/auth/session";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest, sessionTokenFromRequest } from "@/lib/auth/rbac";
+import { changePassword } from "@/lib/auth/changePassword";
+import { verifyPassword } from "@/lib/auth/passwords";
+import { revokeOtherSessions } from "@/lib/auth/session";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().optional(),

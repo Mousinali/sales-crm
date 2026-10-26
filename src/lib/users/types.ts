@@ -1,4 +1,4 @@
-import type { Role } from "../auth/roles";
+import type { Role } from "@/lib/auth/roles";
 
 export type UserRow = {
   id: number;

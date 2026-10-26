@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../lib/auth/rbac";
+import { getCurrentUser } from "@/lib/auth/rbac";
 import LoginForm from "./LoginForm";
 
 export default async function LoginPage() {

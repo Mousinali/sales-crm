@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../../../lib/db";
-import { runMigrations } from "../../../lib/migrate";
-import { seedSuperAdmin } from "../../../lib/auth/seed";
-import { createSession } from "../../../lib/auth/session";
-import { SESSION_COOKIE_NAME } from "../../../lib/auth/session";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createSession } from "@/lib/auth/session";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { POST, GET } from "./route";
 
 const superAdminEmail = `route-create-admin-${Date.now()}@example.com`;

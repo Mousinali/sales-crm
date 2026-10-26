@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../db";
-import { runMigrations } from "../migrate";
-import { seedSuperAdmin } from "../auth/seed";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "./create";
 import { updateUserProfile, setUserStatus } from "./update";
 import { RoleNotManageableError } from "./errors";
-import { createSession, getSessionUser } from "../auth/session";
+import { createSession, getSessionUser } from "@/lib/auth/session";
 
 const superAdminEmail = `update-admin-${Date.now()}@example.com`;
 let superAdminId: number;

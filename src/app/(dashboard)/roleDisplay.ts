@@ -1,4 +1,4 @@
-import type { Role } from "../../lib/auth/roles";
+import type { Role } from "@/lib/auth/roles";
 
 export const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",

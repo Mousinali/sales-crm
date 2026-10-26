@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { pool } from "../db";
+import { pool } from "@/lib/db";
 import type { Role } from "./roles";
 
 export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME!;

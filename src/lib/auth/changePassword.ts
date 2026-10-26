@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { hashPassword } from "./passwords";
-import { recordAuditLog } from "../audit/log";
+import { recordAuditLog } from "@/lib/audit/log";
 
 export async function changePassword(pool: Pool, input: { userId: number; newPassword: string }): Promise<void> {
   const passwordHash = await hashPassword(input.newPassword);

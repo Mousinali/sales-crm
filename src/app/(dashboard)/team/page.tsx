@@ -1,7 +1,7 @@
-import { requireRole } from "../../../lib/auth/rbac";
-import { pool } from "../../../lib/db";
-import { creatableRolesFor } from "../../../lib/auth/roles";
-import { listUsers } from "../../../lib/users/list";
+import { requireRole } from "@/lib/auth/rbac";
+import { pool } from "@/lib/db";
+import { creatableRolesFor } from "@/lib/auth/roles";
+import { listUsers } from "@/lib/users/list";
 import TeamView from "./TeamView";
 
 export default async function TeamPage() {

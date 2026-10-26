@@ -1,8 +1,8 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
-import { hashPassword, generateTempPassword } from "../auth/passwords";
-import { recordAuditLog } from "../audit/log";
-import { revokeAllSessions } from "../auth/session";
+import type { Role } from "@/lib/auth/roles";
+import { hashPassword, generateTempPassword } from "@/lib/auth/passwords";
+import { recordAuditLog } from "@/lib/audit/log";
+import { revokeAllSessions } from "@/lib/auth/session";
 import { assertManageable } from "./guard";
 
 export async function resetUserAccess(

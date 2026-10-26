@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../lib/auth/rbac";
-import { updateUserProfile, setUserStatus } from "../../../../lib/users/update";
-import { RoleNotManageableError, UserNotFoundError, EmailAlreadyExistsError } from "../../../../lib/users/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { updateUserProfile, setUserStatus } from "@/lib/users/update";
+import { RoleNotManageableError, UserNotFoundError, EmailAlreadyExistsError } from "@/lib/users/errors";
 
 const patchSchema = z
   .object({

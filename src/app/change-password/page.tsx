@@ -1,4 +1,4 @@
-import { requireUser } from "../../lib/auth/rbac";
+import { requireUser } from "@/lib/auth/rbac";
 import ChangePasswordForm from "./ChangePasswordForm";
 
 export default async function ChangePasswordPage() {

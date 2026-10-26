@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../lib/auth/rbac";
-import { ROLES } from "../../../lib/auth/roles";
-import { createUser } from "../../../lib/users/create";
-import { listUsers } from "../../../lib/users/list";
-import { RoleNotManageableError, EmailAlreadyExistsError } from "../../../lib/users/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { ROLES } from "@/lib/auth/roles";
+import { createUser } from "@/lib/users/create";
+import { listUsers } from "@/lib/users/list";
+import { RoleNotManageableError, EmailAlreadyExistsError } from "@/lib/users/errors";
 
 const createUserSchema = z.object({
   role: z.enum(ROLES),

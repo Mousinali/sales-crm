@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { pool } from "../../../../../lib/db";
-import { getCurrentUserFromRequest } from "../../../../../lib/auth/rbac";
-import { resetUserAccess } from "../../../../../lib/users/resetAccess";
-import { RoleNotManageableError, UserNotFoundError } from "../../../../../lib/users/errors";
+import { pool } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
+import { resetUserAccess } from "@/lib/users/resetAccess";
+import { RoleNotManageableError, UserNotFoundError } from "@/lib/users/errors";
 
 export async function POST(
   request: Request,

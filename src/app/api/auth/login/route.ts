@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { pool } from "../../../../lib/db";
-import { verifyPassword } from "../../../../lib/auth/passwords";
-import { createSession, SESSION_COOKIE_NAME } from "../../../../lib/auth/session";
+import { pool } from "@/lib/db";
+import { verifyPassword } from "@/lib/auth/passwords";
+import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 // Deliberately `z.string().min(1)`, NOT `.email()`: the Super Admin's login
 // identifier is the literal string "admin", not an RFC-shaped email address.

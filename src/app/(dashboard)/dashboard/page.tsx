@@ -1,5 +1,5 @@
-import { requireUser } from "../../../lib/auth/rbac";
-import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "../roleDisplay";
+import { requireUser } from "@/lib/auth/rbac";
+import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "@/app/(dashboard)/roleDisplay";
 
 export default async function DashboardPage() {
   // Re-validates the session here rather than trusting the layout above:

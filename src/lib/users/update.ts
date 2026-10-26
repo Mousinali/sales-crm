@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
-import { recordAuditLog } from "../audit/log";
-import { revokeAllSessions } from "../auth/session";
+import type { Role } from "@/lib/auth/roles";
+import { recordAuditLog } from "@/lib/audit/log";
+import { revokeAllSessions } from "@/lib/auth/session";
 import { assertManageable } from "./guard";
 import { EmailAlreadyExistsError } from "./errors";
 

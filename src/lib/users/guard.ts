@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
-import type { Role } from "../auth/roles";
-import { canManage } from "../auth/roles";
+import type { Role } from "@/lib/auth/roles";
+import { canManage } from "@/lib/auth/roles";
 import { RoleNotManageableError, UserNotFoundError } from "./errors";
 
 /** Resolves `targetId`'s role and throws unless `actorRole` may manage it. Returns the target's role on success. */

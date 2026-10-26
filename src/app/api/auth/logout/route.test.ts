@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../../../../lib/db";
-import { runMigrations } from "../../../../lib/migrate";
-import { seedSuperAdmin } from "../../../../lib/auth/seed";
-import { createSession, getSessionUser } from "../../../../lib/auth/session";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createSession, getSessionUser } from "@/lib/auth/session";
 import { POST } from "./route";
 
 const email = `logout-route-test-${Date.now()}@example.com`;

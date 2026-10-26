@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../db";
-import { runMigrations } from "../migrate";
-import { seedSuperAdmin } from "../auth/seed";
-import { verifyPassword } from "../auth/passwords";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { verifyPassword } from "@/lib/auth/passwords";
 import { createUser } from "./create";
 import { RoleNotManageableError, EmailAlreadyExistsError } from "./errors";
 

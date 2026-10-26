@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { pool } from "../../../../lib/db";
-import { runMigrations } from "../../../../lib/migrate";
-import { seedSuperAdmin } from "../../../../lib/auth/seed";
-import { createSession, getSessionUser, SESSION_COOKIE_NAME } from "../../../../lib/auth/session";
-import { verifyPassword } from "../../../../lib/auth/passwords";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createSession, getSessionUser, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { verifyPassword } from "@/lib/auth/passwords";
 import { POST } from "./route";
 
 const forcedEmail = `route-change-password-forced-${Date.now()}@example.com`;

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "./roleDisplay";
-import type { AuthUser } from "../../lib/auth/rbac";
+import type { AuthUser } from "@/lib/auth/rbac";
 
 export type NavItem = { href: string; label: string; icon: string };
 
