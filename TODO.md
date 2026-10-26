@@ -27,7 +27,9 @@ Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-26.
   badges, avatar initials)
 - All tests passing (63/63), `tsc --noEmit` clean
 
-## Phase 3 — Leads and review (not started)
+## Phase 3 — Leads and review (planned, not implemented)
+
+Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase3-leads.md`
 
 - [ ] Lead creation and editing
 - [ ] Search, filters, duplicate warnings
@@ -35,20 +37,26 @@ Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-26.
 - [ ] Lead review and qualification statuses
 - [ ] Assignment to salespeople + assignment history
 
-## Phase 4 — Transfers and visits (not started)
+## Phase 4 — Transfers and visits (planned, not implemented)
+
+Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase4-transfers-visits.md`
 
 - [ ] Lead transfer with reason + history
 - [ ] Client visit scheduling and outcomes
 - [ ] Assignment/transfer/visit notifications
 
-## Phase 5 — Emails, tasks, and reports (not started)
+## Phase 5 — Emails, tasks, and reports (planned, not implemented)
 
-- [ ] Marketing Head email announcements
+Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase5-emails-tasks-reports.md`
+
+- [ ] Marketing Head email announcements (adds the `nodemailer` dependency)
 - [ ] Delivery logs + safe retry handling
 - [ ] Tasks, follow-ups, reminders
 - [ ] Role-specific dashboards and reports
 
-## Phase 6 — Testing and deployment (not started)
+## Phase 6 — Testing and deployment (planned, not implemented)
+
+Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase6-testing-deployment.md`
 
 - [ ] Role and record-level permission tests
 - [ ] Concurrent assignment/transfer tests
