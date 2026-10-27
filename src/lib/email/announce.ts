@@ -10,12 +10,28 @@ type RecipientGroup =
   | { type: "ALL_PRE_SALES" }
   | { type: "ALL_SALESPEOPLE" };
 
+async function filterToActivePreSalesOrSalespeople(pool: Pool, userIds: number[]): Promise<number[]> {
+  if (userIds.length === 0) return [];
+  const { rows } = await pool.query<{ id: number }>(
+    "SELECT id FROM users WHERE id = ANY($1) AND status = 'ACTIVE' AND role IN ('PRE_SALES', 'SALESPERSON')",
+    [userIds],
+  );
+  const allowed = new Set(rows.map((r) => r.id));
+  // Keep the caller's original order/dedup rather than the query's — a
+  // specific recipient-group is a short, intentional list, not a bulk set.
+  return userIds.filter((id, index) => allowed.has(id) && userIds.indexOf(id) === index);
+}
+
 async function resolveRecipientIds(pool: Pool, group: RecipientGroup): Promise<number[]> {
   switch (group.type) {
+    // A Marketing Head/Super Admin names specific recipients here, but
+    // req.md §9 scopes every recipient option to Pre-sales/Salesperson
+    // accounts only — an id outside that (e.g. another Marketing Head's)
+    // or an inactive one is silently dropped, not emailed.
     case "USER":
-      return [group.userId];
+      return filterToActivePreSalesOrSalespeople(pool, [group.userId]);
     case "USERS":
-      return group.userIds;
+      return filterToActivePreSalesOrSalespeople(pool, group.userIds);
     case "ALL_PRE_SALES": {
       const { rows } = await pool.query<{ id: number }>("SELECT id FROM users WHERE role = 'PRE_SALES' AND status = 'ACTIVE'");
       return rows.map((r) => r.id);
@@ -83,4 +99,61 @@ export async function createAnnouncement(
   }
 
   return announcement;
+}
+
+export async function retryFailedRecipients(
+  pool: Pool,
+  input: { actorId: number; actorRole: Role; announcementId: number; maxAttempts?: number },
+): Promise<{ retried: number; stillFailed: number }> {
+  if (input.actorRole !== "MARKETING_HEAD" && input.actorRole !== "SUPER_ADMIN") {
+    throw new EmailActionNotAllowedError(`${input.actorRole} cannot retry announcement deliveries`);
+  }
+  const maxAttempts = input.maxAttempts ?? 3;
+
+  const { rows: toRetry } = await pool.query<{ log_id: number; recipient_user_id: number }>(
+    `SELECT el.id AS log_id, er.recipient_user_id
+     FROM email_logs el JOIN email_recipients er ON er.id = el.recipient_id
+     WHERE er.announcement_id = $1 AND el.status = 'FAILED' AND el.attempt_count < $2`,
+    [input.announcementId, maxAttempts],
+  );
+
+  let retried = 0;
+  let stillFailed = 0;
+
+  for (const row of toRetry) {
+    await pool.query(`UPDATE email_logs SET status = 'RETRYING', updated_at = now() WHERE id = $1`, [row.log_id]);
+
+    const { rows: userRows } = await pool.query<{ email: string }>("SELECT email FROM users WHERE id = $1", [row.recipient_user_id]);
+    if (!userRows[0]) {
+      await pool.query(
+        `UPDATE email_logs SET status = 'FAILED', attempt_count = attempt_count + 1, last_error = 'recipient no longer exists', updated_at = now() WHERE id = $1`,
+        [row.log_id],
+      );
+      stillFailed++;
+      continue;
+    }
+
+    const { rows: announcementRows } = await pool.query<{ subject: string; body: string }>(
+      "SELECT subject, body FROM email_announcements WHERE id = $1",
+      [input.announcementId],
+    );
+    const { subject, body } = announcementRows[0];
+    const result = await sendEmail({ to: userRows[0].email, subject, body });
+
+    if (result.ok) {
+      await pool.query(
+        `UPDATE email_logs SET status = 'SENT', attempt_count = attempt_count + 1, sent_at = now(), updated_at = now() WHERE id = $1`,
+        [row.log_id],
+      );
+      retried++;
+    } else {
+      await pool.query(
+        `UPDATE email_logs SET status = 'FAILED', attempt_count = attempt_count + 1, last_error = $1, updated_at = now() WHERE id = $2`,
+        [result.error, row.log_id],
+      );
+      stillFailed++;
+    }
+  }
+
+  return { retried, stillFailed };
 }

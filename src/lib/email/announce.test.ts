@@ -4,7 +4,7 @@ import { pool } from "@/lib/db";
 import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
-import { createAnnouncement } from "./announce";
+import { createAnnouncement, retryFailedRecipients } from "./announce";
 import { EmailActionNotAllowedError } from "./errors";
 
 const adminEmail = `announce-admin-${Date.now()}@example.com`;
@@ -99,5 +99,60 @@ describe("createAnnouncement", () => {
     announcementIds.push(announcement.id);
     const { rows } = await pool.query("SELECT recipient_user_id FROM email_recipients WHERE announcement_id = $1", [announcement.id]);
     expect(rows.map((r) => r.recipient_user_id).sort()).toEqual([preSalesId, salespersonId].sort());
+  });
+
+  it("drops a USERS id that isn't an active Pre-sales/Salesperson — e.g. a Marketing Head id — rather than emailing them", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USERS", userIds: [preSalesId, mhId, inactivePreSalesId] } });
+    announcementIds.push(announcement.id);
+    const { rows } = await pool.query("SELECT recipient_user_id FROM email_recipients WHERE announcement_id = $1", [announcement.id]);
+    expect(rows.map((r) => r.recipient_user_id)).toEqual([preSalesId]);
+  });
+
+  it("drops a USER id that isn't an active Pre-sales/Salesperson", async () => {
+    const sendEmailMock = vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: mhId } });
+    announcementIds.push(announcement.id);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    const { rows } = await pool.query("SELECT recipient_user_id FROM email_recipients WHERE announcement_id = $1", [announcement.id]);
+    expect(rows).toEqual([]);
+  });
+});
+
+describe("retryFailedRecipients", () => {
+  it("retries only FAILED recipients, leaving SENT ones untouched", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USERS", userIds: [preSalesId, salespersonId] } });
+    announcementIds.push(announcement.id);
+
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    const result = await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id });
+    expect(result).toEqual({ retried: 1, stillFailed: 0 });
+
+    const { rows } = await pool.query(
+      `SELECT status, attempt_count FROM email_logs el JOIN email_recipients er ON er.id = el.recipient_id WHERE er.announcement_id = $1 ORDER BY el.id`,
+      [announcement.id],
+    );
+    expect(rows.every((r) => r.status === "SENT")).toBe(true);
+    expect(rows.find((r) => r.attempt_count >= 2)).toBeTruthy();
+  });
+
+  it("does not retry a recipient that already hit maxAttempts", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    const result = await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id, maxAttempts: 1 });
+    expect(result.retried).toBe(0);
+  });
+
+  it("rejects a non-Marketing-Head/Super-Admin retrying", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    await expect(
+      retryFailedRecipients(pool, { actorId: preSalesId, actorRole: "PRE_SALES", announcementId: announcement.id }),
+    ).rejects.toThrow(EmailActionNotAllowedError);
   });
 });
