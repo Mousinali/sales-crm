@@ -4,12 +4,31 @@
 // shared store (e.g. Redis) instead, since each instance would otherwise
 // count attempts independently. Upgrade if the production deployment runs
 // more than one app instance behind a load balancer.
-const attempts = new Map<string, { count: number; windowStart: number }>();
+const attempts = new Map<string, { count: number; limit: number; windowStart: number }>();
 const MAX_ENTRIES = 10_000;
 
 function pruneExpired(now: number, windowMs: number): void {
   for (const [key, entry] of attempts) {
     if (now - entry.windowStart > windowMs) attempts.delete(key);
+  }
+}
+
+// Evicting the oldest entries outright could remove one that is currently
+// mid-lockout (count >= its own limit), un-blocking an attacker who floods
+// the store with junk keys — worse than the growth problem this guards
+// against. Evicting only non-blocked entries avoids that while still
+// making room for new users, so a full store doesn't lock everyone out of
+// login either. Only if every entry is genuinely blocked does a new key
+// fail closed — an extreme scenario (thousands of identifiers mid-lockout
+// at once) where that's an acceptable, temporary cost.
+function evictNonBlocked(count: number): void {
+  let remaining = count;
+  for (const [key, entry] of attempts) {
+    if (remaining <= 0) break;
+    if (entry.count < entry.limit) {
+      attempts.delete(key);
+      remaining -= 1;
+    }
   }
 }
 
@@ -19,16 +38,13 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   if (!entry || now - entry.windowStart > windowMs) {
     if (attempts.size >= MAX_ENTRIES) {
       pruneExpired(now, windowMs);
-      // Still full of live entries after pruning: fail closed for this new
-      // key rather than evict an existing one to make room. Evicting here
-      // could un-block an entry that is currently mid-lockout, which would
-      // defeat the whole point of the limit for that identifier.
+      if (attempts.size >= MAX_ENTRIES) evictNonBlocked(attempts.size - MAX_ENTRIES + 1);
       if (attempts.size >= MAX_ENTRIES) return false;
     }
-    attempts.set(key, { count: 1, windowStart: now });
+    attempts.set(key, { count: 1, limit, windowStart: now });
     return true;
   }
-  if (entry.count >= limit) {
+  if (entry.count >= entry.limit) {
     return false;
   }
   entry.count += 1;

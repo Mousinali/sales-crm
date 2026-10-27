@@ -33,6 +33,20 @@ describe("checkRateLimit", () => {
     expect(_rateLimitStoreSize()).toBeLessThanOrEqual(10_000);
   });
 
+  it("still admits a brand new key when the store is full of non-blocked churn, instead of locking out every new user", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    // Fill the store with one-attempt (not yet blocked) entries — none of
+    // these are mid-lockout, so there's room to evict some for new keys.
+    for (let i = 0; i < 10_000; i++) checkRateLimit(`churn-key-${i}`, 5, 10 * 60_000);
+    expect(_rateLimitStoreSize()).toBe(10_000);
+
+    // A brand new identifier must still get through — failing closed for
+    // everyone just because the store is full of harmless one-off entries
+    // would itself lock every user out of login.
+    expect(checkRateLimit("new-user", 5, 10 * 60_000)).toBe(true);
+  });
+
   it("never un-blocks an already-rate-limited key by evicting it to make room for new ones", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
