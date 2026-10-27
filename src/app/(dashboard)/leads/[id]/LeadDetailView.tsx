@@ -5,11 +5,14 @@ import type { LeadRow, LeadPriority } from "@/lib/leads/types";
 import { LEAD_PRIORITIES } from "@/lib/leads/types";
 import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
+import type { VisitRow } from "@/lib/visits/types";
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE_CLASSES,
   LEAD_PRIORITY_LABELS,
   LEAD_PRIORITY_BADGE_CLASSES,
+  VISIT_STATUS_LABELS,
+  VISIT_STATUS_BADGE_CLASSES,
 } from "@/app/(dashboard)/leadDisplay";
 
 type ReviewAction = "QUALIFY" | "REJECT" | "RETURN";
@@ -225,6 +228,154 @@ export default function LeadDetailView({
     }
   }
 
+  // Transfer
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferPreSales, setTransferPreSales] = useState<string>("");
+  const [transferSalesperson, setTransferSalesperson] = useState<string>("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+
+  function openTransfer() {
+    setTransferPreSales("");
+    setTransferSalesperson("");
+    setTransferReason("");
+    setTransferError(null);
+    setTransferOpen(true);
+  }
+
+  async function handleTransferSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!transferReason.trim()) {
+      setTransferError("A reason is required to transfer a lead");
+      return;
+    }
+    if (!transferPreSales && !transferSalesperson) {
+      setTransferError("Choose a new Pre-sales owner or Salesperson.");
+      return;
+    }
+    setTransferSubmitting(true);
+    setTransferError(null);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}/transfer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          newPreSalesOwnerId: transferPreSales ? Number(transferPreSales) : undefined,
+          newSalespersonOwnerId: transferSalesperson ? Number(transferSalesperson) : undefined,
+          reason: transferReason.trim(),
+        }),
+      });
+      if (!response.ok) {
+        setTransferError(await parseErrorMessage(response, "Could not transfer the lead."));
+        setTransferSubmitting(false);
+        return;
+      }
+      const updated = await response.json();
+      setLead(updated);
+      await refreshActivities();
+      setTransferSubmitting(false);
+      setTransferOpen(false);
+    } catch {
+      setTransferError("Could not transfer the lead.");
+      setTransferSubmitting(false);
+    }
+  }
+
+  // Visits
+  const [visits, setVisits] = useState<VisitRow[]>([]);
+
+  async function refreshVisits() {
+    const response = await fetch(`/api/leads/${lead.id}/visits`);
+    if (response.ok) {
+      const body = await response.json();
+      setVisits(body.visits ?? []);
+    }
+  }
+
+  useEffect(() => {
+    void refreshVisits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.id]);
+
+  const [visitSalesperson, setVisitSalesperson] = useState("");
+  const [visitDate, setVisitDate] = useState("");
+  const [visitStartTime, setVisitStartTime] = useState("");
+  const [visitObjective, setVisitObjective] = useState("");
+  const [visitError, setVisitError] = useState<string | null>(null);
+  const [visitConflict, setVisitConflict] = useState(false);
+  const [visitSubmitting, setVisitSubmitting] = useState(false);
+
+  async function checkVisitConflict() {
+    if (!visitSalesperson || !visitDate || !visitStartTime) {
+      setVisitConflict(false);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/visits/conflicts?salespersonId=${visitSalesperson}&visitDate=${visitDate}&startTime=${visitStartTime}`,
+      );
+      if (response.ok) {
+        const body = await response.json();
+        setVisitConflict(Boolean(body.conflict));
+      }
+    } catch {
+      // Advisory only — a failed check just skips the warning.
+    }
+  }
+
+  async function handleScheduleVisitSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!visitSalesperson || !visitDate || !visitStartTime || !visitObjective.trim()) {
+      setVisitError("Salesperson, date, time, and objective are all required.");
+      return;
+    }
+    setVisitSubmitting(true);
+    setVisitError(null);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}/visits`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          salespersonId: Number(visitSalesperson),
+          visitDate,
+          startTime: visitStartTime,
+          objective: visitObjective.trim(),
+        }),
+      });
+      if (!response.ok) {
+        setVisitError(await parseErrorMessage(response, "Could not schedule the visit."));
+        setVisitSubmitting(false);
+        return;
+      }
+      await refreshVisits();
+      await refreshActivities();
+      setVisitDate("");
+      setVisitStartTime("");
+      setVisitObjective("");
+      setVisitConflict(false);
+      setVisitSubmitting(false);
+    } catch {
+      setVisitError("Could not schedule the visit.");
+      setVisitSubmitting(false);
+    }
+  }
+
+  async function recordOutcome(visitId: number, outcome: "COMPLETED" | "MISSED") {
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "RECORD_OUTCOME", outcome }),
+      });
+      if (response.ok) {
+        await refreshVisits();
+      }
+    } catch {
+      // Best-effort: the visit simply stays Scheduled if this fails.
+    }
+  }
+
   // Activity timeline
   const [activityType, setActivityType] = useState<Exclude<LeadActivityType, "STATUS_CHANGE" | "ASSIGNMENT">>("NOTE");
   const [activityNotes, setActivityNotes] = useState("");
@@ -285,6 +436,15 @@ export default function LeadDetailView({
                 className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               >
                 Edit
+              </button>
+            )}
+            {canAssign && (
+              <button
+                type="button"
+                onClick={openTransfer}
+                className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                Transfer
               </button>
             )}
           </div>
@@ -411,6 +571,129 @@ export default function LeadDetailView({
           )}
         </div>
       )}
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-6">
+        <h2 className="mb-4 text-sm font-semibold text-zinc-900">Client visits</h2>
+        {canAssign && (
+          <form onSubmit={handleScheduleVisitSubmit} className="mb-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="visitSalesperson" className="text-sm font-medium text-zinc-700">
+                  Salesperson
+                </label>
+                <select
+                  id="visitSalesperson"
+                  value={visitSalesperson}
+                  onChange={(event) => setVisitSalesperson(event.target.value)}
+                  onBlur={checkVisitConflict}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="">Choose…</option>
+                  {salespersonOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="visitDate" className="text-sm font-medium text-zinc-700">
+                  Date
+                </label>
+                <input
+                  id="visitDate"
+                  type="date"
+                  value={visitDate}
+                  onChange={(event) => setVisitDate(event.target.value)}
+                  onBlur={checkVisitConflict}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="visitStartTime" className="text-sm font-medium text-zinc-700">
+                  Time
+                </label>
+                <input
+                  id="visitStartTime"
+                  type="time"
+                  value={visitStartTime}
+                  onChange={(event) => setVisitStartTime(event.target.value)}
+                  onBlur={checkVisitConflict}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label htmlFor="visitObjective" className="text-sm font-medium text-zinc-700">
+                  Objective
+                </label>
+                <input
+                  id="visitObjective"
+                  type="text"
+                  value={visitObjective}
+                  onChange={(event) => setVisitObjective(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={visitSubmitting}
+                className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Schedule visit
+              </button>
+            </div>
+            {visitConflict && (
+              <p role="alert" className="text-sm text-amber-700">
+                This Salesperson already has another visit at this date and time. You can still schedule it.
+              </p>
+            )}
+            {visitError && (
+              <p role="alert" className="text-sm text-red-600">
+                {visitError}
+              </p>
+            )}
+          </form>
+        )}
+        <ul className="flex flex-col gap-3">
+          {visits.length === 0 && <li className="text-sm text-zinc-500">No visits scheduled yet.</li>}
+          {visits.map((visit) => (
+            <li key={visit.id} className="border-b border-zinc-100 pb-3 text-sm last:border-0 last:pb-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${VISIT_STATUS_BADGE_CLASSES[visit.status]}`}
+                >
+                  {VISIT_STATUS_LABELS[visit.status]}
+                </span>
+                <span className="text-zinc-900">
+                  {visit.visit_date} at {visit.start_time}
+                </span>
+              </div>
+              <p className="mt-1 text-zinc-600">{visit.objective}</p>
+              {visit.outcome_notes && <p className="mt-1 text-zinc-500">Outcome: {visit.outcome_notes}</p>}
+              {viewerRole === "SALESPERSON" &&
+                visit.salesperson_id === viewerId &&
+                (visit.status === "SCHEDULED" || visit.status === "RESCHEDULED") && (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => recordOutcome(visit.id, "COMPLETED")}
+                      className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      Mark completed
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => recordOutcome(visit.id, "MISSED")}
+                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                    >
+                      Mark missed
+                    </button>
+                  </div>
+                )}
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="mb-4 text-sm font-semibold text-zinc-900">Activity</h2>
@@ -580,6 +863,86 @@ export default function LeadDetailView({
                   className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {transferOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-base font-semibold text-zinc-900">Transfer lead</h2>
+            <form onSubmit={handleTransferSubmit} className="flex flex-col gap-4" noValidate>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="transferPreSales" className="text-sm font-medium text-zinc-700">
+                  New Pre-sales owner
+                </label>
+                <select
+                  id="transferPreSales"
+                  value={transferPreSales}
+                  onChange={(event) => setTransferPreSales(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="">Unchanged</option>
+                  {preSalesOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="transferSalesperson" className="text-sm font-medium text-zinc-700">
+                  New Salesperson
+                </label>
+                <select
+                  id="transferSalesperson"
+                  value={transferSalesperson}
+                  onChange={(event) => setTransferSalesperson(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="">Unchanged</option>
+                  {salespersonOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="transferReason" className="text-sm font-medium text-zinc-700">
+                  Reason
+                </label>
+                <textarea
+                  id="transferReason"
+                  value={transferReason}
+                  onChange={(event) => setTransferReason(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              {transferError && (
+                <p role="alert" className="text-sm text-red-600">
+                  {transferError}
+                </p>
+              )}
+
+              <div className="mt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTransferOpen(false)}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={transferSubmitting}
+                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Transfer
                 </button>
               </div>
             </form>

@@ -39,7 +39,11 @@ const preSalesId = 2;
 describe("LeadDetailView", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ users: [] })));
+    // A fresh Response per call: Response bodies can only be read once, and
+    // this component now fires several concurrent fetches (users x2, visits).
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] }))),
+    );
   });
 
   it("shows qualify/reject/return actions only for Marketing Head on a Pending Review lead", () => {
@@ -60,7 +64,9 @@ describe("LeadDetailView", () => {
   });
 
   it("shows the assignment panel for Marketing Head even on a Pending Review lead, fetching only active users", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ users: [] })));
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] }))));
     render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     expect(screen.getByLabelText(/pre-sales owner/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("role=PRE_SALES"));
@@ -71,5 +77,18 @@ describe("LeadDetailView", () => {
   it("hides the assignment panel for a non-Marketing-Head viewer", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByLabelText(/pre-sales owner/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a Transfer button for Marketing Head and requires a reason", async () => {
+    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    fireEvent.click(screen.getByRole("button", { name: /transfer/i }));
+    const transferButtons = screen.getAllByRole("button", { name: /^transfer$/i });
+    fireEvent.click(transferButtons[transferButtons.length - 1]);
+    expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
+  });
+
+  it("hides the Transfer button for a non-Marketing-Head viewer", () => {
+    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
+    expect(screen.queryByRole("button", { name: /transfer/i })).not.toBeInTheDocument();
   });
 });
