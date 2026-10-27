@@ -1,0 +1,87 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import path from "node:path";
+import { pool } from "@/lib/db";
+import { runMigrations } from "@/lib/migrate";
+import { seedSuperAdmin } from "@/lib/auth/seed";
+import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { createUser } from "@/lib/users/create";
+import { POST, GET } from "./route";
+
+const adminEmail = `tasks-route-admin-${Date.now()}@example.com`;
+let superAdminId: number;
+let mhCookie: string;
+let salespersonCookie: string;
+let otherSalespersonCookie: string;
+let salespersonId: number;
+const createdEmails: string[] = [];
+const sessionUserIds: number[] = [];
+const taskIds: number[] = [];
+
+beforeAll(async () => {
+  await runMigrations(pool, path.join(__dirname, "../../../../migrations"));
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  const hr = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `tasks-route-hr-${Date.now()}@example.com` });
+  const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `tasks-route-mh-${Date.now()}@example.com` });
+  const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `tasks-route-sp-${Date.now()}@example.com` });
+  const otherSp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Other SP", email: `tasks-route-osp-${Date.now()}@example.com` });
+  createdEmails.push(hr.email, mh.email, sp.email, otherSp.email);
+  sessionUserIds.push(hr.id, mh.id, sp.id, otherSp.id);
+  salespersonId = sp.id;
+
+  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, sp.id, otherSp.id]]);
+  mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
+  salespersonCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
+  otherSalespersonCookie = `${SESSION_COOKIE_NAME}=${(await createSession(otherSp.id)).token}`;
+});
+
+afterAll(async () => {
+  await pool.query("DELETE FROM tasks WHERE id = ANY($1)", [taskIds]);
+  await pool.query("DELETE FROM audit_logs WHERE actor_user_id = ANY($1)", [[superAdminId, ...sessionUserIds]]);
+  await pool.query("DELETE FROM sessions WHERE user_id = ANY($1)", [sessionUserIds]);
+  await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, adminEmail]]);
+});
+
+function postTask(body: unknown, cookie?: string) {
+  return POST(
+    new Request("http://localhost/api/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+function getTasks(query: string, cookie?: string) {
+  return GET(new Request(`http://localhost/api/tasks${query ? `?${query}` : ""}`, { headers: cookie ? { cookie } : {} }));
+}
+
+describe("POST /api/tasks", () => {
+  it("lets a Marketing Head assign a task to a Salesperson", async () => {
+    const res = await postTask({ assignedUserId: salespersonId, title: "Follow up", dueAt: "2026-12-01T10:00:00Z" }, mhCookie);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    taskIds.push(body.id);
+  });
+
+  it("rejects an unauthenticated request", async () => {
+    const res = await postTask({ assignedUserId: salespersonId, title: "X", dueAt: "2026-12-01T10:00:00Z" });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/tasks", () => {
+  it("scopes the list to the caller's own assigned tasks for a non-Marketing-Head", async () => {
+    const created = await postTask({ assignedUserId: salespersonId, title: "Scoped", dueAt: "2026-12-02T10:00:00Z" }, mhCookie);
+    const createdBody = await created.json();
+    taskIds.push(createdBody.id);
+
+    const res = await getTasks("", salespersonCookie);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tasks.some((t: { id: number }) => t.id === createdBody.id)).toBe(true);
+
+    const otherRes = await getTasks("", otherSalespersonCookie);
+    const otherBody = await otherRes.json();
+    expect(otherBody.tasks.some((t: { id: number }) => t.id === createdBody.id)).toBe(false);
+  });
+});
