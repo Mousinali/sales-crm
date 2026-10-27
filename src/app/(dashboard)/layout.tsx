@@ -34,6 +34,10 @@ export default async function DashboardLayout({
       ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
       : []),
     ...(user.role !== "HR" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
+    ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
+      ? [{ href: "/announcements", label: "Announcements", icon: "ri-mail-send-line" }]
+      : []),
+    ...(user.role !== "HR" ? [{ href: "/tasks", label: "Tasks", icon: "ri-list-check-2" }] : []),
     ...(user.role === "SUPER_ADMIN" ? [{ href: "/services", label: "Services", icon: "ri-price-tag-3-line" }] : []),
   ];
 

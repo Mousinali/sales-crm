@@ -176,3 +176,40 @@ export async function retryFailedRecipients(
 
   return { retried, stillFailed };
 }
+
+export type EmailAnnouncementWithSummary = EmailAnnouncementRow & { recipientStatusCounts: Record<string, number> };
+
+export async function attachRecipientSummary(
+  pool: Pool,
+  announcements: EmailAnnouncementRow[],
+): Promise<EmailAnnouncementWithSummary[]> {
+  if (announcements.length === 0) return [];
+  const ids = announcements.map((a) => a.id);
+  const { rows } = await pool.query<{ announcement_id: number; status: string; count: number }>(
+    `SELECT er.announcement_id, el.status, count(*)::int AS count
+     FROM email_recipients er JOIN email_logs el ON el.recipient_id = er.id
+     WHERE er.announcement_id = ANY($1)
+     GROUP BY er.announcement_id, el.status`,
+    [ids],
+  );
+  const summaries = new Map<number, Record<string, number>>();
+  for (const row of rows) {
+    const existing = summaries.get(row.announcement_id) ?? {};
+    existing[row.status] = row.count;
+    summaries.set(row.announcement_id, existing);
+  }
+  return announcements.map((a) => ({ ...a, recipientStatusCounts: summaries.get(a.id) ?? {} }));
+}
+
+export async function listAnnouncements(
+  pool: Pool,
+  viewer: { id: number; role: Role },
+): Promise<EmailAnnouncementWithSummary[]> {
+  const { rows } = await pool.query<EmailAnnouncementRow>(
+    viewer.role === "SUPER_ADMIN"
+      ? "SELECT * FROM email_announcements ORDER BY created_at DESC"
+      : "SELECT * FROM email_announcements WHERE sender_user_id = $1 ORDER BY created_at DESC",
+    viewer.role === "SUPER_ADMIN" ? [] : [viewer.id],
+  );
+  return attachRecipientSummary(pool, rows);
+}
