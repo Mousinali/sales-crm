@@ -231,4 +231,28 @@ describe("retryFailedRecipients", () => {
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     expect(a.retried + b.retried).toBe(1);
   });
+
+  it("never re-sends an already-SENT recipient even if retry is called twice in a row", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+    const sendEmailMock = vi.mocked((await import("./sendEmail")).sendEmail);
+    sendEmailMock.mockClear();
+    await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id });
+    await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id });
+    expect(sendEmailMock).not.toHaveBeenCalled(); // already SENT from createAnnouncement's own attempt — nothing left to retry
+  });
+
+  it("stops retrying a recipient once attempt_count reaches maxAttempts, leaving it FAILED", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "still down" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+    await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id, maxAttempts: 2 });
+    const result = await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id, maxAttempts: 2 });
+    expect(result.retried).toBe(0);
+    const { rows } = await pool.query(
+      `SELECT status FROM email_logs el JOIN email_recipients er ON er.id = el.recipient_id WHERE er.announcement_id = $1`, [announcement.id],
+    );
+    expect(rows[0].status).toBe("FAILED");
+  });
 });
