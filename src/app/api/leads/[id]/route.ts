@@ -5,6 +5,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { LEAD_PRIORITIES } from "@/lib/leads/types";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { updateLead } from "@/lib/leads/update";
+import { listLeadServices } from "@/lib/leads/services";
 import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const updateLeadSchema = z
@@ -23,6 +24,7 @@ const updateLeadSchema = z
     pincode: z.string().trim().min(1).optional(),
     country: z.string().trim().min(1).optional(),
     serviceRequirements: z.string().trim().min(1).optional(),
+    serviceIds: z.array(z.number().int()).min(1).optional(),
     estimatedBudget: z.number().optional(),
     priority: z.enum(LEAD_PRIORITIES).optional(),
     nextFollowUpAt: z.coerce.date().optional(),
@@ -53,7 +55,8 @@ export async function GET(
 
   try {
     const lead = await assertLeadVisible(pool, user, leadId);
-    return NextResponse.json(lead);
+    const services = await listLeadServices(pool, leadId);
+    return NextResponse.json({ ...lead, services });
   } catch (error) {
     if (error instanceof LeadNotFoundError || error instanceof LeadNotAccessibleError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

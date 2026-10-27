@@ -6,6 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
+import { createService } from "@/lib/services/create";
 import { GET, PATCH } from "./route";
 
 const adminEmail = `leads-id-route-admin-${Date.now()}@example.com`;
@@ -16,9 +17,11 @@ let preSalesCookie: string;
 const createdEmails: string[] = [];
 const sessionUserIds: number[] = [];
 const leadIds: number[] = [];
+const serviceIds: number[] = [];
 
 let myLead: { id: number };
 let otherPreSalesLead: { id: number };
+let myService: { id: number };
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../../../migrations"));
@@ -39,9 +42,14 @@ beforeAll(async () => {
   myLead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Id Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   otherPreSalesLead = await createLead(pool, { creatorId: otherPs.id, creatorRole: "PRE_SALES", companyName: "Other Id Route Co", phone: "2", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(myLead.id, otherPreSalesLead.id);
+
+  myService = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Id Route Service ${Date.now()}` });
+  serviceIds.push(myService.id);
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM lead_services WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM services WHERE id = ANY($1)", [serviceIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = ANY($1)", [[superAdminId, ...sessionUserIds]]);
   await pool.query("DELETE FROM sessions WHERE user_id = ANY($1)", [sessionUserIds]);
@@ -101,6 +109,14 @@ describe("PATCH /api/leads/[id]", () => {
       whatsapp_number: "9000000000",
       remarks: "Call before visiting",
     });
+  });
+
+  it("lets the owning Pre-sales user update selected services, reflected on the next GET", async () => {
+    const res = await patchLead(myLead.id, { serviceIds: [myService.id] }, preSalesCookie);
+    expect(res.status).toBe(200);
+    const getRes = await getLead(myLead.id, preSalesCookie);
+    const body = await getRes.json();
+    expect(body.services).toMatchObject([{ id: myService.id }]);
   });
 
   it("lets the owning Pre-sales user archive their lead", async () => {

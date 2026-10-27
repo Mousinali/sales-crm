@@ -5,6 +5,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES } from "@/lib/leads/types";
 import { createLead } from "@/lib/leads/create";
 import { listLeads } from "@/lib/leads/list";
+import { listLeadServices } from "@/lib/leads/services";
 import { LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const createLeadSchema = z.object({
@@ -21,7 +22,8 @@ const createLeadSchema = z.object({
   state: z.string().trim().min(1).optional(),
   pincode: z.string().trim().min(1).optional(),
   country: z.string().trim().min(1).optional(),
-  serviceRequirements: z.string().trim().min(1),
+  serviceRequirements: z.string().trim().min(1).optional(),
+  serviceIds: z.array(z.number().int()).min(1),
   estimatedBudget: z.number().optional(),
   leadSource: z.enum(LEAD_SOURCES),
   priority: z.enum(LEAD_PRIORITIES).optional(),
@@ -65,7 +67,8 @@ export async function POST(request: Request): Promise<Response> {
       creatorRole: user.role,
       ...parsed.data,
     });
-    return NextResponse.json(lead, { status: 201 });
+    const services = await listLeadServices(pool, lead.id);
+    return NextResponse.json({ ...lead, services }, { status: 201 });
   } catch (error) {
     if (error instanceof LeadActionNotAllowedError) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

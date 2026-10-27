@@ -6,14 +6,17 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createSession } from "@/lib/auth/session";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { createUser } from "@/lib/users/create";
+import { createService } from "@/lib/services/create";
 import { POST, GET } from "./route";
 
 const adminEmail = `leads-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let preSalesCookie: string;
 let salespersonCookie: string;
+let serviceId: number;
 const createdEmails: string[] = [];
 const sessionUserIds: number[] = [];
+const serviceIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../../migrations"));
@@ -32,9 +35,15 @@ beforeAll(async () => {
 
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
   salespersonCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
+
+  const svc = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Route Test Service ${Date.now()}` });
+  serviceId = svc.id;
+  serviceIds.push(svc.id);
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM lead_services WHERE service_id = ANY($1)", [serviceIds]);
+  await pool.query("DELETE FROM services WHERE id = ANY($1)", [serviceIds]);
   await pool.query("DELETE FROM leads WHERE created_by = ANY($1)", [sessionUserIds]);
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = ANY($1)", [[superAdminId, ...sessionUserIds]]);
   await pool.query("DELETE FROM sessions WHERE user_id = ANY($1)", [sessionUserIds]);
@@ -53,23 +62,30 @@ function postLeads(body: unknown, cookie?: string) {
 
 describe("POST /api/leads", () => {
   it("lets an authenticated Pre-sales user create a lead", async () => {
-    const res = await postLeads({ companyName: "Route Co", phone: "123", serviceRequirements: "Needs CRM", leadSource: "REFERRAL" }, preSalesCookie);
+    const res = await postLeads({ companyName: "Route Co", phone: "123", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL" }, preSalesCookie);
     expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.services).toMatchObject([{ id: serviceId }]);
+  });
+
+  it("rejects a lead with no service selected", async () => {
+    const res = await postLeads({ companyName: "No Service Co", phone: "1", leadSource: "OTHER" }, preSalesCookie);
+    expect(res.status).toBe(400);
   });
 
   it("rejects an unauthenticated request", async () => {
-    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" });
+    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" });
     expect(res.status).toBe(401);
   });
 
   it("rejects a Salesperson", async () => {
-    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }, salespersonCookie);
+    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, salespersonCookie);
     expect(res.status).toBe(403);
   });
 
   it("accepts the extended contact-detail fields and defaults country to India", async () => {
     const res = await postLeads(
-      { companyName: "Contact Route Co", phone: "321", serviceRequirements: "Needs CRM", leadSource: "REFERRAL", businessType: "Retail", address: "1 Main St", state: "Goa", pincode: "403001", whatsappNumber: "9123456780", remarks: "Prefers calls after 5pm" },
+      { companyName: "Contact Route Co", phone: "321", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL", businessType: "Retail", address: "1 Main St", state: "Goa", pincode: "403001", whatsappNumber: "9123456780", remarks: "Prefers calls after 5pm" },
       preSalesCookie,
     );
     expect(res.status).toBe(201);
@@ -96,7 +112,7 @@ describe("GET /api/leads", () => {
   });
 
   it("scopes the list to the caller's visible leads", async () => {
-    await postLeads({ companyName: "Scope Co", phone: "9", serviceRequirements: "y", leadSource: "OTHER" }, preSalesCookie);
+    await postLeads({ companyName: "Scope Co", phone: "9", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, preSalesCookie);
     const res = await getLeads(preSalesCookie);
     expect(res.status).toBe(200);
     const body = await res.json();
