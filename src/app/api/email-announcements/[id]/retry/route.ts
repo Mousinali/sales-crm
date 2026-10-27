@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { retryFailedRecipients } from "@/lib/email/announce";
-import { EmailActionNotAllowedError } from "@/lib/email/errors";
+import { EmailActionNotAllowedError, EmailAnnouncementNotFoundError } from "@/lib/email/errors";
 
 export async function POST(
   request: Request,
@@ -28,6 +28,9 @@ export async function POST(
   } catch (error) {
     if (error instanceof EmailActionNotAllowedError) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (error instanceof EmailAnnouncementNotFoundError) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     throw error;
   }

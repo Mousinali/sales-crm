@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { sendEmail } from "./sendEmail";
-import { EmailActionNotAllowedError } from "./errors";
+import { EmailActionNotAllowedError, EmailAnnouncementNotFoundError } from "./errors";
 import type { EmailAnnouncementRow } from "./types";
 
 type RecipientGroup =
@@ -108,6 +108,22 @@ export async function retryFailedRecipients(
   if (input.actorRole !== "MARKETING_HEAD" && input.actorRole !== "SUPER_ADMIN") {
     throw new EmailActionNotAllowedError(`${input.actorRole} cannot retry announcement deliveries`);
   }
+
+  const { rows: announcementRows } = await pool.query<{ id: number; sender_user_id: number; subject: string; body: string }>(
+    "SELECT id, sender_user_id, subject, body FROM email_announcements WHERE id = $1",
+    [input.announcementId],
+  );
+  const announcement = announcementRows[0];
+  if (!announcement) {
+    throw new EmailAnnouncementNotFoundError(`No announcement with id ${input.announcementId}`);
+  }
+  // A Marketing Head may only retry their own sends — the same scope
+  // GET /api/email-announcements already enforces for reading history;
+  // only a Super Admin can act across every sender.
+  if (input.actorRole !== "SUPER_ADMIN" && announcement.sender_user_id !== input.actorId) {
+    throw new EmailActionNotAllowedError(`${input.actorRole} ${input.actorId} cannot retry an announcement they didn't send`);
+  }
+
   const maxAttempts = input.maxAttempts ?? 3;
 
   const { rows: toRetry } = await pool.query<{ log_id: number; recipient_user_id: number }>(
@@ -121,24 +137,27 @@ export async function retryFailedRecipients(
   let stillFailed = 0;
 
   for (const row of toRetry) {
-    await pool.query(`UPDATE email_logs SET status = 'RETRYING', updated_at = now() WHERE id = $1`, [row.log_id]);
+    // Atomic claim: only proceeds if this row is still FAILED and under
+    // maxAttempts right now, so two concurrent retries on the same
+    // announcement can't both pick up and resend the same recipient.
+    const claim = await pool.query(
+      `UPDATE email_logs SET status = 'RETRYING', updated_at = now() WHERE id = $1 AND status = 'FAILED' AND attempt_count < $2 RETURNING id`,
+      [row.log_id, maxAttempts],
+    );
+    if (claim.rowCount === 0) continue;
 
-    const { rows: userRows } = await pool.query<{ email: string }>("SELECT email FROM users WHERE id = $1", [row.recipient_user_id]);
-    if (!userRows[0]) {
+    const eligible = await filterToActivePreSalesOrSalespeople(pool, [row.recipient_user_id]);
+    if (eligible.length === 0) {
       await pool.query(
-        `UPDATE email_logs SET status = 'FAILED', attempt_count = attempt_count + 1, last_error = 'recipient no longer exists', updated_at = now() WHERE id = $1`,
+        `UPDATE email_logs SET status = 'FAILED', attempt_count = attempt_count + 1, last_error = 'recipient is no longer an active Pre-sales/Salesperson', updated_at = now() WHERE id = $1`,
         [row.log_id],
       );
       stillFailed++;
       continue;
     }
 
-    const { rows: announcementRows } = await pool.query<{ subject: string; body: string }>(
-      "SELECT subject, body FROM email_announcements WHERE id = $1",
-      [input.announcementId],
-    );
-    const { subject, body } = announcementRows[0];
-    const result = await sendEmail({ to: userRows[0].email, subject, body });
+    const { rows: userRows } = await pool.query<{ email: string }>("SELECT email FROM users WHERE id = $1", [row.recipient_user_id]);
+    const result = await sendEmail({ to: userRows[0].email, subject: announcement.subject, body: announcement.body });
 
     if (result.ok) {
       await pool.query(

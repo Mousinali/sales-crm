@@ -5,10 +5,12 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createAnnouncement, retryFailedRecipients } from "./announce";
-import { EmailActionNotAllowedError } from "./errors";
+import { EmailActionNotAllowedError, EmailAnnouncementNotFoundError } from "./errors";
 
 const adminEmail = `announce-admin-${Date.now()}@example.com`;
+let superAdminId: number;
 let mhId: number;
+let otherMhId: number;
 let preSalesId: number;
 let salespersonId: number;
 let activePreSalesId: number;
@@ -18,9 +20,10 @@ const announcementIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
-  const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
-  const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `announce-hr-${Date.now()}@example.com` });
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  const hr = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `announce-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `announce-mh-${Date.now()}@example.com` });
+  const otherMh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "Other MH", email: `announce-omh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `announce-ps-${Date.now()}@example.com` });
   const activePs = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "Active PS", email: `announce-aps-${Date.now()}@example.com` });
   const inactivePs = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "Inactive PS", email: `announce-ips-${Date.now()}@example.com` });
@@ -28,11 +31,12 @@ beforeAll(async () => {
   await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = $1", [inactivePs.id]);
 
   mhId = mh.id;
+  otherMhId = otherMh.id;
   preSalesId = ps.id;
   salespersonId = sp.id;
   activePreSalesId = activePs.id;
   inactivePreSalesId = inactivePs.id;
-  createdEmails.push(hr.email, mh.email, ps.email, activePs.email, inactivePs.email, sp.email);
+  createdEmails.push(hr.email, mh.email, otherMh.email, ps.email, activePs.email, inactivePs.email, sp.email);
 });
 
 afterAll(async () => {
@@ -154,5 +158,61 @@ describe("retryFailedRecipients", () => {
     await expect(
       retryFailedRecipients(pool, { actorId: preSalesId, actorRole: "PRE_SALES", announcementId: announcement.id }),
     ).rejects.toThrow(EmailActionNotAllowedError);
+  });
+
+  it("rejects a Marketing Head retrying another Marketing Head's announcement", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    await expect(
+      retryFailedRecipients(pool, { actorId: otherMhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id }),
+    ).rejects.toThrow(EmailActionNotAllowedError);
+  });
+
+  it("lets a Super Admin retry any Marketing Head's announcement", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValueOnce({ ok: false, error: "bounced" }).mockResolvedValue({ ok: true });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    const result = await retryFailedRecipients(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", announcementId: announcement.id });
+    expect(result).toEqual({ retried: 1, stillFailed: 0 });
+  });
+
+  it("throws for a nonexistent announcement id", async () => {
+    await expect(
+      retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: 999999999 }),
+    ).rejects.toThrow(EmailAnnouncementNotFoundError);
+  });
+
+  it("does not resend to a recipient who's no longer an active Pre-sales/Salesperson", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const deactivating = await createUser(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Deactivating", email: `announce-deactivating-${Date.now()}@example.com` });
+    createdEmails.push(deactivating.email);
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: deactivating.id } });
+    announcementIds.push(announcement.id);
+
+    await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = $1", [deactivating.id]);
+
+    const sendEmailMock = vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    sendEmailMock.mockClear(); // drop the call recorded by the initial (failed) createAnnouncement send above
+    const result = await retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ retried: 0, stillFailed: 1 });
+  });
+
+  it("claims each row atomically, so two concurrent retries never both send the same recipient", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    const sendEmailMock = vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
+    sendEmailMock.mockClear(); // drop the call recorded by the initial (failed) createAnnouncement send above
+    const [a, b] = await Promise.all([
+      retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id }),
+      retryFailedRecipients(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", announcementId: announcement.id }),
+    ]);
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    expect(a.retried + b.retried).toBe(1);
   });
 });

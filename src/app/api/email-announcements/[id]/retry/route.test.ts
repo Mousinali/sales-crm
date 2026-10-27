@@ -12,6 +12,7 @@ const adminEmail = `announce-retry-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let mhId: number;
 let mhCookie: string;
+let otherMhCookie: string;
 let preSalesCookie: string;
 let salespersonId: number;
 const createdEmails: string[] = [];
@@ -23,15 +24,17 @@ beforeAll(async () => {
   superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
   const hr = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `announce-retry-route-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `announce-retry-route-mh-${Date.now()}@example.com` });
+  const otherMh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "Other MH", email: `announce-retry-route-omh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `announce-retry-route-ps-${Date.now()}@example.com` });
   const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `announce-retry-route-sp-${Date.now()}@example.com` });
-  createdEmails.push(hr.email, mh.email, ps.email, sp.email);
-  sessionUserIds.push(hr.id, mh.id, ps.id, sp.id);
+  createdEmails.push(hr.email, mh.email, otherMh.email, ps.email, sp.email);
+  sessionUserIds.push(hr.id, mh.id, otherMh.id, ps.id, sp.id);
   mhId = mh.id;
   salespersonId = sp.id;
 
-  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id]]);
+  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, otherMh.id, ps.id]]);
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
+  otherMhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(otherMh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
 });
 
@@ -78,5 +81,19 @@ describe("POST /api/email-announcements/[id]/retry", () => {
 
     const res = await postRetry(announcement.id, preSalesCookie);
     expect(res.status).toBe(403);
+  });
+
+  it("rejects a Marketing Head retrying another Marketing Head's announcement", async () => {
+    vi.spyOn(await import("@/lib/email/sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    const res = await postRetry(announcement.id, otherMhCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("404s a nonexistent announcement id", async () => {
+    const res = await postRetry(999999999, mhCookie);
+    expect(res.status).toBe(404);
   });
 });
