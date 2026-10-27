@@ -137,4 +137,20 @@ describe("transferLead", () => {
       bulkTransferLeads(pool, { actorId: superAdminId, actorRole: "HR", leadIds: [leadA.id, leadB.id], newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
+
+  it("leaves exactly one consistent owner and one history row per race when two transfers race on the same lead", async () => {
+    const raceLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Transfer Race Co", phone: "98", serviceRequirements: "x", leadSource: "OTHER" });
+    await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [raceLead.id]);
+    leadIds.push(raceLead.id);
+
+    await Promise.allSettled([
+      transferLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: raceLead.id, newSalespersonOwnerId: originalSalespersonId, reason: "A" }),
+      transferLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: raceLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "B" }),
+    ]);
+
+    const { rows } = await pool.query("SELECT salesperson_owner_id FROM leads WHERE id = $1", [raceLead.id]);
+    expect([originalSalespersonId, otherSalespersonId]).toContain(rows[0].salesperson_owner_id);
+    const { rows: history } = await pool.query("SELECT count(*) FROM lead_transfer_history WHERE lead_id = $1", [raceLead.id]);
+    expect(Number(history[0].count)).toBe(2);
+  });
 });

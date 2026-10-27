@@ -144,4 +144,20 @@ describe("assignLead", () => {
     const notifications = await listNotifications(pool, salespersonId);
     expect(notifications.some((n) => n.type === "LEAD_ASSIGNED" && n.lead_id === qualifiedLead.id)).toBe(true);
   });
+
+  it("leaves exactly one consistent assignment when two assigns race on the same lead", async () => {
+    const raceLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Co", phone: "99", serviceRequirements: "x", leadSource: "OTHER" });
+    await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [raceLead.id]);
+    leadIds.push(raceLead.id);
+
+    await Promise.allSettled([
+      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: raceLead.id, salespersonId }),
+      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: raceLead.id, salespersonId: otherSalespersonId }),
+    ]);
+
+    const { rows } = await pool.query("SELECT salesperson_owner_id FROM leads WHERE id = $1", [raceLead.id]);
+    expect([salespersonId, otherSalespersonId]).toContain(rows[0].salesperson_owner_id);
+    const { rows: history } = await pool.query("SELECT count(*) FROM lead_assignments WHERE lead_id = $1", [raceLead.id]);
+    expect(Number(history[0].count)).toBe(2); // both writes landed as history even though only one is "current"
+  });
 });

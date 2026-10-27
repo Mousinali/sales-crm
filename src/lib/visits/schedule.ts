@@ -49,37 +49,58 @@ export async function scheduleVisit(
   await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
   await assertActiveSalesperson(pool, input.salespersonId);
 
-  if (!input.confirmConflict) {
-    const conflict = await findConflictingVisit(pool, {
-      salespersonId: input.salespersonId,
-      visitDate: input.visitDate,
-      startTime: input.startTime,
-    });
-    if (conflict) {
-      throw new VisitConflictError(
-        `Salesperson ${input.salespersonId} already has a visit at ${input.visitDate} ${input.startTime}`,
-      );
-    }
-  }
+  // The conflict check and the insert below are not atomic on their own —
+  // two concurrent schedule calls for the same salesperson/slot can both
+  // pass the check before either commits. An advisory lock scoped to this
+  // transaction and keyed by the slot serializes the two callers so the
+  // second one's check runs only after the first has committed.
+  const client = await pool.connect();
+  let visit: VisitRow;
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `visit:${input.salespersonId}:${input.visitDate}:${input.startTime}`,
+    ]);
 
-  const { rows } = await pool.query<VisitRow>(
-    `INSERT INTO client_visits
-       (lead_id, salesperson_id, visit_date, start_time, expected_duration_minutes, location, objective, preparation_notes, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING *`,
-    [
-      input.leadId,
-      input.salespersonId,
-      input.visitDate,
-      input.startTime,
-      input.expectedDurationMinutes ?? null,
-      input.location ?? null,
-      input.objective,
-      input.preparationNotes ?? null,
-      input.actorId,
-    ],
-  );
-  const visit = rows[0];
+    if (!input.confirmConflict) {
+      const { rows: conflictRows } = await client.query<VisitRow>(
+        `SELECT * FROM client_visits
+         WHERE salesperson_id = $1 AND visit_date = $2 AND start_time = $3 AND status IN ('SCHEDULED', 'RESCHEDULED')
+         LIMIT 1`,
+        [input.salespersonId, input.visitDate, input.startTime],
+      );
+      if (conflictRows[0]) {
+        throw new VisitConflictError(
+          `Salesperson ${input.salespersonId} already has a visit at ${input.visitDate} ${input.startTime}`,
+        );
+      }
+    }
+
+    const { rows } = await client.query<VisitRow>(
+      `INSERT INTO client_visits
+         (lead_id, salesperson_id, visit_date, start_time, expected_duration_minutes, location, objective, preparation_notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        input.leadId,
+        input.salespersonId,
+        input.visitDate,
+        input.startTime,
+        input.expectedDurationMinutes ?? null,
+        input.location ?? null,
+        input.objective,
+        input.preparationNotes ?? null,
+        input.actorId,
+      ],
+    );
+    visit = rows[0];
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 
   await recordLeadActivity(pool, {
     leadId: input.leadId,
@@ -117,30 +138,48 @@ export async function rescheduleVisit(
   }
   await assertActiveSalesperson(pool, visit.salesperson_id);
 
-  if (!input.confirmConflict) {
-    const conflict = await findConflictingVisit(pool, {
-      salespersonId: visit.salesperson_id,
-      visitDate: input.visitDate,
-      startTime: input.startTime,
-    });
-    if (conflict) {
-      throw new VisitConflictError(
-        `Salesperson ${visit.salesperson_id} already has a visit at ${input.visitDate} ${input.startTime}`,
-      );
-    }
-  }
+  // Same TOCTOU hazard as scheduleVisit: serialize concurrent reschedules
+  // onto the same destination slot with an advisory lock.
+  const client = await pool.connect();
+  let updated: VisitRow;
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `visit:${visit.salesperson_id}:${input.visitDate}:${input.startTime}`,
+    ]);
 
-  const { rows } = await pool.query<VisitRow>(
-    `UPDATE client_visits
-     SET status = 'RESCHEDULED', visit_date = $1, start_time = $2, updated_at = now()
-     WHERE id = $3 AND status IN ('SCHEDULED', 'RESCHEDULED')
-     RETURNING *`,
-    [input.visitDate, input.startTime, input.visitId],
-  );
-  if (rows.length === 0) {
-    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is no longer SCHEDULED or RESCHEDULED`);
+    if (!input.confirmConflict) {
+      const { rows: conflictRows } = await client.query<VisitRow>(
+        `SELECT * FROM client_visits
+         WHERE salesperson_id = $1 AND visit_date = $2 AND start_time = $3 AND status IN ('SCHEDULED', 'RESCHEDULED')
+         LIMIT 1`,
+        [visit.salesperson_id, input.visitDate, input.startTime],
+      );
+      if (conflictRows[0]) {
+        throw new VisitConflictError(
+          `Salesperson ${visit.salesperson_id} already has a visit at ${input.visitDate} ${input.startTime}`,
+        );
+      }
+    }
+
+    const { rows } = await client.query<VisitRow>(
+      `UPDATE client_visits
+       SET status = 'RESCHEDULED', visit_date = $1, start_time = $2, updated_at = now()
+       WHERE id = $3 AND status IN ('SCHEDULED', 'RESCHEDULED')
+       RETURNING *`,
+      [input.visitDate, input.startTime, input.visitId],
+    );
+    if (rows.length === 0) {
+      throw new VisitActionNotAllowedError(`Visit ${input.visitId} is no longer SCHEDULED or RESCHEDULED`);
+    }
+    updated = rows[0];
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
   }
-  const updated = rows[0];
 
   await recordLeadActivity(pool, {
     leadId: visit.lead_id,

@@ -93,6 +93,34 @@ describe("scheduleVisit", () => {
     visitIds.push(confirmed.id);
     expect(confirmed.status).toBe("SCHEDULED");
   });
+
+  it("never double-books a Salesperson when two schedule calls race on the same slot", async () => {
+    const leadA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Visit Co A", phone: "97", serviceRequirements: "x", leadSource: "OTHER" });
+    const leadB = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Visit Co B", phone: "96", serviceRequirements: "x", leadSource: "OTHER" });
+    leadIds.push(leadA.id, leadB.id);
+
+    const results = await Promise.allSettled([
+      scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: leadA.id, salespersonId, visitDate: "2026-12-01", startTime: "09:00", objective: "A" }),
+      scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: leadB.id, salespersonId, visitDate: "2026-12-01", startTime: "09:00", objective: "B" }),
+    ]);
+    for (const r of results) {
+      if (r.status === "fulfilled") visitIds.push(r.value.id);
+      // Neither call may fail with anything other than the documented
+      // conflict error — no raw/unhandled DB error, no deadlock.
+      else expect(r.reason).toBeInstanceOf(VisitConflictError);
+    }
+    // req.md §8.3: "Prevent accidental duplicate visits ... show conflicts
+    // when a Salesperson already has another visit at the same time." A
+    // race must not let both callers slip past the check before either
+    // commits — at most one SCHEDULED/RESCHEDULED row may land for this
+    // salesperson/slot.
+    const { rows } = await pool.query(
+      `SELECT count(*) FROM client_visits
+       WHERE salesperson_id = $1 AND visit_date = '2026-12-01' AND start_time = '09:00' AND status IN ('SCHEDULED', 'RESCHEDULED')`,
+      [salespersonId],
+    );
+    expect(Number(rows[0].count)).toBe(1);
+  });
 });
 
 describe("findConflictingVisit", () => {
