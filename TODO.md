@@ -112,6 +112,22 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase6-testing-deployment.md`
 - [ ] Production env vars, HTTPS, backups, monitoring
 - [ ] Security review before company use
 
+## Phase 7 — Internal chat (planned, not implemented)
+
+Requirement: `req.md` §19 (added 2026-10-27, not yet scheduled when first
+proposed — placed last here since no plan doc exists yet).
+
+- [ ] Direct (one-to-one) messaging between any two users visible to each
+  other under §3's visibility rules
+- [ ] Group conversations
+- [ ] Optional lead-linked conversations, surfaced in that lead's activity
+  history
+- [ ] In-app notification on new message (reusing Phase 4's `notifications`
+  mechanism)
+- [ ] Append-only message log (no edit/delete in the first release)
+- No plan doc yet — needs one under `docs/superpowers/plans/` before
+  implementation starts, same as every other phase.
+
 ## Known issues / notes
 
 - Dev server (Turbopack) can go stale after heavy file churn across a long

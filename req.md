@@ -31,6 +31,8 @@ product.
 -   Allow Marketing Heads to qualify leads, assign salespeople, schedule
     client visits, and transfer leads.
 -   Allow Marketing Heads to send emails to individual users or groups.
+-   Let users message each other directly inside the app for day-to-day
+    coordination (planned — see §19).
 -   Maintain a reliable history of lead assignments, transfers, visits,
     activities, and important changes.
 
@@ -657,7 +659,8 @@ Explicitly exclude:
 -   AI lead scoring
 -   Subscription plans and multi-tenant SaaS functionality
 -   Public customer self-service portal
--   In-app chat or email reply threads
+-   In-app email reply threads (internal chat between users is a
+    separate, now-planned requirement — see §19)
 -   Advanced marketing automation
 -   Automatic cold-email campaigns
 -   Mobile native applications
@@ -777,3 +780,54 @@ The first release is acceptable when all of the following work:
 -   Lead conversion is distinct from closing a sale.
 -   PostgreSQL is accessed using raw SQL through `pg`, without an ORM.
 -   Website scraping and lead discovery are excluded from this release.
+
+------------------------------------------------------------------------
+
+## 19. Internal Chat (Planned)
+
+Let users message each other directly inside the app, as a faster,
+lighter-weight alternative to email (§9) for day-to-day coordination.
+Not yet scheduled into a phase in §16 — added here as a requirement for
+future planning.
+
+### 19.1 Who can chat with whom
+
+-   Any active user can start a direct (one-to-one) conversation with
+    any other active user visible to them under §3's visibility rules.
+-   A conversation can optionally be linked to a specific lead, so its
+    messages appear alongside that lead's activity history.
+-   Group conversations are supported for team coordination (e.g. a
+    Marketing Head with their Pre-sales and Sales team).
+
+### 19.2 Message fields
+
+-   Conversation ID
+-   Participants
+-   Sender
+-   Message body (plain text)
+-   Lead ID (optional, when the conversation is lead-linked)
+-   Sent timestamp
+-   Read status per participant
+
+### 19.3 Requirements
+
+-   Messages are stored in PostgreSQL via raw SQL, consistent with the
+    rest of the CRM — no third-party chat service.
+-   A user only sees conversations they are a participant in.
+-   A new message generates an in-app notification (§8's `notifications`
+    mechanism) for participants not actively viewing the conversation.
+-   Chat is an append-only log in the first release — no message editing
+    or deletion, consistent with the CRM's audit-first approach elsewhere.
+-   Real-time delivery (websockets or similar) is a later enhancement;
+    the first release may poll for new messages.
+
+### 19.4 Out of scope for the first chat release
+
+-   File or image attachments
+-   Voice or video calls
+-   Message reactions, threading, or editing
+-   External (customer-facing) chat
+
+This section is a first pass to capture the requirement; detailed design
+(schema, UI, exact notification wiring) happens when a phase plan for it
+is written, the same way Phases 1-6 were each planned before being built.
