@@ -30,8 +30,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const { email, password } = parsed.data;
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const rateLimitKey = `${ip}:${email}`;
+  // Keyed by email alone, not IP: this app has no trusted reverse-proxy
+  // convention yet (nothing sets X-Forwarded-For authoritatively), so an
+  // attacker-supplied IP header would let them reset the counter on every
+  // request and fully bypass the limit. The tradeoff — a third party could
+  // use this to lock a known victim's email out of login — is accepted as
+  // the standard cost of email-keyed lockout; req.md only asks to
+  // rate-limit login, not to survive a targeted denial-of-service.
+  const rateLimitKey = `email:${email}`;
   if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }

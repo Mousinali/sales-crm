@@ -19,10 +19,10 @@ afterAll(async () => {
   await pool.query("DELETE FROM users WHERE id = $1", [userId]);
 });
 
-function loginRequest(body: unknown) {
+function loginRequest(body: unknown, headers?: Record<string, string>) {
   return new Request("http://localhost/api/auth/login", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -63,6 +63,22 @@ describe("POST /api/auth/login", () => {
     // must block the identifier, not just repeat the same wrong guess.
     const stillLimited = await POST(loginRequest({ email: rateLimitedEmail, password: "correctpw" }));
     expect(stillLimited.status).toBe(429);
+
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
+  });
+
+  it("cannot be bypassed by spoofing a different X-Forwarded-For header on every attempt", async () => {
+    const spoofEmail = `login-ratelimit-spoof-${Date.now()}@example.com`;
+    const seeded = await seedSuperAdmin(pool, { email: spoofEmail, name: "Spoof Test", password: "correctpw" });
+
+    let lastStatus = 0;
+    for (let i = 0; i < 10; i++) {
+      const res = await POST(loginRequest({ email: spoofEmail, password: "wrongpw" }, { "x-forwarded-for": `10.0.0.${i}` }));
+      lastStatus = res.status;
+      if (lastStatus === 429) break;
+    }
+    expect(lastStatus).toBe(429);
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
