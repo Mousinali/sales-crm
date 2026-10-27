@@ -8,6 +8,9 @@ export async function GET(request: Request): Promise<Response> {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (user.mustChangePassword) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const notifications = await listNotifications(pool, user.id, { unreadOnly: searchParams.get("unread") === "true" });

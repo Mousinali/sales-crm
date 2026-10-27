@@ -12,6 +12,7 @@ const adminEmail = `notif-id-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let spCookie: string;
 let otherCookie: string;
+let mustChangePasswordCookie: string;
 let salespersonId: number;
 const createdEmails: string[] = [];
 const sessionUserIds: number[] = [];
@@ -23,14 +24,16 @@ beforeAll(async () => {
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `notif-id-route-mh-${Date.now()}@example.com` });
   const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `notif-id-route-sp-${Date.now()}@example.com` });
   const other = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Other", email: `notif-id-route-osp-${Date.now()}@example.com` });
+  const mustChangePassword = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "MCP", email: `notif-id-route-mcp-${Date.now()}@example.com` });
 
-  createdEmails.push(hr.email, mh.email, sp.email, other.email);
-  sessionUserIds.push(hr.id, mh.id, sp.id, other.id);
+  createdEmails.push(hr.email, mh.email, sp.email, other.email, mustChangePassword.email);
+  sessionUserIds.push(hr.id, mh.id, sp.id, other.id, mustChangePassword.id);
   salespersonId = sp.id;
 
   await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[sp.id, other.id]]);
   spCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
   otherCookie = `${SESSION_COOKIE_NAME}=${(await createSession(other.id)).token}`;
+  mustChangePasswordCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mustChangePassword.id)).token}`;
 
   await recordNotification(pool, { recipientUserId: salespersonId, type: "LEAD_ASSIGNED", message: "You were assigned Acme Corp" });
 });
@@ -60,5 +63,11 @@ describe("PATCH /api/notifications/[id]", () => {
     const [notification] = await listNotifications(pool, salespersonId);
     const res = await patchNotification(notification.id, otherCookie);
     expect(res.status).toBe(404);
+  });
+
+  it("rejects a user who must change their password with 403", async () => {
+    const [notification] = await listNotifications(pool, salespersonId);
+    const res = await patchNotification(notification.id, mustChangePasswordCookie);
+    expect(res.status).toBe(403);
   });
 });
