@@ -112,6 +112,12 @@ describe("updateLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
+  it("rejects HR editing any lead field", async () => {
+    await expect(
+      updateLead(pool, { actorId: superAdminId, actorRole: "HR", leadId: myLead.id, fields: { notes: "x" } }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
   it("archives a lead by setting archived_at, one-way", async () => {
     const toArchive = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Archive Me Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(toArchive.id);

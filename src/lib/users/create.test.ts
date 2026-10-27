@@ -62,6 +62,18 @@ describe("createUser", () => {
     ).rejects.toThrow(RoleNotManageableError);
   });
 
+  it("rejects a Pre-sales user creating any account", async () => {
+    await expect(
+      createUser(pool, {
+        creatorId: superAdminId,
+        creatorRole: "PRE_SALES",
+        role: "SALESPERSON",
+        name: "Should Fail",
+        email: `pre-sales-create-fail-${Date.now()}@example.com`,
+      }),
+    ).rejects.toThrow(RoleNotManageableError);
+  });
+
   it("rejects a duplicate email with EmailAlreadyExistsError, not a raw DB error", async () => {
     const email = `dup-${Date.now()}@example.com`;
     createdEmails.push(email);

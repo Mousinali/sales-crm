@@ -57,6 +57,13 @@ describe("updateUserProfile", () => {
       updateUserProfile(pool, { actorId: superAdminId, actorRole: "MARKETING_HEAD", targetId: target.id, name: "Nope" }),
     ).rejects.toThrow(RoleNotManageableError);
   });
+
+  it("rejects a Salesperson updating any user", async () => {
+    const target = await makeMarketingHead();
+    await expect(
+      updateUserProfile(pool, { actorId: superAdminId, actorRole: "SALESPERSON", targetId: target.id, name: "Nope" }),
+    ).rejects.toThrow(RoleNotManageableError);
+  });
 });
 
 describe("setUserStatus", () => {

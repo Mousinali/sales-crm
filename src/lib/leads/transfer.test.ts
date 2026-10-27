@@ -12,6 +12,7 @@ import { listNotifications } from "@/lib/notifications/record";
 import { scheduleVisit, recordVisitOutcome } from "@/lib/visits/schedule";
 
 const adminEmail = `transfer-admin-${Date.now()}@example.com`;
+let superAdminId: number;
 let mhId: number;
 let preSalesId: number;
 let originalSalespersonId: number;
@@ -27,6 +28,7 @@ let leadB: { id: number };
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
   const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = adminId;
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `transfer-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `transfer-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `transfer-ps-${Date.now()}@example.com` });
@@ -94,6 +96,12 @@ describe("transferLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
+  it("rejects HR calling transfer", async () => {
+    await expect(
+      transferLead(pool, { actorId: superAdminId, actorRole: "HR", leadId: assignedLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
   it("rejects transferring a Salesperson owner onto a lead that hasn't been qualified yet", async () => {
     const pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Transfer Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(pendingLead.id);
@@ -122,5 +130,11 @@ describe("transferLead", () => {
     expect(updated).toHaveLength(2);
     const { rows } = await pool.query("SELECT lead_id FROM lead_transfer_history WHERE lead_id = ANY($1)", [[leadA.id, leadB.id]]);
     expect(rows).toHaveLength(2);
+  });
+
+  it("rejects HR calling bulk-transfer", async () => {
+    await expect(
+      bulkTransferLeads(pool, { actorId: superAdminId, actorRole: "HR", leadIds: [leadA.id, leadB.id], newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
   });
 });

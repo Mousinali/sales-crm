@@ -41,6 +41,18 @@ describe("createLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
+  it("rejects HR creating a lead", async () => {
+    await expect(
+      createLead(pool, { creatorId: superAdminId, creatorRole: "HR", companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects Super Admin creating a lead", async () => {
+    await expect(
+      createLead(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
   it("defaults a Pre-sales-created lead's pre-sales owner to its creator, with PENDING_REVIEW status", async () => {
     const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Y", phone: "2", serviceRequirements: "z", leadSource: "OTHER" });
     leadIds.push(lead.id);

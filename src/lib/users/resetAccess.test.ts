@@ -56,6 +56,13 @@ describe("resetUserAccess", () => {
     ).rejects.toThrow(RoleNotManageableError);
   });
 
+  it("rejects a Pre-sales user resetting access", async () => {
+    const target = await makeMarketingHead();
+    await expect(
+      resetUserAccess(pool, { actorId: superAdminId, actorRole: "PRE_SALES", targetId: target.id }),
+    ).rejects.toThrow(RoleNotManageableError);
+  });
+
   it("revokes a session created before the reset, so it cannot survive the reset", async () => {
     const target = await makeMarketingHead();
     const { token: preResetToken } = await createSession(target.id);

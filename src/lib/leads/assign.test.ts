@@ -10,6 +10,7 @@ import { LeadActionNotAllowedError } from "./errors";
 import { listNotifications } from "@/lib/notifications/record";
 
 const adminEmail = `assign-admin-${Date.now()}@example.com`;
+let superAdminId: number;
 let mhId: number;
 let preSalesId: number;
 let salespersonId: number;
@@ -26,6 +27,7 @@ let pendingLead: { id: number };
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
   const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = adminId;
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `assign-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `assign-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `assign-ps-${Date.now()}@example.com` });
@@ -93,6 +95,18 @@ describe("assignLead", () => {
   it("rejects a Pre-sales user calling assign", async () => {
     await expect(
       assignLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: qualifiedLead.id, salespersonId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects HR calling assign", async () => {
+    await expect(
+      assignLead(pool, { actorId: superAdminId, actorRole: "HR", leadId: qualifiedLead.id, salespersonId }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects Super Admin calling assign", async () => {
+    await expect(
+      assignLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: qualifiedLead.id, salespersonId }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 

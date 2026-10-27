@@ -64,6 +64,12 @@ describe("createAnnouncement", () => {
     ).rejects.toThrow(EmailActionNotAllowedError);
   });
 
+  it("rejects HR composing an announcement", async () => {
+    await expect(
+      createAnnouncement(pool, { senderId: superAdminId, senderRole: "HR", subject: "Hi", body: "Hi", recipientGroup: { type: "ALL_SALESPEOPLE" } }),
+    ).rejects.toThrow(EmailActionNotAllowedError);
+  });
+
   it("resolves ALL_PRE_SALES to only active Pre-sales users, excluding an inactive one", async () => {
     vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: true });
     const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Update", body: "Body", recipientGroup: { type: "ALL_PRE_SALES" } });
@@ -157,6 +163,16 @@ describe("retryFailedRecipients", () => {
 
     await expect(
       retryFailedRecipients(pool, { actorId: preSalesId, actorRole: "PRE_SALES", announcementId: announcement.id }),
+    ).rejects.toThrow(EmailActionNotAllowedError);
+  });
+
+  it("rejects HR retrying an announcement", async () => {
+    vi.spyOn(await import("./sendEmail"), "sendEmail").mockResolvedValue({ ok: false, error: "bounced" });
+    const announcement = await createAnnouncement(pool, { senderId: mhId, senderRole: "MARKETING_HEAD", subject: "Hi", body: "Hi", recipientGroup: { type: "USER", userId: salespersonId } });
+    announcementIds.push(announcement.id);
+
+    await expect(
+      retryFailedRecipients(pool, { actorId: superAdminId, actorRole: "HR", announcementId: announcement.id }),
     ).rejects.toThrow(EmailActionNotAllowedError);
   });
 

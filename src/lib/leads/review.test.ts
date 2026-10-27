@@ -10,6 +10,7 @@ import { listLeadActivities } from "./activities";
 import { LeadActionNotAllowedError, InvalidLeadReasonError } from "./errors";
 
 const adminEmail = `review-admin-${Date.now()}@example.com`;
+let superAdminId: number;
 let mhId: number;
 let preSalesId: number;
 let salespersonId: number;
@@ -22,6 +23,7 @@ let alreadyQualifiedLead: { id: number };
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
   const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = adminId;
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `review-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `review-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `review-ps-${Date.now()}@example.com` });
@@ -85,6 +87,18 @@ describe("reviewLead", () => {
   it("rejects a Salesperson calling review", async () => {
     await expect(
       reviewLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: pendingLead.id, action: "QUALIFY" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects HR calling review", async () => {
+    await expect(
+      reviewLead(pool, { actorId: superAdminId, actorRole: "HR", leadId: pendingLead.id, action: "QUALIFY" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("rejects Super Admin calling review", async () => {
+    await expect(
+      reviewLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: pendingLead.id, action: "QUALIFY" }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
