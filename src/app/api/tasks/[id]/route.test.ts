@@ -55,7 +55,7 @@ function patchTask(id: number, body: unknown, cookie?: string) {
 
 describe("PATCH /api/tasks/[id]", () => {
   it("lets the assigned user complete their task", async () => {
-    const task = await createTask(pool, { creatorId: mhId, assignedUserId: salespersonId, title: "X", dueAt: new Date() });
+    const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", dueAt: new Date() });
     taskIds.push(task.id);
     const res = await patchTask(task.id, { status: "COMPLETED" }, salespersonCookie);
     expect(res.status).toBe(200);
@@ -64,7 +64,7 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("403s a user updating someone else's task", async () => {
-    const task = await createTask(pool, { creatorId: mhId, assignedUserId: salespersonId, title: "X", dueAt: new Date() });
+    const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", dueAt: new Date() });
     taskIds.push(task.id);
     const res = await patchTask(task.id, { status: "COMPLETED" }, otherSalespersonCookie);
     expect(res.status).toBe(403);

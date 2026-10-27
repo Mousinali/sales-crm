@@ -119,6 +119,10 @@ export default async function DashboardPage() {
           <BreakdownList title="Leads by source" counts={d.leadsBySource} />
           <BreakdownList title="Leads by priority" counts={d.leadsByPriority} />
         </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <BreakdownList title="Leads by Pre-sales owner" counts={d.leadsByPreSalesOwner} />
+          <BreakdownList title="Leads by Salesperson owner" counts={d.leadsBySalespersonOwner} />
+        </div>
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
           <p className="mb-3 text-sm font-semibold text-zinc-900">Overdue follow-ups ({d.overdueTasks.length})</p>
           {d.overdueTasks.length === 0 ? (

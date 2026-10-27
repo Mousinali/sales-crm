@@ -5,6 +5,8 @@ import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { LEAD_PRIORITIES } from "@/lib/leads/types";
 import { TASK_STATUSES } from "@/lib/tasks/types";
 import { createTask, listTasks } from "@/lib/tasks/crud";
+import { TaskActionNotAllowedError } from "@/lib/tasks/errors";
+import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 
 const createTaskSchema = z.object({
   assignedUserId: z.number().int(),
@@ -35,8 +37,21 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const task = await createTask(pool, { creatorId: user.id, ...parsed.data });
-  return NextResponse.json(task, { status: 201 });
+  try {
+    const task = await createTask(pool, { creatorId: user.id, actorRole: user.role, ...parsed.data });
+    return NextResponse.json(task, { status: 201 });
+  } catch (error) {
+    if (error instanceof TaskActionNotAllowedError || error instanceof LeadNotAccessibleError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (error instanceof LeadNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error && typeof error === "object" && "code" in error && error.code === "23503") {
+      return NextResponse.json({ error: "Referenced user or lead does not exist" }, { status: 400 });
+    }
+    throw error;
+  }
 }
 
 export async function GET(request: Request): Promise<Response> {

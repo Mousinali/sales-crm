@@ -1,12 +1,14 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
-import { TaskNotFoundError, TaskNotAccessibleError } from "./errors";
+import { assertLeadVisible } from "@/lib/leads/guard";
+import { TaskNotFoundError, TaskNotAccessibleError, TaskActionNotAllowedError } from "./errors";
 import type { TaskRow, TaskStatus, TaskPriority } from "./types";
 
 export async function createTask(
   pool: Pool,
   input: {
     creatorId: number;
+    actorRole: Role;
     assignedUserId: number;
     title: string;
     description?: string;
@@ -15,6 +17,26 @@ export async function createTask(
     leadId?: number;
   },
 ): Promise<TaskRow> {
+  // §3.6: "Do not rely only on hiding UI controls" — TasksView only shows
+  // the assignee picker to MH/SA and only offers active Pre-sales/Salespeople,
+  // so the server enforces that exact rule rather than trusting the caller.
+  if (input.assignedUserId !== input.creatorId) {
+    if (input.actorRole !== "MARKETING_HEAD" && input.actorRole !== "SUPER_ADMIN") {
+      throw new TaskActionNotAllowedError(`${input.actorRole} cannot assign a task to another user`);
+    }
+    const { rows } = await pool.query<{ id: number }>(
+      "SELECT id FROM users WHERE id = $1 AND status = 'ACTIVE' AND role IN ('PRE_SALES', 'SALESPERSON')",
+      [input.assignedUserId],
+    );
+    if (rows.length === 0) {
+      throw new TaskActionNotAllowedError(`User ${input.assignedUserId} is not an active Pre-sales/Salesperson`);
+    }
+  }
+
+  if (input.leadId !== undefined) {
+    await assertLeadVisible(pool, { id: input.creatorId, role: input.actorRole }, input.leadId);
+  }
+
   const { rows } = await pool.query<TaskRow>(
     `INSERT INTO tasks (lead_id, assigned_user_id, title, description, due_at, priority, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -54,6 +76,9 @@ export async function listTasks(
   if (filters.dueWithin === "OVERDUE") conditions.push(`due_at < now()`);
   if (filters.dueWithin === "TODAY") conditions.push(`due_at::date = current_date`);
   if (filters.dueWithin === "UPCOMING") conditions.push(`due_at > now() AND due_at::date != current_date`);
+  // A finished task has no more "overdue/today/upcoming" to report — without
+  // this, every completed/cancelled task would sit on these lists forever.
+  if (filters.dueWithin !== undefined) conditions.push(`status IN ('PENDING', 'IN_PROGRESS')`);
 
   const { rows } = await pool.query<TaskRow>(
     `SELECT * FROM tasks ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""} ORDER BY due_at`,

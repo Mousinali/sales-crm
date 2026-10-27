@@ -10,7 +10,7 @@ export async function getSuperAdminDashboard(pool: Pool) {
       pool.query<{ count: string }>("SELECT count(*) FROM lead_transfer_history WHERE transferred_at > now() - interval '30 days'"),
       pool.query<{ upcoming: string; completed: string }>(
         `SELECT
-           count(*) FILTER (WHERE status = 'SCHEDULED' AND visit_date >= current_date) AS upcoming,
+           count(*) FILTER (WHERE status IN ('SCHEDULED', 'RESCHEDULED') AND visit_date >= current_date) AS upcoming,
            count(*) FILTER (WHERE status = 'COMPLETED') AS completed
          FROM client_visits`,
       ),
