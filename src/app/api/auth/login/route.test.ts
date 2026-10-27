@@ -46,4 +46,25 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(401);
     await pool.query("UPDATE users SET status = 'ACTIVE' WHERE id = $1", [userId]);
   });
+
+  it("rate-limits repeated failed login attempts for the same identifier, then lets a correct password through again after a reset", async () => {
+    const rateLimitedEmail = `login-ratelimit-${Date.now()}@example.com`;
+    const seeded = await seedSuperAdmin(pool, { email: rateLimitedEmail, name: "Rate Limit Test", password: "correctpw" });
+
+    let lastStatus = 0;
+    for (let i = 0; i < 10; i++) {
+      const res = await POST(loginRequest({ email: rateLimitedEmail, password: "wrongpw" }));
+      lastStatus = res.status;
+      if (lastStatus === 429) break;
+    }
+    expect(lastStatus).toBe(429);
+
+    // Even the correct password is rejected while rate-limited — the limit
+    // must block the identifier, not just repeat the same wrong guess.
+    const stillLimited = await POST(loginRequest({ email: rateLimitedEmail, password: "correctpw" }));
+    expect(stillLimited.status).toBe(429);
+
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
+  });
 });

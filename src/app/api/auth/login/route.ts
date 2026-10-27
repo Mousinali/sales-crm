@@ -3,6 +3,10 @@ import { z } from "zod";
 import { pool } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/passwords";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { checkRateLimit, resetRateLimit } from "@/lib/auth/rateLimit";
+
+const LOGIN_RATE_LIMIT = 5;
+const LOGIN_RATE_WINDOW_MS = 15 * 60_000;
 
 // Deliberately `z.string().min(1)`, NOT `.email()`: the Super Admin's login
 // identifier is the literal string "admin", not an RFC-shaped email address.
@@ -26,6 +30,12 @@ export async function POST(request: Request): Promise<Response> {
 
   const { email, password } = parsed.data;
 
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rateLimitKey = `${ip}:${email}`;
+  if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)) {
+    return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  }
+
   const { rows } = await pool.query<{ id: number; password_hash: string; status: "ACTIVE" | "INACTIVE" }>(
     "SELECT id, password_hash, status FROM users WHERE email = $1",
     [email],
@@ -36,6 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
+  resetRateLimit(rateLimitKey);
   const { token, expiresAt } = await createSession(user.id);
 
   const response = NextResponse.json({ ok: true }, { status: 200 });
