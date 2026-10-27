@@ -6,20 +6,25 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { updateLead } from "./update";
+import { listLeadServices } from "./services";
+import { createService } from "@/lib/services/create";
 import { LeadNotAccessibleError, LeadActionNotAllowedError } from "./errors";
 
 const adminEmail = `update-admin-${Date.now()}@example.com`;
 let preSalesId: number;
 let otherPreSalesId: number;
 let salespersonId: number;
+let superAdminId: number;
 const createdEmails: string[] = [];
 const leadIds: number[] = [];
+const serviceIds: number[] = [];
 
 let myLead: { id: number };
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
-  const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  const adminId = superAdminId;
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `update-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `update-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `update-ps-${Date.now()}@example.com` });
@@ -36,6 +41,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM lead_services WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM services WHERE id = ANY($1)", [serviceIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
   await pool.query(
     "DELETE FROM audit_logs WHERE actor_user_id IN (SELECT id FROM users WHERE email = ANY($1))",
@@ -79,6 +86,18 @@ describe("updateLead", () => {
       whatsapp_number: "9999999999",
       remarks: "Prefers WhatsApp contact",
     });
+  });
+
+  it("replaces the lead's selected services", async () => {
+    const svcA = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Update Test A ${Date.now()}` });
+    const svcB = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Update Test B ${Date.now()}` });
+    serviceIds.push(svcA.id, svcB.id);
+
+    await updateLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: myLead.id, fields: { serviceIds: [svcA.id, svcB.id] } });
+    expect((await listLeadServices(pool, myLead.id)).map((s) => s.id).sort()).toEqual([svcA.id, svcB.id].sort());
+
+    await updateLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: myLead.id, fields: { serviceIds: [svcA.id] } });
+    expect((await listLeadServices(pool, myLead.id)).map((s) => s.id)).toEqual([svcA.id]);
   });
 
   it("rejects a Pre-sales user updating a lead they don't own", async () => {

@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
 import { LeadActionNotAllowedError } from "./errors";
+import { setLeadServices } from "./services";
 import type { LeadRow, LeadSource, LeadPriority } from "./types";
 
 export async function createLead(pool: Pool, input: {
@@ -20,7 +21,8 @@ export async function createLead(pool: Pool, input: {
   state?: string;
   pincode?: string;
   country?: string;
-  serviceRequirements: string;
+  serviceRequirements?: string;
+  serviceIds?: number[];
   estimatedBudget?: number;
   leadSource: LeadSource;
   priority?: LeadPriority;
@@ -60,7 +62,7 @@ export async function createLead(pool: Pool, input: {
       input.state ?? null,
       input.pincode ?? null,
       input.country ?? "India",
-      input.serviceRequirements,
+      input.serviceRequirements ?? null,
       input.estimatedBudget ?? null,
       input.leadSource,
       input.priority ?? "MEDIUM",
@@ -72,5 +74,10 @@ export async function createLead(pool: Pool, input: {
     ],
   );
 
-  return rows[0];
+  const lead = rows[0];
+  if (input.serviceIds && input.serviceIds.length > 0) {
+    await setLeadServices(pool, { leadId: lead.id, serviceIds: input.serviceIds });
+  }
+
+  return lead;
 }

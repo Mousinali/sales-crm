@@ -3,6 +3,7 @@ import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "./guard";
 import { LeadActionNotAllowedError } from "./errors";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
+import { setLeadServices } from "./services";
 import type { LeadPriority } from "./types";
 
 export async function updateLead(
@@ -26,6 +27,7 @@ export async function updateLead(
       pincode: string;
       country: string;
       serviceRequirements: string;
+      serviceIds: number[];
       estimatedBudget: number;
       priority: LeadPriority;
       nextFollowUpAt: Date;
@@ -85,8 +87,12 @@ export async function updateLead(
   if (fields.remarks !== undefined) set("remarks", fields.remarks);
   if (fields.archived) set("archived_at", new Date());
 
-  if (columns.length === 0) return;
+  if (columns.length > 0) {
+    params.push(input.leadId);
+    await pool.query(`UPDATE leads SET ${columns.join(", ")}, updated_at = now() WHERE id = $${params.length}`, params);
+  }
 
-  params.push(input.leadId);
-  await pool.query(`UPDATE leads SET ${columns.join(", ")}, updated_at = now() WHERE id = $${params.length}`, params);
+  if (fields.serviceIds !== undefined) {
+    await setLeadServices(pool, { leadId: input.leadId, serviceIds: fields.serviceIds });
+  }
 }

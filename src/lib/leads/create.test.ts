@@ -5,16 +5,21 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
+import { listLeadServices } from "./services";
+import { createService } from "@/lib/services/create";
 import { LeadActionNotAllowedError } from "./errors";
 
 const adminEmail = `create-admin-${Date.now()}@example.com`;
 let preSalesId: number;
 let salespersonId: number;
+let superAdminId: number;
 const leadIds: number[] = [];
+const serviceIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
-  const adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  const adminId = superAdminId;
   const hr = await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: `create-hr-${Date.now()}@example.com` });
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `create-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `create-ps-${Date.now()}@example.com` });
@@ -24,6 +29,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM lead_services WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM services WHERE id = ANY($1)", [serviceIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
 });
 
@@ -72,6 +79,15 @@ describe("createLead", () => {
     const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Overseas Co", phone: "4", serviceRequirements: "z", leadSource: "OTHER", country: "United States" });
     leadIds.push(lead.id);
     expect(lead.country).toBe("United States");
+  });
+
+  it("selects the given services", async () => {
+    const svc = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Create Test Service ${Date.now()}` });
+    serviceIds.push(svc.id);
+    const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Services Co", phone: "5", leadSource: "OTHER", serviceIds: [svc.id] });
+    leadIds.push(lead.id);
+    const selected = await listLeadServices(pool, lead.id);
+    expect(selected.map((s) => s.id)).toEqual([svc.id]);
   });
 
   it("lets two different leads share the same email — unlike users.email, leads.email is not unique", async () => {
