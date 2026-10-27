@@ -63,8 +63,21 @@ export async function transferLead(
 
   const client = await pool.connect();
   let updatedLead: LeadRow;
+  let previousPreSalesOwnerId: number | null;
+  let previousSalespersonOwnerId: number | null;
   try {
     await client.query("BEGIN");
+
+    // Re-read the real previous owners under a row lock, not the
+    // pre-transaction `lead` read above — two concurrent transfers would
+    // otherwise both capture the same stale "previous" value, corrupting
+    // lead_transfer_history's audit trail (e.g. two rows both claiming the
+    // same previous owner when the second transfer's real previous was the
+    // first transfer's new owner) and sending the wrong notifications.
+    const { rows: lockedRows } = await client.query<LeadRow>("SELECT * FROM leads WHERE id = $1 FOR UPDATE", [input.leadId]);
+    const lockedLead = lockedRows[0];
+    previousPreSalesOwnerId = lockedLead.pre_sales_owner_id;
+    previousSalespersonOwnerId = lockedLead.salesperson_owner_id;
 
     const { rows } = await client.query<LeadRow>(
       `UPDATE leads
@@ -86,8 +99,8 @@ export async function transferLead(
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         updatedLead.id,
-        lead.pre_sales_owner_id,
-        lead.salesperson_owner_id,
+        previousPreSalesOwnerId,
+        previousSalespersonOwnerId,
         updatedLead.pre_sales_owner_id,
         updatedLead.salesperson_owner_id,
         input.actorId,
@@ -95,7 +108,7 @@ export async function transferLead(
       ],
     );
 
-    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== lead.salesperson_owner_id) {
+    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== previousSalespersonOwnerId) {
       await client.query(
         `UPDATE client_visits SET salesperson_id = $1, updated_at = now() WHERE lead_id = $2 AND status IN ('SCHEDULED', 'RESCHEDULED')`,
         [updatedLead.salesperson_owner_id, updatedLead.id],
@@ -116,7 +129,7 @@ export async function transferLead(
     type: "TRANSFER",
     notes: input.reason,
   });
-  await notifyChangedOwners(pool, lead, updatedLead);
+  await notifyChangedOwners(pool, { ...lead, pre_sales_owner_id: previousPreSalesOwnerId, salesperson_owner_id: previousSalespersonOwnerId }, updatedLead);
 
   return updatedLead;
 }

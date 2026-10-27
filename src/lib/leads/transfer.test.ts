@@ -150,7 +150,18 @@ describe("transferLead", () => {
 
     const { rows } = await pool.query("SELECT salesperson_owner_id FROM leads WHERE id = $1", [raceLead.id]);
     expect([originalSalespersonId, otherSalespersonId]).toContain(rows[0].salesperson_owner_id);
-    const { rows: history } = await pool.query("SELECT count(*) FROM lead_transfer_history WHERE lead_id = $1", [raceLead.id]);
-    expect(Number(history[0].count)).toBe(2);
+    const { rows: history } = await pool.query(
+      "SELECT previous_salesperson_owner_id, new_salesperson_owner_id FROM lead_transfer_history WHERE lead_id = $1 ORDER BY id",
+      [raceLead.id],
+    );
+    expect(history).toHaveLength(2);
+    // The two history rows must form a real chain — whichever transfer
+    // actually landed second must record the FIRST transfer's new owner as
+    // its "previous", not the pre-race original both calls happened to
+    // read before either wrote. Otherwise the audit trail tells a false
+    // story (e.g. claiming two different transfers both started from the
+    // same "previous" owner, which never happened).
+    expect(history[0].previous_salesperson_owner_id).toBeNull();
+    expect(history[1].previous_salesperson_owner_id).toBe(history[0].new_salesperson_owner_id);
   });
 });

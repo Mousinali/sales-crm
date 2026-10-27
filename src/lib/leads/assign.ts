@@ -51,8 +51,18 @@ export async function assignLead(
   }
 
   const client = await pool.connect();
+  let previousSalespersonOwnerId: number | null;
+  let previousPreSalesOwnerId: number | null;
   try {
     await client.query("BEGIN");
+
+    // Re-read the real previous owners under a row lock, not the
+    // pre-transaction `lead` read above — see transferLead's identical
+    // comment for why a stale read here would compare notifications
+    // against the wrong baseline under a race.
+    const { rows: lockedRows } = await client.query<LeadRow>("SELECT * FROM leads WHERE id = $1 FOR UPDATE", [input.leadId]);
+    previousSalespersonOwnerId = lockedRows[0].salesperson_owner_id;
+    previousPreSalesOwnerId = lockedRows[0].pre_sales_owner_id;
 
     const { rows } = await client.query<LeadRow>(
       `UPDATE leads
@@ -87,7 +97,7 @@ export async function assignLead(
       notes: `Assigned pre-sales owner ${updatedLead.pre_sales_owner_id ?? "unchanged"}, salesperson ${updatedLead.salesperson_owner_id ?? "unchanged"}`,
     });
 
-    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== lead.salesperson_owner_id) {
+    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== previousSalespersonOwnerId) {
       await recordNotification(pool, {
         recipientUserId: updatedLead.salesperson_owner_id,
         type: "LEAD_ASSIGNED",
@@ -95,7 +105,7 @@ export async function assignLead(
         message: `You were assigned ${updatedLead.company_name}`,
       });
     }
-    if (updatedLead.pre_sales_owner_id !== null && updatedLead.pre_sales_owner_id !== lead.pre_sales_owner_id) {
+    if (updatedLead.pre_sales_owner_id !== null && updatedLead.pre_sales_owner_id !== previousPreSalesOwnerId) {
       await recordNotification(pool, {
         recipientUserId: updatedLead.pre_sales_owner_id,
         type: "LEAD_ASSIGNED",
