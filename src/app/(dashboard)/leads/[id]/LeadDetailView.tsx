@@ -301,35 +301,13 @@ export default function LeadDetailView({
   const [visitSalesperson, setVisitSalesperson] = useState("");
   const [visitDate, setVisitDate] = useState("");
   const [visitStartTime, setVisitStartTime] = useState("");
+  const [visitLocation, setVisitLocation] = useState("");
   const [visitObjective, setVisitObjective] = useState("");
   const [visitError, setVisitError] = useState<string | null>(null);
-  const [visitConflict, setVisitConflict] = useState(false);
+  const [visitConflictPending, setVisitConflictPending] = useState(false);
   const [visitSubmitting, setVisitSubmitting] = useState(false);
 
-  async function checkVisitConflict() {
-    if (!visitSalesperson || !visitDate || !visitStartTime) {
-      setVisitConflict(false);
-      return;
-    }
-    try {
-      const response = await fetch(
-        `/api/visits/conflicts?salespersonId=${visitSalesperson}&visitDate=${visitDate}&startTime=${visitStartTime}`,
-      );
-      if (response.ok) {
-        const body = await response.json();
-        setVisitConflict(Boolean(body.conflict));
-      }
-    } catch {
-      // Advisory only — a failed check just skips the warning.
-    }
-  }
-
-  async function handleScheduleVisitSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!visitSalesperson || !visitDate || !visitStartTime || !visitObjective.trim()) {
-      setVisitError("Salesperson, date, time, and objective are all required.");
-      return;
-    }
+  async function submitScheduleVisit(confirmConflict: boolean) {
     setVisitSubmitting(true);
     setVisitError(null);
     try {
@@ -340,9 +318,17 @@ export default function LeadDetailView({
           salespersonId: Number(visitSalesperson),
           visitDate,
           startTime: visitStartTime,
+          location: visitLocation.trim() || undefined,
           objective: visitObjective.trim(),
+          confirmConflict,
         }),
       });
+      if (response.status === 409) {
+        setVisitConflictPending(true);
+        setVisitError("This Salesperson already has another visit at this date and time.");
+        setVisitSubmitting(false);
+        return;
+      }
       if (!response.ok) {
         setVisitError(await parseErrorMessage(response, "Could not schedule the visit."));
         setVisitSubmitting(false);
@@ -352,8 +338,9 @@ export default function LeadDetailView({
       await refreshActivities();
       setVisitDate("");
       setVisitStartTime("");
+      setVisitLocation("");
       setVisitObjective("");
-      setVisitConflict(false);
+      setVisitConflictPending(false);
       setVisitSubmitting(false);
     } catch {
       setVisitError("Could not schedule the visit.");
@@ -361,18 +348,112 @@ export default function LeadDetailView({
     }
   }
 
-  async function recordOutcome(visitId: number, outcome: "COMPLETED" | "MISSED") {
+  function handleScheduleVisitSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!visitSalesperson || !visitDate || !visitStartTime || !visitObjective.trim()) {
+      setVisitError("Salesperson, date, time, and objective are all required.");
+      return;
+    }
+    void submitScheduleVisit(false);
+  }
+
+  // Per-visit reschedule / cancel / outcome actions
+  const [visitAction, setVisitAction] = useState<{ visitId: number; mode: "reschedule" | "outcome" } | null>(null);
+  const [visitActionError, setVisitActionError] = useState<string | null>(null);
+  const [visitActionConflictPending, setVisitActionConflictPending] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStartTime, setRescheduleStartTime] = useState("");
+  const [outcomeNotes, setOutcomeNotes] = useState("");
+  const [outcomeNextAction, setOutcomeNextAction] = useState("");
+
+  function openReschedule(visit: VisitRow) {
+    setVisitAction({ visitId: visit.id, mode: "reschedule" });
+    setRescheduleDate(visit.visit_date);
+    setRescheduleStartTime(visit.start_time.slice(0, 5));
+    setVisitActionError(null);
+    setVisitActionConflictPending(false);
+  }
+
+  function openOutcome(visitId: number) {
+    setVisitAction({ visitId, mode: "outcome" });
+    setOutcomeNotes("");
+    setOutcomeNextAction("");
+    setVisitActionError(null);
+  }
+
+  function closeVisitAction() {
+    setVisitAction(null);
+    setVisitActionError(null);
+    setVisitActionConflictPending(false);
+  }
+
+  async function submitReschedule(confirmConflict: boolean) {
+    if (!visitAction) return;
+    setVisitActionError(null);
+    try {
+      const response = await fetch(`/api/visits/${visitAction.visitId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "RESCHEDULE", visitDate: rescheduleDate, startTime: rescheduleStartTime, confirmConflict }),
+      });
+      if (response.status === 409) {
+        setVisitActionConflictPending(true);
+        setVisitActionError("This Salesperson already has another visit at this date and time.");
+        return;
+      }
+      if (!response.ok) {
+        setVisitActionError(await parseErrorMessage(response, "Could not reschedule the visit."));
+        return;
+      }
+      await refreshVisits();
+      await refreshActivities();
+      closeVisitAction();
+    } catch {
+      setVisitActionError("Could not reschedule the visit.");
+    }
+  }
+
+  async function cancelVisitAction(visitId: number) {
+    setVisitActionError(null);
     try {
       const response = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "RECORD_OUTCOME", outcome }),
+        body: JSON.stringify({ action: "CANCEL" }),
       });
-      if (response.ok) {
-        await refreshVisits();
+      if (!response.ok) {
+        setVisitActionError(await parseErrorMessage(response, "Could not cancel the visit."));
+        return;
       }
+      await refreshVisits();
+      await refreshActivities();
     } catch {
-      // Best-effort: the visit simply stays Scheduled if this fails.
+      setVisitActionError("Could not cancel the visit.");
+    }
+  }
+
+  async function submitOutcome(outcome: "COMPLETED" | "MISSED") {
+    if (!visitAction) return;
+    setVisitActionError(null);
+    try {
+      const response = await fetch(`/api/visits/${visitAction.visitId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "RECORD_OUTCOME",
+          outcome,
+          outcomeNotes: outcomeNotes.trim() || undefined,
+          nextAction: outcomeNextAction.trim() || undefined,
+        }),
+      });
+      if (!response.ok) {
+        setVisitActionError(await parseErrorMessage(response, "Could not record the outcome."));
+        return;
+      }
+      await refreshVisits();
+      closeVisitAction();
+    } catch {
+      setVisitActionError("Could not record the outcome.");
     }
   }
 
@@ -585,7 +666,6 @@ export default function LeadDetailView({
                   id="visitSalesperson"
                   value={visitSalesperson}
                   onChange={(event) => setVisitSalesperson(event.target.value)}
-                  onBlur={checkVisitConflict}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 >
                   <option value="">Choose…</option>
@@ -605,7 +685,6 @@ export default function LeadDetailView({
                   type="date"
                   value={visitDate}
                   onChange={(event) => setVisitDate(event.target.value)}
-                  onBlur={checkVisitConflict}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
@@ -618,7 +697,18 @@ export default function LeadDetailView({
                   type="time"
                   value={visitStartTime}
                   onChange={(event) => setVisitStartTime(event.target.value)}
-                  onBlur={checkVisitConflict}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="visitLocation" className="text-sm font-medium text-zinc-700">
+                  Location
+                </label>
+                <input
+                  id="visitLocation"
+                  type="text"
+                  value={visitLocation}
+                  onChange={(event) => setVisitLocation(event.target.value)}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
@@ -642,15 +732,20 @@ export default function LeadDetailView({
                 Schedule visit
               </button>
             </div>
-            {visitConflict && (
-              <p role="alert" className="text-sm text-amber-700">
-                This Salesperson already has another visit at this date and time. You can still schedule it.
-              </p>
-            )}
             {visitError && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-amber-700">
                 {visitError}
               </p>
+            )}
+            {visitConflictPending && (
+              <button
+                type="button"
+                onClick={() => void submitScheduleVisit(true)}
+                disabled={visitSubmitting}
+                className="self-start rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Schedule anyway
+              </button>
             )}
           </form>
         )}
@@ -667,29 +762,158 @@ export default function LeadDetailView({
                 <span className="text-zinc-900">
                   {visit.visit_date} at {visit.start_time}
                 </span>
+                {visit.location && <span className="text-zinc-500">· {visit.location}</span>}
               </div>
               <p className="mt-1 text-zinc-600">{visit.objective}</p>
               {visit.outcome_notes && <p className="mt-1 text-zinc-500">Outcome: {visit.outcome_notes}</p>}
+              {visit.next_action && <p className="mt-1 text-zinc-500">Next action: {visit.next_action}</p>}
+
+              {canAssign && (visit.status === "SCHEDULED" || visit.status === "RESCHEDULED") && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openReschedule(visit)}
+                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Reschedule
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelVisitAction(visit.id)}
+                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Cancel visit
+                  </button>
+                </div>
+              )}
+
               {viewerRole === "SALESPERSON" &&
                 visit.salesperson_id === viewerId &&
                 (visit.status === "SCHEDULED" || visit.status === "RESCHEDULED") && (
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => recordOutcome(visit.id, "COMPLETED")}
+                      onClick={() => openOutcome(visit.id)}
                       className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      Record outcome
+                    </button>
+                  </div>
+                )}
+
+              {visitAction?.visitId === visit.id && visitAction.mode === "reschedule" && (
+                <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`rescheduleDate-${visit.id}`} className="text-xs font-medium text-zinc-700">
+                      New date
+                    </label>
+                    <input
+                      id={`rescheduleDate-${visit.id}`}
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(event) => setRescheduleDate(event.target.value)}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`rescheduleTime-${visit.id}`} className="text-xs font-medium text-zinc-700">
+                      New time
+                    </label>
+                    <input
+                      id={`rescheduleTime-${visit.id}`}
+                      type="time"
+                      value={rescheduleStartTime}
+                      onChange={(event) => setRescheduleStartTime(event.target.value)}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void submitReschedule(false)}
+                    className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeVisitAction}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Cancel
+                  </button>
+                  {visitActionConflictPending && (
+                    <button
+                      type="button"
+                      onClick={() => void submitReschedule(true)}
+                      className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50"
+                    >
+                      Reschedule anyway
+                    </button>
+                  )}
+                  {visitActionError && (
+                    <p role="alert" className="w-full text-xs text-red-600">
+                      {visitActionError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {visitAction?.visitId === visit.id && visitAction.mode === "outcome" && (
+                <div className="mt-3 flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`outcomeNotes-${visit.id}`} className="text-xs font-medium text-zinc-700">
+                      Outcome notes
+                    </label>
+                    <input
+                      id={`outcomeNotes-${visit.id}`}
+                      type="text"
+                      value={outcomeNotes}
+                      onChange={(event) => setOutcomeNotes(event.target.value)}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`outcomeNextAction-${visit.id}`} className="text-xs font-medium text-zinc-700">
+                      Next action
+                    </label>
+                    <input
+                      id={`outcomeNextAction-${visit.id}`}
+                      type="text"
+                      value={outcomeNextAction}
+                      onChange={(event) => setOutcomeNextAction(event.target.value)}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void submitOutcome("COMPLETED")}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                     >
                       Mark completed
                     </button>
                     <button
                       type="button"
-                      onClick={() => recordOutcome(visit.id, "MISSED")}
-                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                      onClick={() => void submitOutcome("MISSED")}
+                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
                     >
                       Mark missed
                     </button>
+                    <button
+                      type="button"
+                      onClick={closeVisitAction}
+                      className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                )}
+                  {visitActionError && (
+                    <p role="alert" className="text-xs text-red-600">
+                      {visitActionError}
+                    </p>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>
