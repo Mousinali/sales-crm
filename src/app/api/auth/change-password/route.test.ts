@@ -107,6 +107,31 @@ describe("POST /api/auth/change-password", () => {
     expect(await verifyPassword(rows[0].password_hash, "another-strong-password")).toBe(true);
   });
 
+  it("rate-limits repeated wrong-currentPassword guesses, so a stolen session can't brute-force the real password", async () => {
+    const email = `route-change-password-ratelimit-${Date.now()}@example.com`;
+    const userId = (await seedSuperAdmin(pool, { email, name: "Rate Limit Test", password: "correctpw1" })).id;
+    allUserIds.push(userId);
+    const token = (await createSession(userId)).token;
+
+    let lastStatus = 0;
+    for (let i = 0; i < 10; i++) {
+      const res = await changePasswordRequest(
+        { currentPassword: "wrongguess", password: "another-strong-password" },
+        `${SESSION_COOKIE_NAME}=${token}`,
+      );
+      lastStatus = res.status;
+      if (lastStatus === 429) break;
+    }
+    expect(lastStatus).toBe(429);
+
+    // Even the correct password is rejected while rate-limited.
+    const stillLimited = await changePasswordRequest(
+      { currentPassword: "correctpw1", password: "another-strong-password" },
+      `${SESSION_COOKIE_NAME}=${token}`,
+    );
+    expect(stillLimited.status).toBe(429);
+  });
+
   it("revokes the user's other sessions but keeps the one making the request", async () => {
     const keptSession = await createSession(sessionsUserId);
     const otherSession = await createSession(sessionsUserId);

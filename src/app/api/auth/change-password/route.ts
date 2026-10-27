@@ -5,6 +5,10 @@ import { getCurrentUserFromRequest, sessionTokenFromRequest } from "@/lib/auth/r
 import { changePassword } from "@/lib/auth/changePassword";
 import { verifyPassword } from "@/lib/auth/passwords";
 import { revokeOtherSessions } from "@/lib/auth/session";
+import { checkRateLimit, resetRateLimit } from "@/lib/auth/rateLimit";
+
+const CHANGE_PASSWORD_RATE_LIMIT = 5;
+const CHANGE_PASSWORD_RATE_WINDOW_MS = 15 * 60_000;
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().optional(),
@@ -30,6 +34,14 @@ export async function POST(request: Request): Promise<Response> {
   // verification at all, turning a stolen cookie into permanent account
   // takeover.
   if (!user.mustChangePassword) {
+    // req.md §13 "rate-limit login and sensitive operations": without this,
+    // a stolen session cookie turns into a password oracle — unlimited
+    // currentPassword guesses with no account lockout. Keyed by the
+    // session's own verified user id, not a client-supplied value.
+    if (!checkRateLimit(`change-password:${user.id}`, CHANGE_PASSWORD_RATE_LIMIT, CHANGE_PASSWORD_RATE_WINDOW_MS)) {
+      return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    }
+
     const { rows } = await pool.query<{ password_hash: string }>(
       "SELECT password_hash FROM users WHERE id = $1",
       [user.id],
@@ -43,6 +55,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!verified) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 403 });
     }
+    resetRateLimit(`change-password:${user.id}`);
   }
 
   await changePassword(pool, { userId: user.id, newPassword: parsed.data.password });
