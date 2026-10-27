@@ -6,6 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { setLeadServices, listLeadServices } from "./services";
+import { LeadActionNotAllowedError } from "./errors";
 import { createService } from "@/lib/services/create";
 
 const adminEmail = `lead-services-admin-${Date.now()}@example.com`;
@@ -60,5 +61,38 @@ describe("setLeadServices / listLeadServices", () => {
   it("clears all services when given an empty array", async () => {
     await setLeadServices(pool, { leadId: lead.id, serviceIds: [] });
     expect(await listLeadServices(pool, lead.id)).toEqual([]);
+  });
+});
+
+describe("setLeadServices validation", () => {
+  it("rejects a nonexistent service id", async () => {
+    await expect(setLeadServices(pool, { leadId: lead.id, serviceIds: [999999999] })).rejects.toThrow(
+      LeadActionNotAllowedError,
+    );
+  });
+
+  it("rejects newly selecting an inactive service", async () => {
+    const inactive = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Inactive Svc ${Date.now()}` });
+    serviceIds.push(inactive.id);
+    await pool.query("UPDATE services SET status = 'INACTIVE' WHERE id = $1", [inactive.id]);
+
+    await expect(setLeadServices(pool, { leadId: lead.id, serviceIds: [inactive.id] })).rejects.toThrow(
+      LeadActionNotAllowedError,
+    );
+  });
+
+  it("lets an already-attached service remain even after it becomes inactive", async () => {
+    const soonInactive = await createService(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", name: `Soon Inactive Svc ${Date.now()}` });
+    serviceIds.push(soonInactive.id);
+
+    await setLeadServices(pool, { leadId: lead.id, serviceIds: [soonInactive.id, serviceA.id] });
+    await pool.query("UPDATE services SET status = 'INACTIVE' WHERE id = $1", [soonInactive.id]);
+
+    // Resubmitting the same set (e.g. the lead's edit form saving other
+    // fields) must not be blocked just because one already-selected
+    // service was deactivated since.
+    await setLeadServices(pool, { leadId: lead.id, serviceIds: [soonInactive.id, serviceA.id] });
+    const services = await listLeadServices(pool, lead.id);
+    expect(services.map((s) => s.id).sort()).toEqual([soonInactive.id, serviceA.id].sort());
   });
 });

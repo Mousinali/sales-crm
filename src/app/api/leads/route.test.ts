@@ -73,6 +73,11 @@ describe("POST /api/leads", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects a nonexistent service id", async () => {
+    const res = await postLeads({ companyName: "Bad Service Co", phone: "1", serviceIds: [999999999], leadSource: "OTHER" }, preSalesCookie);
+    expect(res.status).toBe(403);
+  });
+
   it("rejects an unauthenticated request", async () => {
     const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" });
     expect(res.status).toBe(401);
