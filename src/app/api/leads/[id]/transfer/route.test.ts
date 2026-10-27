@@ -36,6 +36,7 @@ beforeAll(async () => {
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
 
   lead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Transfer Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [lead.id]);
   leadIds.push(lead.id);
 });
 

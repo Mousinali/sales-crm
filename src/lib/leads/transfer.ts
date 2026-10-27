@@ -47,6 +47,13 @@ export async function transferLead(
 
   const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
 
+  const requiresQualified = input.newSalespersonOwnerId !== undefined;
+  if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+    throw new LeadActionNotAllowedError(
+      `Lead ${input.leadId} must be qualified or converted before its Salesperson owner can be transferred (status: ${lead.status})`,
+    );
+  }
+
   if (input.newSalespersonOwnerId !== undefined) {
     await assertActiveUserWithRole(pool, input.newSalespersonOwnerId, "SALESPERSON");
   }
@@ -64,11 +71,14 @@ export async function transferLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3
+       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
        RETURNING *`,
       [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, input.leadId],
     );
     updatedLead = rows[0];
+    if (!updatedLead) {
+      throw new LeadActionNotAllowedError(`Lead ${input.leadId} is no longer qualified or converted`);
+    }
 
     await client.query(
       `INSERT INTO lead_transfer_history
@@ -129,9 +139,16 @@ export async function bulkTransferLeads(
     await assertActiveUserWithRole(pool, input.newPreSalesOwnerId, "PRE_SALES");
   }
 
+  const requiresQualified = input.newSalespersonOwnerId !== undefined;
   const previousLeads: LeadRow[] = [];
   for (const leadId of input.leadIds) {
-    previousLeads.push(await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, leadId));
+    const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, leadId);
+    if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+      throw new LeadActionNotAllowedError(
+        `Lead ${leadId} must be qualified or converted before its Salesperson owner can be transferred (status: ${lead.status})`,
+      );
+    }
+    previousLeads.push(lead);
   }
 
   const client = await pool.connect();
@@ -145,11 +162,14 @@ export async function bulkTransferLeads(
          SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
              pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
              updated_at = now()
-         WHERE id = $3
+         WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
          RETURNING *`,
         [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, lead.id],
       );
       const updatedLead = rows[0];
+      if (!updatedLead) {
+        throw new LeadActionNotAllowedError(`Lead ${lead.id} is no longer qualified or converted`);
+      }
       updatedLeads.push(updatedLead);
 
       await client.query(
