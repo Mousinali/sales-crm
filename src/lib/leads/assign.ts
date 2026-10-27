@@ -6,7 +6,7 @@ import { LeadActionNotAllowedError } from "./errors";
 import type { LeadRow } from "./types";
 import { recordNotification } from "@/lib/notifications/record";
 
-async function assertActiveUserWithRole(pool: Pool, userId: number, role: Role): Promise<void> {
+export async function assertActiveUserWithRole(pool: Pool, userId: number, role: Role): Promise<void> {
   const { rows } = await pool.query<{ role: Role; status: "ACTIVE" | "INACTIVE" }>(
     "SELECT role, status FROM users WHERE id = $1",
     [userId],
