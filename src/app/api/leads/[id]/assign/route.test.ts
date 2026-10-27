@@ -45,6 +45,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM notifications WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_assignments WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
