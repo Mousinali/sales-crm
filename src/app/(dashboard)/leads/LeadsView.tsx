@@ -6,6 +6,8 @@ import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES, type LeadSource, type Lea
 import type { LeadRow } from "@/lib/leads/types";
 import type { Role } from "@/lib/auth/roles";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
+import MultiSelectSearch from "@/app/(dashboard)/MultiSelectSearch";
+import type { ServiceRow } from "@/lib/services/types";
 
 type DuplicateMatch = { id: number; companyName: string; status: LeadStatus };
 type SimpleUser = { id: number; name: string };
@@ -42,6 +44,15 @@ export default function LeadsView({
 
   const canCreate = viewerRole === "PRE_SALES" || viewerRole === "MARKETING_HEAD";
 
+  useEffect(() => {
+    if (!canCreate) return;
+    fetch("/api/services?status=ACTIVE")
+      .then((res) => (res.ok ? res.json() : { services: [] }))
+      .then((body) => setServiceOptions(body.services ?? []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCreate]);
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [industry, setIndustry] = useState("");
   const [businessType, setBusinessType] = useState("");
@@ -55,7 +66,8 @@ export default function LeadsView({
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
-  const [serviceRequirements, setServiceRequirements] = useState("");
+  const [serviceOptions, setServiceOptions] = useState<ServiceRow[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [remarks, setRemarks] = useState("");
   const [leadSource, setLeadSource] = useState<LeadSource>(LEAD_SOURCES[0]);
   const [priority, setPriority] = useState<LeadPriority>("MEDIUM");
@@ -107,7 +119,7 @@ export default function LeadsView({
     setWhatsappNumber("");
     setEmail("");
     setWebsite("");
-    setServiceRequirements("");
+    setSelectedServiceIds([]);
     setRemarks("");
     setLeadSource(LEAD_SOURCES[0]);
     setPriority("MEDIUM");
@@ -151,8 +163,8 @@ export default function LeadsView({
       setCreateError("Enter a phone number.");
       return;
     }
-    if (!serviceRequirements.trim()) {
-      setCreateError("Enter the service requirements.");
+    if (selectedServiceIds.length === 0) {
+      setCreateError("Select at least one service.");
       return;
     }
 
@@ -176,7 +188,7 @@ export default function LeadsView({
           whatsappNumber: whatsappNumber.trim() || undefined,
           email: email.trim() || undefined,
           website: website.trim() || undefined,
-          serviceRequirements: serviceRequirements.trim(),
+          serviceIds: selectedServiceIds,
           remarks: remarks.trim() || undefined,
           leadSource,
           priority,
@@ -689,14 +701,15 @@ export default function LeadsView({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="serviceRequirements" className="text-sm font-medium text-zinc-700">
+                <label htmlFor="serviceInterested" className="text-sm font-medium text-zinc-700">
                   Service interested
                 </label>
-                <textarea
-                  id="serviceRequirements"
-                  value={serviceRequirements}
-                  onChange={(event) => setServiceRequirements(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                <MultiSelectSearch
+                  id="serviceInterested"
+                  options={serviceOptions}
+                  selectedIds={selectedServiceIds}
+                  onChange={setSelectedServiceIds}
+                  placeholder="Search services…"
                 />
               </div>
 

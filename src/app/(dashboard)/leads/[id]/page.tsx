@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { listLeadActivities } from "@/lib/leads/activities";
+import { listLeadServices } from "@/lib/leads/services";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 import LeadDetailView from "./LeadDetailView";
 
@@ -23,6 +24,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   }
 
   const activities = await listLeadActivities(pool, user, lead.id);
+  const services = await listLeadServices(pool, lead.id);
 
-  return <LeadDetailView lead={lead} activities={activities} viewerRole={user.role} viewerId={user.id} />;
+  return <LeadDetailView lead={lead} activities={activities} services={services} viewerRole={user.role} viewerId={user.id} />;
 }

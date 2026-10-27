@@ -6,6 +6,8 @@ import { LEAD_PRIORITIES } from "@/lib/leads/types";
 import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
 import type { VisitRow } from "@/lib/visits/types";
+import type { ServiceRow } from "@/lib/services/types";
+import MultiSelectSearch from "@/app/(dashboard)/MultiSelectSearch";
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE_CLASSES,
@@ -31,16 +33,19 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 export default function LeadDetailView({
   lead: initialLead,
   activities: initialActivities,
+  services: initialServices,
   viewerRole,
   viewerId,
 }: {
   lead: LeadRow;
   activities: LeadActivityRow[];
+  services: ServiceRow[];
   viewerRole: Role;
   viewerId: number;
 }) {
   const [lead, setLead] = useState<LeadRow>(initialLead);
   const [activities, setActivities] = useState<LeadActivityRow[]>(initialActivities);
+  const [leadServices, setLeadServices] = useState<ServiceRow[]>(initialServices);
 
   async function refreshActivities() {
     const response = await fetch(`/api/leads/${lead.id}/activities`);
@@ -73,12 +78,22 @@ export default function LeadDetailView({
   const [whatsappNumber, setWhatsappNumber] = useState(lead.whatsapp_number ?? "");
   const [email, setEmail] = useState(lead.email ?? "");
   const [website, setWebsite] = useState(lead.website ?? "");
-  const [serviceRequirements, setServiceRequirements] = useState(lead.service_requirements);
+  const [serviceOptions, setServiceOptions] = useState<ServiceRow[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>(initialServices.map((s) => s.id));
   const [remarks, setRemarks] = useState(lead.remarks ?? "");
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [priority, setPriority] = useState<LeadPriority>(lead.priority);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!canEdit) return;
+    fetch("/api/services?status=ACTIVE")
+      .then((res) => (res.ok ? res.json() : { services: [] }))
+      .then((body) => setServiceOptions(body.services ?? []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit]);
 
   function openEdit() {
     setIndustry(lead.industry ?? "");
@@ -92,7 +107,7 @@ export default function LeadDetailView({
     setWhatsappNumber(lead.whatsapp_number ?? "");
     setEmail(lead.email ?? "");
     setWebsite(lead.website ?? "");
-    setServiceRequirements(lead.service_requirements);
+    setSelectedServiceIds(leadServices.map((s) => s.id));
     setRemarks(lead.remarks ?? "");
     setNotes(lead.notes ?? "");
     setPriority(lead.priority);
@@ -102,6 +117,10 @@ export default function LeadDetailView({
 
   async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (selectedServiceIds.length === 0) {
+      setEditError("Select at least one service.");
+      return;
+    }
     setSaving(true);
     setEditError(null);
     try {
@@ -120,7 +139,7 @@ export default function LeadDetailView({
           whatsappNumber: whatsappNumber.trim() || undefined,
           email: email.trim() || undefined,
           website: website.trim() || undefined,
-          serviceRequirements: serviceRequirements.trim(),
+          serviceIds: selectedServiceIds,
           remarks: remarks.trim() || undefined,
           notes: notes.trim() || undefined,
           priority,
@@ -131,6 +150,7 @@ export default function LeadDetailView({
         setSaving(false);
         return;
       }
+      setLeadServices(serviceOptions.filter((o) => selectedServiceIds.includes(o.id)));
       setLead((current) => ({
         ...current,
         industry: industry.trim() || null,
@@ -144,7 +164,6 @@ export default function LeadDetailView({
         whatsapp_number: whatsappNumber.trim() || null,
         email: email.trim() || null,
         website: website.trim() || null,
-        service_requirements: serviceRequirements.trim(),
         remarks: remarks.trim() || null,
         notes: notes.trim() || null,
         priority,
@@ -596,7 +615,22 @@ export default function LeadDetailView({
           </div>
           <div className="sm:col-span-2">
             <dt className="text-zinc-500">Service interested</dt>
-            <dd className="text-zinc-900">{lead.service_requirements}</dd>
+            <dd className="text-zinc-900">
+              {leadServices.length === 0 ? (
+                "—"
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {leadServices.map((s) => (
+                    <span
+                      key={s.id}
+                      className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </dd>
           </div>
           {lead.remarks && (
             <div className="sm:col-span-2">
@@ -1170,14 +1204,15 @@ export default function LeadDetailView({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="editServiceRequirements" className="text-sm font-medium text-zinc-700">
+                <label htmlFor="editServiceInterested" className="text-sm font-medium text-zinc-700">
                   Service interested
                 </label>
-                <textarea
-                  id="editServiceRequirements"
-                  value={serviceRequirements}
-                  onChange={(event) => setServiceRequirements(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                <MultiSelectSearch
+                  id="editServiceInterested"
+                  options={serviceOptions}
+                  selectedIds={selectedServiceIds}
+                  onChange={setSelectedServiceIds}
+                  placeholder="Search services…"
                 />
               </div>
               <div className="flex flex-col gap-1.5">

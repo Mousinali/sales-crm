@@ -67,6 +67,12 @@ describe("GET /api/services", () => {
     expect(body.services.some((s: { status: string }) => s.status === "INACTIVE")).toBe(true);
   });
 
+  it("ignores an explicit status=INACTIVE query from a non-Super-Admin", async () => {
+    const res = await getServices("status=INACTIVE", mhCookie);
+    const body = await res.json();
+    expect(body.services.every((s: { status: string }) => s.status === "ACTIVE")).toBe(true);
+  });
+
   it("rejects an unauthenticated request", async () => {
     expect((await getServices("")).status).toBe(401);
   });

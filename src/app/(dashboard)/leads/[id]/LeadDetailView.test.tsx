@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import LeadDetailView from "./LeadDetailView";
 import type { LeadRow } from "@/lib/leads/types";
 import type { VisitRow } from "@/lib/visits/types";
+import type { ServiceRow } from "@/lib/services/types";
 
 const pendingLead: LeadRow = {
   id: 1,
@@ -74,17 +75,17 @@ describe("LeadDetailView", () => {
   });
 
   it("shows qualify/reject/return actions only for Marketing Head on a Pending Review lead", () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     expect(screen.getByRole("button", { name: /qualify/i })).toBeInTheDocument();
   });
 
   it("hides review actions for a Pre-sales viewer", () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByRole("button", { name: /qualify/i })).not.toBeInTheDocument();
   });
 
   it("requires a reason before submitting a reject", async () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     fireEvent.click(screen.getByRole("button", { name: /reject/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
     expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
@@ -94,7 +95,7 @@ describe("LeadDetailView", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] }))));
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     expect(screen.getByLabelText(/pre-sales owner/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("role=PRE_SALES"));
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=PRE_SALES.*status=ACTIVE|status=ACTIVE.*role=PRE_SALES/));
@@ -102,12 +103,12 @@ describe("LeadDetailView", () => {
   });
 
   it("hides the assignment panel for a non-Marketing-Head viewer", () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByLabelText(/pre-sales owner/i)).not.toBeInTheDocument();
   });
 
   it("shows a Transfer button for Marketing Head and requires a reason", async () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     fireEvent.click(screen.getByRole("button", { name: /transfer/i }));
     const transferButtons = screen.getAllByRole("button", { name: /^transfer$/i });
     fireEvent.click(transferButtons[transferButtons.length - 1]);
@@ -115,7 +116,7 @@ describe("LeadDetailView", () => {
   });
 
   it("hides the Transfer button for a non-Marketing-Head viewer", () => {
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByRole("button", { name: /transfer/i })).not.toBeInTheDocument();
   });
 
@@ -125,7 +126,7 @@ describe("LeadDetailView", () => {
       if (url.includes("/visits")) return Promise.resolve(new Response(JSON.stringify({ visits: [sampleVisit] })));
       return Promise.resolve(new Response(JSON.stringify({ users: [] })));
     });
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
     expect(await screen.findByText("Demo")).toBeInTheDocument();
   });
 
@@ -143,7 +144,7 @@ describe("LeadDetailView", () => {
       }
       return Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] })));
     });
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
 
     const visitSalespersonSelect = screen.getByLabelText(/salesperson/i, { selector: "#visitSalesperson" });
     await waitFor(() => expect(screen.getByText("Sam Salesperson", { selector: "#visitSalesperson option" })).toBeInTheDocument());
@@ -170,7 +171,7 @@ describe("LeadDetailView", () => {
       if (url.includes("/visits")) return Promise.resolve(new Response(JSON.stringify({ visits: [sampleVisit] })));
       return Promise.resolve(new Response(JSON.stringify({ users: [] })));
     });
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="SALESPERSON" viewerId={salespersonId} />);
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="SALESPERSON" viewerId={salespersonId} />);
 
     fireEvent.click(await screen.findByRole("button", { name: /record outcome/i }));
     fireEvent.change(screen.getByLabelText(/outcome notes/i), { target: { value: "Went well" } });
@@ -191,7 +192,8 @@ describe("LeadDetailView", () => {
       if (url === `/api/leads/${pendingLead.id}`) return Promise.resolve(new Response(JSON.stringify({ ok: true })));
       return Promise.resolve(new Response(JSON.stringify({ users: [] })));
     });
-    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    const existingService: ServiceRow = { id: 7, name: "Web Development", description: null, status: "ACTIVE", created_at: new Date(), updated_at: new Date() };
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[existingService]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
 
     fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
     fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
@@ -214,6 +216,7 @@ describe("LeadDetailView", () => {
       pincode: "380001",
       whatsappNumber: "9000000000",
       remarks: "Call before visiting",
+      serviceIds: [7],
     });
   });
 });

@@ -33,7 +33,10 @@ export async function GET(request: Request): Promise<Response> {
 
   // Everyone can see the active list (they need it to pick services on a
   // lead); only a Super Admin can ask for inactive ones too, to manage them.
-  const status = parsed.data.status ?? (user.role === "SUPER_ADMIN" ? undefined : "ACTIVE");
+  // A non-Super-Admin is pinned to ACTIVE regardless of what they request —
+  // not just when they omit the filter — so ?status=INACTIVE can't be used
+  // to read the inactive list without the role for it.
+  const status = user.role === "SUPER_ADMIN" ? parsed.data.status : "ACTIVE";
   const services = await listServices(pool, status ? { status } : undefined);
   return NextResponse.json({ services });
 }

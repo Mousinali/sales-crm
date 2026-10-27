@@ -67,6 +67,7 @@ describe("LeadsView", () => {
   it("submits the extended contact-detail fields, defaulting country to India", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
       if (String(url).includes("/duplicates")) return new Response(JSON.stringify({ duplicates: [] }));
+      if (String(url).includes("/api/services")) return new Response(JSON.stringify({ services: [{ id: 7, name: "Web Development" }] }));
       return new Response(JSON.stringify({ id: 2 }), { status: 201 });
     });
     render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
@@ -79,7 +80,8 @@ describe("LeadsView", () => {
     fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "560001" } });
     fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "123" } });
     fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });
-    fireEvent.change(screen.getByLabelText(/service interested/i), { target: { value: "CRM" } });
+    fireEvent.click(await screen.findByLabelText(/service interested/i));
+    fireEvent.click(screen.getByRole("checkbox", { name: /web development/i }));
     fireEvent.change(screen.getByLabelText(/^remarks$/i), { target: { value: "Call after 5pm" } });
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
@@ -95,6 +97,7 @@ describe("LeadsView", () => {
       pincode: "560001",
       country: "India",
       whatsappNumber: "9876543210",
+      serviceIds: [7],
       remarks: "Call after 5pm",
     });
   });
