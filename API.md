@@ -1,6 +1,6 @@
 # Sales CRM — API Documentation
 
-**Status:** reflects this branch (`worktree-phase3-6-crm-build`), including Phase 3 (Leads) endpoints not yet on `main`. See `TODO.md` for what's implemented vs. planned.
+**Status:** reflects `main`, including Phase 4 (transfers, visits, notifications). See `TODO.md` for what's implemented vs. planned.
 
 ## Conventions
 
@@ -307,6 +307,148 @@ Set the lead's Pre-sales owner and/or Salesperson. `MARKETING_HEAD` only.
 | 403 | `{ "error": "Forbidden" }` | wrong caller role, invalid/inactive/wrong-role target, or a Salesperson assignment attempted on a non-qualified lead |
 | 404 | `{ "error": "Not found" }` | lead doesn't exist |
 
+### `POST /api/leads/[id]/transfer`
+
+Transfer a lead's Pre-sales owner and/or Salesperson to someone else. `MARKETING_HEAD` only.
+
+**Body:**
+```json
+{ "newPreSalesOwnerId": "number, optional", "newSalespersonOwnerId": "number, optional", "reason": "string, required" }
+```
+
+**Business rules**, all enforced as a `403` (not a separate status code) except the reason, which is `400`:
+- `reason` must be non-empty (unlike assign, a transfer always requires one).
+- Same active/role validation on each target id as `assign` above.
+- Setting `newSalespersonOwnerId` requires the lead's status be `QUALIFIED` or `CONVERTED` — the exact same gate `assign` enforces, closing the same hole a transfer would otherwise open around it.
+- If the Salesperson owner actually changes, the lead's upcoming visits (`SCHEDULED`/`RESCHEDULED` rows in `client_visits`) are reassigned to the new Salesperson in the same transaction.
+
+**Success:** `200 <LeadRow>`. Writes a `TRANSFER` activity and a `lead_transfer_history` row (previous + new owners, transferred-by, reason, timestamp), and notifies both the previous and new owner of whichever field(s) changed (`LEAD_TRANSFERRED`).
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "A reason is required to transfer a lead" }` | `reason` missing/empty |
+| 403 | `{ "error": "Forbidden" }` | wrong caller role, invalid/inactive/wrong-role target, or a Salesperson transfer attempted on a non-qualified lead |
+| 404 | `{ "error": "Not found" }` | lead doesn't exist |
+
+### `POST /api/leads/transfer-bulk`
+
+Same as single transfer, applied to several leads in one request. `MARKETING_HEAD` only. All leads succeed or none do — one transaction for the whole batch.
+
+**Body:**
+```json
+{ "leadIds": "number[], min 1", "newPreSalesOwnerId": "number, optional", "newSalespersonOwnerId": "number, optional", "reason": "string, required" }
+```
+
+**Success:** `200 { "leads": [LeadRow, ...] }` — one entry per transferred lead, same order as `leadIds`.
+
+**Errors:** same as single transfer — if any lead in the batch fails a check (not visible, not qualified when required, etc.), the whole call fails and nothing is written.
+
+---
+
+## Client Visits
+
+### `GET /api/leads/[id]/visits`
+
+List a lead's visits, ordered by date/time. Visibility = same rule as the lead itself (no extra ownership layer — if you can see the lead, you can see its visits).
+
+**Success:** `200 { "visits": [VisitRow, ...] }` — see [VisitRow](#visitrow).
+
+**Errors:** `403`/`404` per the lead-visibility rule.
+
+### `POST /api/leads/[id]/visits`
+
+Schedule a client visit. `MARKETING_HEAD` only, for any `ACTIVE` `SALESPERSON` (not necessarily the lead's current owner).
+
+**Body:**
+```json
+{
+  "salespersonId": "number, required",
+  "visitDate": "string (YYYY-MM-DD), required",
+  "startTime": "string (HH:MM), required",
+  "expectedDurationMinutes": "number, optional",
+  "location": "string, optional",
+  "objective": "string, required",
+  "preparationNotes": "string, optional",
+  "confirmConflict": "boolean, optional, default false"
+}
+```
+
+**Success:** `200 <VisitRow>`. Writes a `CLIENT_VISIT` activity and notifies the Salesperson (`VISIT_SCHEDULED`).
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 403 | `{ "error": "Forbidden" }` | wrong caller role, or `salespersonId` isn't an active Salesperson |
+| 404 | `{ "error": "Not found" }` | lead doesn't exist |
+| 409 | `{ "error": "...", "conflict": true }` | the Salesperson already has another `SCHEDULED`/`RESCHEDULED` visit at that exact date+time, and `confirmConflict` wasn't `true` — advisory, not a hard block: resend the same body with `confirmConflict: true` to proceed anyway |
+
+### `GET /api/visits/conflicts`
+
+Check for a same-slot conflict before scheduling (what the UI calls on submit to decide whether to show the confirm-anyway prompt). `MARKETING_HEAD` only.
+
+**Query params:** `salespersonId` (number, required), `visitDate` (required), `startTime` (required).
+
+**Success:** `200 { "conflict": true | false }`.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "Invalid query" }` | a required param missing/malformed |
+| 403 | `{ "error": "Forbidden" }` | caller isn't `MARKETING_HEAD` |
+
+### `PATCH /api/visits/[id]`
+
+Reschedule, cancel, or record the outcome of a visit — one endpoint, three actions.
+
+**Body — one of:**
+```json
+{ "action": "RESCHEDULE", "visitDate": "string, required", "startTime": "string, required", "confirmConflict": "boolean, optional" }
+{ "action": "CANCEL" }
+{ "action": "RECORD_OUTCOME", "outcome": "COMPLETED | MISSED", "outcomeNotes": "string, optional", "nextAction": "string, optional" }
+```
+
+**Who may call which action:**
+| Action | Caller | Extra rule |
+|---|---|---|
+| `RESCHEDULE` | `MARKETING_HEAD` | visit must currently be `SCHEDULED`/`RESCHEDULED`; re-validates the assigned Salesperson is still `ACTIVE`; same 409-conflict behavior as scheduling |
+| `CANCEL` | `MARKETING_HEAD` | visit must currently be `SCHEDULED`/`RESCHEDULED` — cancelling an already Completed/Cancelled/Missed visit is rejected, not a no-op |
+| `RECORD_OUTCOME` | the visit's assigned `SALESPERSON` only (not `MARKETING_HEAD`) | visit must currently be `SCHEDULED`/`RESCHEDULED` |
+
+**Success:** `200 <VisitRow>`. `RESCHEDULE` writes a `CLIENT_VISIT` activity and notifies the Salesperson (`VISIT_RESCHEDULED`); `CANCEL` does the same (`VISIT_CANCELLED`). `RECORD_OUTCOME` writes no activity or notification — it just updates the visit row.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 403 | `{ "error": "Forbidden" }` | wrong caller role for the action, or (for `RECORD_OUTCOME`) a Salesperson who isn't the one assigned to this visit |
+| 404 | `{ "error": "Not found" }` | visit doesn't exist |
+| 409 | `{ "error": "...", "conflict": true }` | (`RESCHEDULE` only) same-slot conflict, `confirmConflict` not set |
+
+---
+
+## Notifications
+
+In-app only — no email delivery yet (Phase 5).
+
+### `GET /api/notifications`
+
+List the caller's own notifications, newest first.
+
+**Query params (optional):** `unread` — `"true"` to return only unread notifications.
+
+**Success:** `200 { "notifications": [NotificationRow, ...] }` — see [NotificationRow](#notificationrow).
+
+### `PATCH /api/notifications/[id]`
+
+Mark one of the caller's own notifications read. No body.
+
+**Success:** `200 { "ok": true }`.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 404 | `{ "error": "Not found" }` | the notification doesn't exist, or belongs to someone else (ownership is enforced as a 404, same reasoning as leads — never confirm another user's notification exists) |
+
 ---
 
 ## Data shapes
@@ -366,8 +508,44 @@ Set the lead's Pre-sales owner and/or Salesperson. `MARKETING_HEAD` only.
   id: number;
   lead_id: number;
   actor_user_id: number;
-  type: "NOTE" | "CALL" | "MEETING" | "OTHER" | "STATUS_CHANGE" | "ASSIGNMENT";
+  type: "NOTE" | "CALL" | "MEETING" | "OTHER" | "STATUS_CHANGE" | "ASSIGNMENT" | "TRANSFER" | "CLIENT_VISIT";
   notes: string | null;
+  created_at: string;
+}
+```
+
+### VisitRow
+
+```ts
+{
+  id: number;
+  lead_id: number;
+  salesperson_id: number;
+  visit_date: string; // YYYY-MM-DD — kept as a plain string, not parsed to a JS Date server-side
+  start_time: string; // HH:MM:SS
+  expected_duration_minutes: number | null;
+  location: string | null;
+  objective: string;
+  preparation_notes: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "RESCHEDULED" | "CANCELLED" | "MISSED";
+  outcome_notes: string | null;
+  next_action: string | null;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### NotificationRow
+
+```ts
+{
+  id: number;
+  recipient_user_id: number;
+  type: "LEAD_ASSIGNED" | "LEAD_TRANSFERRED" | "VISIT_SCHEDULED" | "VISIT_RESCHEDULED" | "VISIT_CANCELLED";
+  lead_id: number | null;
+  message: string;
+  read_at: string | null;
   created_at: string;
 }
 ```
@@ -376,4 +554,4 @@ Set the lead's Pre-sales owner and/or Salesperson. `MARKETING_HEAD` only.
 
 ## Not yet documented here
 
-Phase 4 (transfers, visits, notifications), Phase 5 (email announcements, tasks, dashboards), and Phase 6 (hardening) are planned but not implemented — see `TODO.md` and the plan docs under `docs/superpowers/plans/`. This file will grow as each phase lands.
+Phase 5 (email announcements, tasks, dashboards) and Phase 6 (hardening) are planned but not implemented — see `TODO.md` and the plan docs under `docs/superpowers/plans/`. This file will grow as each phase lands.

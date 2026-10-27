@@ -1,12 +1,10 @@
 # Sales CRM — TODO
 
-Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-26.
+Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-27.
 
-Phase 3 (merged to `main`). `API.md` at the repo root documents the full
-API, including the Phase 3 Leads endpoints. Phase 4's unfinished work-in-
-progress still lives only on `worktree-phase3-6-crm-build`
-(`/Users/skmousin/my-products/sales-crm/.claude/worktrees/phase3-6-crm-build`),
-not on `main` — see the Phase 4 section below.
+Phases 1–4 are merged to `main`. `API.md` at the repo root documents the
+full API as it stands, including Phase 4's transfer/visit/notification
+endpoints.
 
 ## Phase 1 — Project foundation ✅ done
 
@@ -33,7 +31,7 @@ not on `main` — see the Phase 4 section below.
   badges, avatar initials)
 - All tests passing (63/63), `tsc --noEmit` clean
 
-## Phase 3 — Leads and review ✅ done (on this branch, not merged to main)
+## Phase 3 — Leads and review ✅ done
 
 Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase3-leads.md`
 
@@ -58,17 +56,41 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase3-leads.md`
   back to Pending Review. Full detail in the Phase 3 commit messages.
 - All tests passing (142/142), `tsc --noEmit` clean, `next build` clean
 
-## Phase 4 — Transfers and visits (in progress — stopped early, resume next session)
+## Phase 4 — Transfers and visits ✅ done
 
 Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase4-transfers-visits.md`
 
-- [ ] Lead transfer with reason + history
-- [ ] Client visit scheduling and outcomes
-- [ ] Assignment/transfer/visit notifications
-- **Where it stopped:** mid-Task-1 (notifications table). Two uncommitted,
-  untracked files only: `migrations/0009_create_notifications_table.sql`
-  and `src/lib/notifications/record.test.ts` (test written, no
-  implementation yet, not yet run). No Phase 4 code is committed.
+- [x] In-app notifications (`notifications` table), wired into assignment,
+  transfer, and visit scheduling/reschedule/cancel
+- [x] Lead transfer (single + bulk) with required reason and history
+  (`lead_transfer_history`), gated on the same Qualified/Converted check
+  as assignment, and reassigning the lead's upcoming visits to a new
+  Salesperson owner
+- [x] Client visit scheduling with same-slot conflict detection — enforced
+  server-side (409 + explicit `confirmConflict` to proceed), not just an
+  advisory UI warning
+- [x] Visit reschedule/cancel (status-gated: only while Scheduled/
+  Rescheduled) and outcome recording by the assigned Salesperson
+- [x] Migrations `0009`–`0011` (`notifications`, `lead_transfer_history`,
+  `client_visits`)
+- [x] Full UI: notifications bell, Transfer action + visits panel
+  (schedule/reschedule/cancel/outcome) on the lead detail page, bulk
+  transfer with row selection and a confirmation step on `/leads`
+- [x] Fresh whole-branch review (opus) — 1 Critical (conflict check wasn't
+  actually enforced), 7 Important (reschedule/cancel missing the same
+  status gate as outcome recording; reschedule skipping the conflict and
+  active-Salesperson checks; transfer/reschedule notifications untested;
+  upcoming visits not reassigned on transfer; reschedule/cancel had no UI;
+  bulk-transfer selection going stale after a filter change) — all fixed
+  in a follow-up commit, each with a RED→GREEN test. Deferred to a future
+  polish pass (not blocking): no-op transfers allowed, duplicate lead ids
+  in bulk transfer, unvalidated visit date/time strings (500 instead of
+  400 on malformed input), a few transaction-boundary and concurrency
+  nitpicks matching Phase 3's existing patterns, vague bulk-transfer error
+  messages, a basic notifications bell (no live refresh, no lead links),
+  and some untested edge-case combinations (wrong-role transfer target,
+  HR calling transfer/visit routes, bulk rollback-on-one-bad-lead).
+- All tests passing (200/200), `tsc --noEmit` clean, `next build` clean
 
 ## Phase 5 — Emails, tasks, and reports (planned, not implemented)
 
