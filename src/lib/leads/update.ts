@@ -19,12 +19,19 @@ export async function updateLead(
       email: string;
       website: string;
       industry: string;
+      businessType: string;
       location: string;
+      address: string;
+      state: string;
+      pincode: string;
+      country: string;
       serviceRequirements: string;
       estimatedBudget: number;
       priority: LeadPriority;
       nextFollowUpAt: Date;
       notes: string;
+      whatsappNumber: string;
+      remarks: string;
       // One-way: setting true archives the lead. There is no false/unset
       // path to unarchive — req.md §5.2 names only "archive," not
       // "unarchive" (see this plan's Global Constraints).
@@ -63,12 +70,19 @@ export async function updateLead(
     set("website_domain", extractDomain(fields.website));
   }
   if (fields.industry !== undefined) set("industry", fields.industry);
+  if (fields.businessType !== undefined) set("business_type", fields.businessType);
   if (fields.location !== undefined) set("location", fields.location);
+  if (fields.address !== undefined) set("address", fields.address);
+  if (fields.state !== undefined) set("state", fields.state);
+  if (fields.pincode !== undefined) set("pincode", fields.pincode);
+  if (fields.country !== undefined) set("country", fields.country);
   if (fields.serviceRequirements !== undefined) set("service_requirements", fields.serviceRequirements);
   if (fields.estimatedBudget !== undefined) set("estimated_budget", fields.estimatedBudget);
   if (fields.priority !== undefined) set("priority", fields.priority);
   if (fields.nextFollowUpAt !== undefined) set("next_follow_up_at", fields.nextFollowUpAt);
   if (fields.notes !== undefined) set("notes", fields.notes);
+  if (fields.whatsappNumber !== undefined) set("whatsapp_number", fields.whatsappNumber);
+  if (fields.remarks !== undefined) set("remarks", fields.remarks);
   if (fields.archived) set("archived_at", new Date());
 
   if (columns.length === 0) return;

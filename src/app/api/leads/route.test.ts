@@ -66,6 +66,24 @@ describe("POST /api/leads", () => {
     const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }, salespersonCookie);
     expect(res.status).toBe(403);
   });
+
+  it("accepts the extended contact-detail fields and defaults country to India", async () => {
+    const res = await postLeads(
+      { companyName: "Contact Route Co", phone: "321", serviceRequirements: "Needs CRM", leadSource: "REFERRAL", businessType: "Retail", address: "1 Main St", state: "Goa", pincode: "403001", whatsappNumber: "9123456780", remarks: "Prefers calls after 5pm" },
+      preSalesCookie,
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      business_type: "Retail",
+      address: "1 Main St",
+      state: "Goa",
+      pincode: "403001",
+      country: "India",
+      whatsapp_number: "9123456780",
+      remarks: "Prefers calls after 5pm",
+    });
+  });
 });
 
 function getLeads(cookie?: string) {

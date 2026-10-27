@@ -17,7 +17,12 @@ const pendingLead: LeadRow = {
   website: null,
   website_domain: null,
   industry: null,
+  business_type: null,
   location: null,
+  address: null,
+  state: null,
+  pincode: null,
+  country: "India",
   service_requirements: "CRM",
   estimated_budget: null,
   lead_source: "OTHER",
@@ -28,6 +33,8 @@ const pendingLead: LeadRow = {
   salesperson_owner_id: null,
   next_follow_up_at: null,
   notes: null,
+  whatsapp_number: null,
+  remarks: null,
   archived_at: null,
   created_by: 2,
   created_at: "2026-01-01T00:00:00Z" as unknown as Date,
@@ -175,5 +182,38 @@ describe("LeadDetailView", () => {
         expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"outcome":"COMPLETED"') }),
       ),
     );
+  });
+
+  it("edits the extended contact-detail fields", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/visits")) return Promise.resolve(new Response(JSON.stringify({ visits: [] })));
+      if (url === `/api/leads/${pendingLead.id}`) return Promise.resolve(new Response(JSON.stringify({ ok: true })));
+      return Promise.resolve(new Response(JSON.stringify({ users: [] })));
+    });
+    render(<LeadDetailView lead={pendingLead} activities={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
+    fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Wholesale" } });
+    fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "Plot 9" } });
+    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Gujarat" } });
+    fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "380001" } });
+    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9000000000" } });
+    fireEvent.change(screen.getByLabelText(/^remarks$/i), { target: { value: "Call before visiting" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(`/api/leads/${pendingLead.id}`, expect.objectContaining({ method: "PATCH" })));
+    const call = fetchSpy.mock.calls.find(([url, init]) => url === `/api/leads/${pendingLead.id}` && (init as RequestInit)?.method === "PATCH");
+    const body = JSON.parse((call?.[1] as RequestInit).body as string);
+    expect(body).toMatchObject({
+      industry: "Manufacturing",
+      businessType: "Wholesale",
+      address: "Plot 9",
+      state: "Gujarat",
+      pincode: "380001",
+      whatsappNumber: "9000000000",
+      remarks: "Call before visiting",
+    });
   });
 });

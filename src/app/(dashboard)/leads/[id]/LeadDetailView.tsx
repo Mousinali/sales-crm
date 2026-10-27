@@ -62,22 +62,38 @@ export default function LeadDetailView({
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
+  const [industry, setIndustry] = useState(lead.industry ?? "");
+  const [businessType, setBusinessType] = useState(lead.business_type ?? "");
+  const [address, setAddress] = useState(lead.address ?? "");
+  const [leadState, setLeadState] = useState(lead.state ?? "");
+  const [pincode, setPincode] = useState(lead.pincode ?? "");
+  const [country, setCountry] = useState(lead.country);
   const [contactPerson, setContactPerson] = useState(lead.contact_person ?? "");
   const [phone, setPhone] = useState(lead.phone);
+  const [whatsappNumber, setWhatsappNumber] = useState(lead.whatsapp_number ?? "");
   const [email, setEmail] = useState(lead.email ?? "");
   const [website, setWebsite] = useState(lead.website ?? "");
   const [serviceRequirements, setServiceRequirements] = useState(lead.service_requirements);
+  const [remarks, setRemarks] = useState(lead.remarks ?? "");
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [priority, setPriority] = useState<LeadPriority>(lead.priority);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function openEdit() {
+    setIndustry(lead.industry ?? "");
+    setBusinessType(lead.business_type ?? "");
+    setAddress(lead.address ?? "");
+    setLeadState(lead.state ?? "");
+    setPincode(lead.pincode ?? "");
+    setCountry(lead.country);
     setContactPerson(lead.contact_person ?? "");
     setPhone(lead.phone);
+    setWhatsappNumber(lead.whatsapp_number ?? "");
     setEmail(lead.email ?? "");
     setWebsite(lead.website ?? "");
     setServiceRequirements(lead.service_requirements);
+    setRemarks(lead.remarks ?? "");
     setNotes(lead.notes ?? "");
     setPriority(lead.priority);
     setEditError(null);
@@ -93,11 +109,19 @@ export default function LeadDetailView({
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          industry: industry.trim() || undefined,
+          businessType: businessType.trim() || undefined,
+          address: address.trim() || undefined,
+          state: leadState.trim() || undefined,
+          pincode: pincode.trim() || undefined,
+          country: country.trim() || undefined,
           contactPerson: contactPerson.trim() || undefined,
           phone: phone.trim(),
+          whatsappNumber: whatsappNumber.trim() || undefined,
           email: email.trim() || undefined,
           website: website.trim() || undefined,
           serviceRequirements: serviceRequirements.trim(),
+          remarks: remarks.trim() || undefined,
           notes: notes.trim() || undefined,
           priority,
         }),
@@ -109,11 +133,19 @@ export default function LeadDetailView({
       }
       setLead((current) => ({
         ...current,
+        industry: industry.trim() || null,
+        business_type: businessType.trim() || null,
+        address: address.trim() || null,
+        state: leadState.trim() || null,
+        pincode: pincode.trim() || null,
+        country: country.trim() || current.country,
         contact_person: contactPerson.trim() || null,
         phone: phone.trim(),
+        whatsapp_number: whatsappNumber.trim() || null,
         email: email.trim() || null,
         website: website.trim() || null,
         service_requirements: serviceRequirements.trim(),
+        remarks: remarks.trim() || null,
         notes: notes.trim() || null,
         priority,
       }));
@@ -533,8 +565,26 @@ export default function LeadDetailView({
 
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div>
+            <dt className="text-zinc-500">Industry type</dt>
+            <dd className="text-zinc-900">{lead.industry ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-500">Business type</dt>
+            <dd className="text-zinc-900">{lead.business_type ?? "—"}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-zinc-500">Address</dt>
+            <dd className="text-zinc-900">
+              {[lead.address, lead.state, lead.pincode, lead.country].filter(Boolean).join(", ") || "—"}
+            </dd>
+          </div>
+          <div>
             <dt className="text-zinc-500">Phone</dt>
             <dd className="text-zinc-900">{lead.phone}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-500">WhatsApp number</dt>
+            <dd className="text-zinc-900">{lead.whatsapp_number ?? "—"}</dd>
           </div>
           <div>
             <dt className="text-zinc-500">Email</dt>
@@ -545,9 +595,15 @@ export default function LeadDetailView({
             <dd className="text-zinc-900">{lead.website ?? "—"}</dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-zinc-500">Service requirements</dt>
+            <dt className="text-zinc-500">Service interested</dt>
             <dd className="text-zinc-900">{lead.service_requirements}</dd>
           </div>
+          {lead.remarks && (
+            <div className="sm:col-span-2">
+              <dt className="text-zinc-500">Remarks</dt>
+              <dd className="text-zinc-900">{lead.remarks}</dd>
+            </div>
+          )}
           {lead.notes && (
             <div className="sm:col-span-2">
               <dt className="text-zinc-500">Notes</dt>
@@ -980,6 +1036,80 @@ export default function LeadDetailView({
             <h2 className="mb-4 text-base font-semibold text-zinc-900">Edit lead</h2>
             <form onSubmit={handleEditSubmit} className="flex flex-col gap-4" noValidate>
               <div className="flex flex-col gap-1.5">
+                <label htmlFor="editIndustry" className="text-sm font-medium text-zinc-700">
+                  Industry type
+                </label>
+                <input
+                  id="editIndustry"
+                  type="text"
+                  value={industry}
+                  onChange={(event) => setIndustry(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="editBusinessType" className="text-sm font-medium text-zinc-700">
+                  Business type
+                </label>
+                <input
+                  id="editBusinessType"
+                  type="text"
+                  value={businessType}
+                  onChange={(event) => setBusinessType(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="editAddress" className="text-sm font-medium text-zinc-700">
+                  Address
+                </label>
+                <input
+                  id="editAddress"
+                  type="text"
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="editLeadState" className="text-sm font-medium text-zinc-700">
+                    State
+                  </label>
+                  <input
+                    id="editLeadState"
+                    type="text"
+                    value={leadState}
+                    onChange={(event) => setLeadState(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="editPincode" className="text-sm font-medium text-zinc-700">
+                    Pincode
+                  </label>
+                  <input
+                    id="editPincode"
+                    type="text"
+                    value={pincode}
+                    onChange={(event) => setPincode(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="editCountry" className="text-sm font-medium text-zinc-700">
+                    Country
+                  </label>
+                  <input
+                    id="editCountry"
+                    type="text"
+                    value={country}
+                    onChange={(event) => setCountry(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
                 <label htmlFor="editContactPerson" className="text-sm font-medium text-zinc-700">
                   Contact person
                 </label>
@@ -1000,6 +1130,18 @@ export default function LeadDetailView({
                   type="text"
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="editWhatsappNumber" className="text-sm font-medium text-zinc-700">
+                  WhatsApp number
+                </label>
+                <input
+                  id="editWhatsappNumber"
+                  type="text"
+                  value={whatsappNumber}
+                  onChange={(event) => setWhatsappNumber(event.target.value)}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
@@ -1029,12 +1171,23 @@ export default function LeadDetailView({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="editServiceRequirements" className="text-sm font-medium text-zinc-700">
-                  Service requirements
+                  Service interested
                 </label>
                 <textarea
                   id="editServiceRequirements"
                   value={serviceRequirements}
                   onChange={(event) => setServiceRequirements(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="editRemarks" className="text-sm font-medium text-zinc-700">
+                  Remarks
+                </label>
+                <textarea
+                  id="editRemarks"
+                  value={remarks}
+                  onChange={(event) => setRemarks(event.target.value)}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>

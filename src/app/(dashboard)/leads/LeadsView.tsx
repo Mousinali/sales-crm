@@ -43,12 +43,20 @@ export default function LeadsView({
   const canCreate = viewerRole === "PRE_SALES" || viewerRole === "MARKETING_HEAD";
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [industry, setIndustry] = useState("");
+  const [businessType, setBusinessType] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [address, setAddress] = useState("");
+  const [leadState, setLeadState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [country, setCountry] = useState("India");
   const [contactPerson, setContactPerson] = useState("");
   const [phone, setPhone] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [serviceRequirements, setServiceRequirements] = useState("");
+  const [remarks, setRemarks] = useState("");
   const [leadSource, setLeadSource] = useState<LeadSource>(LEAD_SOURCES[0]);
   const [priority, setPriority] = useState<LeadPriority>("MEDIUM");
   const [createError, setCreateError] = useState<string | null>(null);
@@ -87,12 +95,20 @@ export default function LeadsView({
   }
 
   function openCreateModal() {
+    setIndustry("");
+    setBusinessType("");
     setCompanyName("");
+    setAddress("");
+    setLeadState("");
+    setPincode("");
+    setCountry("India");
     setContactPerson("");
     setPhone("");
+    setWhatsappNumber("");
     setEmail("");
     setWebsite("");
     setServiceRequirements("");
+    setRemarks("");
     setLeadSource(LEAD_SOURCES[0]);
     setPriority("MEDIUM");
     setCreateError(null);
@@ -148,12 +164,20 @@ export default function LeadsView({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          industry: industry.trim() || undefined,
+          businessType: businessType.trim() || undefined,
           companyName: companyName.trim(),
+          address: address.trim() || undefined,
+          state: leadState.trim() || undefined,
+          pincode: pincode.trim() || undefined,
+          country: country.trim() || undefined,
           contactPerson: contactPerson.trim() || undefined,
           phone: phone.trim(),
+          whatsappNumber: whatsappNumber.trim() || undefined,
           email: email.trim() || undefined,
           website: website.trim() || undefined,
           serviceRequirements: serviceRequirements.trim(),
+          remarks: remarks.trim() || undefined,
           leadSource,
           priority,
         }),
@@ -496,6 +520,32 @@ export default function LeadsView({
             <h2 className="mb-4 text-base font-semibold text-zinc-900">New Lead</h2>
             <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4" noValidate>
               <div className="flex flex-col gap-1.5">
+                <label htmlFor="industry" className="text-sm font-medium text-zinc-700">
+                  Industry type
+                </label>
+                <input
+                  id="industry"
+                  type="text"
+                  value={industry}
+                  onChange={(event) => setIndustry(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="businessType" className="text-sm font-medium text-zinc-700">
+                  Business type
+                </label>
+                <input
+                  id="businessType"
+                  type="text"
+                  value={businessType}
+                  onChange={(event) => setBusinessType(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <label htmlFor="companyName" className="text-sm font-medium text-zinc-700">
                   Company
                 </label>
@@ -507,6 +557,58 @@ export default function LeadsView({
                   onBlur={checkDuplicates}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="address" className="text-sm font-medium text-zinc-700">
+                  Address
+                </label>
+                <input
+                  id="address"
+                  type="text"
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="leadState" className="text-sm font-medium text-zinc-700">
+                    State
+                  </label>
+                  <input
+                    id="leadState"
+                    type="text"
+                    value={leadState}
+                    onChange={(event) => setLeadState(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="pincode" className="text-sm font-medium text-zinc-700">
+                    Pincode
+                  </label>
+                  <input
+                    id="pincode"
+                    type="text"
+                    value={pincode}
+                    onChange={(event) => setPincode(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label htmlFor="country" className="text-sm font-medium text-zinc-700">
+                    Country
+                  </label>
+                  <input
+                    id="country"
+                    type="text"
+                    value={country}
+                    onChange={(event) => setCountry(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
               </div>
 
               {duplicates.length > 0 && (
@@ -548,6 +650,19 @@ export default function LeadsView({
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <label htmlFor="whatsappNumber" className="text-sm font-medium text-zinc-700">
+                  WhatsApp number
+                </label>
+                <input
+                  id="whatsappNumber"
+                  type="text"
+                  value={whatsappNumber}
+                  onChange={(event) => setWhatsappNumber(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <label htmlFor="email" className="text-sm font-medium text-zinc-700">
                   Email
                 </label>
@@ -575,12 +690,24 @@ export default function LeadsView({
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="serviceRequirements" className="text-sm font-medium text-zinc-700">
-                  Service requirements
+                  Service interested
                 </label>
                 <textarea
                   id="serviceRequirements"
                   value={serviceRequirements}
                   onChange={(event) => setServiceRequirements(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="remarks" className="text-sm font-medium text-zinc-700">
+                  Remarks
+                </label>
+                <textarea
+                  id="remarks"
+                  value={remarks}
+                  onChange={(event) => setRemarks(event.target.value)}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>

@@ -17,7 +17,12 @@ const sampleLeads: LeadRow[] = [
     website: null,
     website_domain: null,
     industry: null,
+    business_type: null,
     location: null,
+    address: null,
+    state: null,
+    pincode: null,
+    country: "India",
     service_requirements: "CRM",
     estimated_budget: null,
     lead_source: "OTHER",
@@ -28,6 +33,8 @@ const sampleLeads: LeadRow[] = [
     salesperson_owner_id: null,
     next_follow_up_at: null,
     notes: null,
+    whatsapp_number: null,
+    remarks: null,
     archived_at: null,
     created_by: 2,
     created_at: "2026-01-01T00:00:00Z" as unknown as Date,
@@ -55,6 +62,41 @@ describe("LeadsView", () => {
     fireEvent.change(screen.getByLabelText(/company/i), { target: { value: "Acme Corp" } });
     fireEvent.blur(screen.getByLabelText(/company/i));
     expect(await screen.findByText(/similar lead/i)).toBeInTheDocument();
+  });
+
+  it("submits the extended contact-detail fields, defaulting country to India", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (String(url).includes("/duplicates")) return new Response(JSON.stringify({ duplicates: [] }));
+      return new Response(JSON.stringify({ id: 2 }), { status: 201 });
+    });
+    render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
+    fireEvent.click(screen.getByRole("button", { name: /new lead/i }));
+    fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
+    fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Retail" } });
+    fireEvent.change(screen.getByLabelText(/^company$/i), { target: { value: "New Co" } });
+    fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "12 MG Road" } });
+    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Karnataka" } });
+    fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "560001" } });
+    fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });
+    fireEvent.change(screen.getByLabelText(/service interested/i), { target: { value: "CRM" } });
+    fireEvent.change(screen.getByLabelText(/^remarks$/i), { target: { value: "Call after 5pm" } });
+    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/leads", expect.objectContaining({ method: "POST" })));
+    const call = fetchSpy.mock.calls.find(([url, init]) => url === "/api/leads" && (init as RequestInit)?.method === "POST");
+    const body = JSON.parse((call?.[1] as RequestInit).body as string);
+    expect(body).toMatchObject({
+      industry: "Manufacturing",
+      businessType: "Retail",
+      companyName: "New Co",
+      address: "12 MG Road",
+      state: "Karnataka",
+      pincode: "560001",
+      country: "India",
+      whatsappNumber: "9876543210",
+      remarks: "Call after 5pm",
+    });
   });
 
   it("hides row selection and bulk transfer for a non-Marketing-Head viewer", () => {

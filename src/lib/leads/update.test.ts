@@ -51,6 +51,36 @@ describe("updateLead", () => {
     expect(rows[0].notes).toBe("Called, interested");
   });
 
+  it("updates the extended contact-detail fields", async () => {
+    await updateLead(pool, {
+      actorId: preSalesId,
+      actorRole: "PRE_SALES",
+      leadId: myLead.id,
+      fields: {
+        businessType: "Wholesale",
+        address: "221B Baker Street",
+        state: "Delhi",
+        pincode: "110001",
+        country: "India",
+        whatsappNumber: "9999999999",
+        remarks: "Prefers WhatsApp contact",
+      },
+    });
+    const { rows } = await pool.query(
+      "SELECT business_type, address, state, pincode, country, whatsapp_number, remarks FROM leads WHERE id = $1",
+      [myLead.id],
+    );
+    expect(rows[0]).toMatchObject({
+      business_type: "Wholesale",
+      address: "221B Baker Street",
+      state: "Delhi",
+      pincode: "110001",
+      country: "India",
+      whatsapp_number: "9999999999",
+      remarks: "Prefers WhatsApp contact",
+    });
+  });
+
   it("rejects a Pre-sales user updating a lead they don't own", async () => {
     await expect(
       updateLead(pool, { actorId: otherPreSalesId, actorRole: "PRE_SALES", leadId: myLead.id, fields: { notes: "x" } }),

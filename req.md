@@ -219,16 +219,22 @@ also create leads when needed.
 Lead fields:
 
 -   Lead ID
+-   Industry type
+-   Business type
 -   Company or client name (required)
+-   Address
+-   State
+-   Pincode
+-   Country (defaults to India)
 -   Contact person
 -   Designation
 -   Phone number (required by default; make the requirement configurable
     if needed)
+-   WhatsApp number
 -   Email address
 -   Company website
--   Industry
 -   Location
--   Service requirements (required)
+-   Service interested (required)
 -   Estimated budget (optional)
 -   Lead source
 -   Priority
@@ -239,6 +245,7 @@ Lead fields:
 -   Created at
 -   Updated at
 -   Next follow-up date and time
+-   Remarks (free-text)
 -   General notes
 
 Lead source options for the first version:

@@ -22,7 +22,12 @@ export type LeadRow = {
   website: string | null;
   website_domain: string | null;
   industry: string | null;
+  business_type: string | null;
   location: string | null;
+  address: string | null;
+  state: string | null;
+  pincode: string | null;
+  country: string;
   service_requirements: string;
   estimated_budget: string | null;
   lead_source: LeadSource;
@@ -33,6 +38,8 @@ export type LeadRow = {
   salesperson_owner_id: number | null;
   next_follow_up_at: Date | null;
   notes: string | null;
+  whatsapp_number: string | null;
+  remarks: string | null;
   archived_at: Date | null;
   created_by: number;
   created_at: Date;

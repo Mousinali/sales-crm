@@ -15,12 +15,19 @@ const createLeadSchema = z.object({
   email: z.string().trim().email().optional(),
   website: z.string().trim().min(1).optional(),
   industry: z.string().trim().min(1).optional(),
+  businessType: z.string().trim().min(1).optional(),
   location: z.string().trim().min(1).optional(),
+  address: z.string().trim().min(1).optional(),
+  state: z.string().trim().min(1).optional(),
+  pincode: z.string().trim().min(1).optional(),
+  country: z.string().trim().min(1).optional(),
   serviceRequirements: z.string().trim().min(1),
   estimatedBudget: z.number().optional(),
   leadSource: z.enum(LEAD_SOURCES),
   priority: z.enum(LEAD_PRIORITIES).optional(),
   notes: z.string().trim().min(1).optional(),
+  whatsappNumber: z.string().trim().min(1).optional(),
+  remarks: z.string().trim().min(1).optional(),
 });
 
 const listQuerySchema = z.object({

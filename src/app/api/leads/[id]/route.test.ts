@@ -88,6 +88,21 @@ describe("PATCH /api/leads/[id]", () => {
     expect(res.status).toBe(403);
   });
 
+  it("lets the owning Pre-sales user update the extended contact-detail fields", async () => {
+    const res = await patchLead(myLead.id, { businessType: "Manufacturing", address: "Plot 9", state: "Gujarat", pincode: "380001", whatsappNumber: "9000000000", remarks: "Call before visiting" }, preSalesCookie);
+    expect(res.status).toBe(200);
+    const getRes = await getLead(myLead.id, preSalesCookie);
+    const body = await getRes.json();
+    expect(body).toMatchObject({
+      business_type: "Manufacturing",
+      address: "Plot 9",
+      state: "Gujarat",
+      pincode: "380001",
+      whatsapp_number: "9000000000",
+      remarks: "Call before visiting",
+    });
+  });
+
   it("lets the owning Pre-sales user archive their lead", async () => {
     const res = await patchLead(myLead.id, { archived: true }, preSalesCookie);
     expect(res.status).toBe(200);

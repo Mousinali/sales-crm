@@ -41,6 +41,39 @@ describe("createLead", () => {
     expect(lead.status).toBe("PENDING_REVIEW");
   });
 
+  it("accepts the extended contact-detail fields and defaults country to India", async () => {
+    const lead = await createLead(pool, {
+      creatorId: preSalesId,
+      creatorRole: "PRE_SALES",
+      companyName: "Contact Details Co",
+      phone: "3",
+      serviceRequirements: "z",
+      leadSource: "OTHER",
+      businessType: "Retail",
+      address: "12 MG Road",
+      state: "Karnataka",
+      pincode: "560001",
+      whatsappNumber: "9876543210",
+      remarks: "Met at trade show",
+    });
+    leadIds.push(lead.id);
+    expect(lead).toMatchObject({
+      business_type: "Retail",
+      address: "12 MG Road",
+      state: "Karnataka",
+      pincode: "560001",
+      country: "India",
+      whatsapp_number: "9876543210",
+      remarks: "Met at trade show",
+    });
+  });
+
+  it("lets the country be overridden", async () => {
+    const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Overseas Co", phone: "4", serviceRequirements: "z", leadSource: "OTHER", country: "United States" });
+    leadIds.push(lead.id);
+    expect(lead.country).toBe("United States");
+  });
+
   it("lets two different leads share the same email — unlike users.email, leads.email is not unique", async () => {
     const sharedEmail = `shared-contact-${Date.now()}@example.com`;
     const leadA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Shared Email A", phone: "11", email: sharedEmail, serviceRequirements: "z", leadSource: "OTHER" });

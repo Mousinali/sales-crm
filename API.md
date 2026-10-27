@@ -169,10 +169,17 @@ Create a lead. Only `PRE_SALES` and `MARKETING_HEAD` may create one.
   "email": "string, optional, valid email",
   "website": "string, optional",
   "industry": "string, optional",
+  "businessType": "string, optional",
   "location": "string, optional",
+  "address": "string, optional",
+  "state": "string, optional",
+  "pincode": "string, optional",
+  "country": "string, optional, default \"India\"",
   "estimatedBudget": "number, optional",
   "priority": "LOW | MEDIUM | HIGH, optional, default MEDIUM",
-  "notes": "string, optional"
+  "notes": "string, optional",
+  "whatsappNumber": "string, optional",
+  "remarks": "string, optional"
 }
 ```
 
@@ -231,7 +238,7 @@ Fetch one lead.
 
 Edit a lead's fields, or archive it. `SALESPERSON` and `HR` can never edit; `PRE_SALES` only if they created it or are its current `pre_sales_owner_id`; `MARKETING_HEAD` always.
 
-**Body (≥1 key):** any of `companyName`, `contactPerson`, `designation`, `phone`, `email`, `website`, `industry`, `location`, `serviceRequirements`, `estimatedBudget` (number), `priority`, `nextFollowUpAt` (date), `notes` — plus:
+**Body (≥1 key):** any of `companyName`, `contactPerson`, `designation`, `phone`, `whatsappNumber`, `email`, `website`, `industry`, `businessType`, `location`, `address`, `state`, `pincode`, `country`, `serviceRequirements`, `estimatedBudget` (number), `priority`, `nextFollowUpAt` (date), `notes`, `remarks` — plus:
 ```json
 { "archived": true }
 ```
@@ -483,7 +490,12 @@ Mark one of the caller's own notifications read. No body.
   website: string | null;
   website_domain: string | null; // internal
   industry: string | null;
+  business_type: string | null;
   location: string | null;
+  address: string | null;
+  state: string | null;
+  pincode: string | null;
+  country: string; // NOT NULL, defaults to "India"
   service_requirements: string;
   estimated_budget: string | null; // NUMERIC column — returned as a string, not a number
   lead_source: "WEBSITE_ENQUIRY" | "REFERRAL" | "COLD_OUTREACH" | "EXISTING_CLIENT" | "OTHER";
@@ -494,6 +506,8 @@ Mark one of the caller's own notifications read. No body.
   salesperson_owner_id: number | null;
   next_follow_up_at: string | null;
   notes: string | null;
+  whatsapp_number: string | null;
+  remarks: string | null;
   archived_at: string | null;
   created_by: number;
   created_at: string;

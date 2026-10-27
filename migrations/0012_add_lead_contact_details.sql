@@ -1,0 +1,7 @@
+ALTER TABLE leads ADD COLUMN business_type TEXT;
+ALTER TABLE leads ADD COLUMN address TEXT;
+ALTER TABLE leads ADD COLUMN state TEXT;
+ALTER TABLE leads ADD COLUMN pincode TEXT;
+ALTER TABLE leads ADD COLUMN country TEXT NOT NULL DEFAULT 'India';
+ALTER TABLE leads ADD COLUMN whatsapp_number TEXT;
+ALTER TABLE leads ADD COLUMN remarks TEXT;
