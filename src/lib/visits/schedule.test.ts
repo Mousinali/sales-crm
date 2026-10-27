@@ -6,13 +6,14 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
 import { listNotifications } from "@/lib/notifications/record";
-import { scheduleVisit, findConflictingVisit, rescheduleVisit, cancelVisit } from "./schedule";
-import { VisitActionNotAllowedError } from "./errors";
+import { scheduleVisit, findConflictingVisit, rescheduleVisit, cancelVisit, recordVisitOutcome } from "./schedule";
+import { VisitActionNotAllowedError, VisitNotAccessibleError } from "./errors";
 
 const adminEmail = `visit-admin-${Date.now()}@example.com`;
 let mhId: number;
 let preSalesId: number;
 let salespersonId: number;
+let otherSalespersonId: number;
 let inactiveSalespersonId: number;
 const createdEmails: string[] = [];
 const leadIds: number[] = [];
@@ -27,14 +28,16 @@ beforeAll(async () => {
   const mh = await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "MARKETING_HEAD", name: "MH", email: `visit-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `visit-ps-${Date.now()}@example.com` });
   const sp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "SP", email: `visit-sp-${Date.now()}@example.com` });
+  const otherSp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Other SP", email: `visit-osp-${Date.now()}@example.com` });
   const inactiveSp = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Inactive SP", email: `visit-isp-${Date.now()}@example.com` });
   await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = $1", [inactiveSp.id]);
 
   mhId = mh.id;
   preSalesId = ps.id;
   salespersonId = sp.id;
+  otherSalespersonId = otherSp.id;
   inactiveSalespersonId = inactiveSp.id;
-  createdEmails.push(hr.email, mh.email, ps.email, sp.email, inactiveSp.email);
+  createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email);
 
   lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Visit Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
@@ -107,6 +110,31 @@ describe("rescheduleVisit / cancelVisit", () => {
     visitIds.push(visit.id);
     await expect(
       rescheduleVisit(pool, { actorId: preSalesId, actorRole: "PRE_SALES", visitId: visit.id, visitDate: "2026-11-10", startTime: "09:00" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+});
+
+describe("recordVisitOutcome", () => {
+  it("lets the assigned Salesperson record a Completed outcome", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-08", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    const updated = await recordVisitOutcome(pool, { actorId: salespersonId, actorRole: "SALESPERSON", visitId: visit.id, outcome: "COMPLETED", outcomeNotes: "Went well, sending quote" });
+    expect(updated).toMatchObject({ status: "COMPLETED", outcome_notes: "Went well, sending quote" });
+  });
+
+  it("rejects another Salesperson recording this visit's outcome", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-09", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      recordVisitOutcome(pool, { actorId: otherSalespersonId, actorRole: "SALESPERSON", visitId: visit.id, outcome: "COMPLETED" }),
+    ).rejects.toThrow(VisitNotAccessibleError);
+  });
+
+  it("rejects a Marketing Head recording an outcome directly (only the assigned Salesperson may)", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-10", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      recordVisitOutcome(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, outcome: "COMPLETED" }),
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
 });

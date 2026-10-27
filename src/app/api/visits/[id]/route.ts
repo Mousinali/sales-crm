@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
-import { rescheduleVisit, cancelVisit } from "@/lib/visits/schedule";
-import { VisitActionNotAllowedError, VisitNotFoundError } from "@/lib/visits/errors";
+import { rescheduleVisit, cancelVisit, recordVisitOutcome } from "@/lib/visits/schedule";
+import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError } from "@/lib/visits/errors";
 
 const patchSchema = z.union([
   z.object({ action: z.literal("RESCHEDULE"), visitDate: z.string(), startTime: z.string() }),
   z.object({ action: z.literal("CANCEL") }),
+  z.object({
+    action: z.literal("RECORD_OUTCOME"),
+    outcome: z.enum(["COMPLETED", "MISSED"]),
+    outcomeNotes: z.string().optional(),
+    nextAction: z.string().optional(),
+  }),
 ]);
 
 export async function PATCH(
@@ -35,13 +41,24 @@ export async function PATCH(
   }
 
   try {
-    const visit =
-      parsed.data.action === "RESCHEDULE"
-        ? await rescheduleVisit(pool, { actorId: user.id, actorRole: user.role, visitId, visitDate: parsed.data.visitDate, startTime: parsed.data.startTime })
-        : await cancelVisit(pool, { actorId: user.id, actorRole: user.role, visitId });
+    let visit;
+    if (parsed.data.action === "RESCHEDULE") {
+      visit = await rescheduleVisit(pool, { actorId: user.id, actorRole: user.role, visitId, visitDate: parsed.data.visitDate, startTime: parsed.data.startTime });
+    } else if (parsed.data.action === "CANCEL") {
+      visit = await cancelVisit(pool, { actorId: user.id, actorRole: user.role, visitId });
+    } else {
+      visit = await recordVisitOutcome(pool, {
+        actorId: user.id,
+        actorRole: user.role,
+        visitId,
+        outcome: parsed.data.outcome,
+        outcomeNotes: parsed.data.outcomeNotes,
+        nextAction: parsed.data.nextAction,
+      });
+    }
     return NextResponse.json(visit);
   } catch (error) {
-    if (error instanceof VisitActionNotAllowedError) {
+    if (error instanceof VisitActionNotAllowedError || error instanceof VisitNotAccessibleError) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     if (error instanceof VisitNotFoundError) {

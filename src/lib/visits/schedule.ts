@@ -3,7 +3,7 @@ import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { recordLeadActivity } from "@/lib/leads/activities";
 import { recordNotification } from "@/lib/notifications/record";
-import { VisitActionNotAllowedError, VisitNotFoundError } from "./errors";
+import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError } from "./errors";
 import type { VisitRow } from "./types";
 
 async function getVisitOrThrow(pool: Pool, visitId: number): Promise<VisitRow> {
@@ -143,6 +143,32 @@ export async function cancelVisit(
   });
 
   return updated;
+}
+
+export async function recordVisitOutcome(
+  pool: Pool,
+  input: {
+    actorId: number;
+    actorRole: Role;
+    visitId: number;
+    outcome: "COMPLETED" | "MISSED";
+    outcomeNotes?: string;
+    nextAction?: string;
+  },
+): Promise<VisitRow> {
+  if (input.actorRole !== "SALESPERSON") {
+    throw new VisitActionNotAllowedError(`${input.actorRole} cannot record a visit outcome`);
+  }
+  const visit = await getVisitOrThrow(pool, input.visitId);
+  if (visit.salesperson_id !== input.actorId) {
+    throw new VisitNotAccessibleError(`Salesperson ${input.actorId} cannot access visit ${input.visitId}`);
+  }
+
+  const { rows } = await pool.query<VisitRow>(
+    `UPDATE client_visits SET status = $1, outcome_notes = $2, next_action = $3, updated_at = now() WHERE id = $4 RETURNING *`,
+    [input.outcome, input.outcomeNotes ?? null, input.nextAction ?? null, input.visitId],
+  );
+  return rows[0];
 }
 
 export async function findConflictingVisit(

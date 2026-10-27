@@ -13,6 +13,7 @@ const adminEmail = `visit-id-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
 let mhCookie: string;
 let preSalesCookie: string;
+let salespersonCookie: string;
 let mhId: number;
 let salespersonId: number;
 const createdEmails: string[] = [];
@@ -34,9 +35,10 @@ beforeAll(async () => {
   mhId = mh.id;
   salespersonId = sp.id;
 
-  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id]]);
+  await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id, sp.id]]);
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
+  salespersonCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
 
   lead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Visit Id Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
@@ -79,6 +81,18 @@ describe("PATCH /api/visits/[id]", () => {
   it("rejects a Pre-sales user with 403", async () => {
     const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-15", startTime: "09:00", objective: "x" });
     const res = await patchVisit(visit.id, { action: "CANCEL" }, preSalesCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("lets the assigned Salesperson record an outcome", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-16", startTime: "09:00", objective: "x" });
+    const res = await patchVisit(visit.id, { action: "RECORD_OUTCOME", outcome: "COMPLETED", outcomeNotes: "Went well" }, salespersonCookie);
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a Marketing Head recording an outcome directly with 403", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-17", startTime: "09:00", objective: "x" });
+    const res = await patchVisit(visit.id, { action: "RECORD_OUTCOME", outcome: "COMPLETED" }, mhCookie);
     expect(res.status).toBe(403);
   });
 });
