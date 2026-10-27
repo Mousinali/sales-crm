@@ -81,6 +81,13 @@ describe("POST /api/leads/[id]/visits", () => {
     const res = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "Demo" }, mhCookie);
     expect(res.status).toBe(200);
   });
+
+  it("returns 409 on a conflicting slot, and 200 once confirmed", async () => {
+    const conflicting = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "Second" }, mhCookie);
+    expect(conflicting.status).toBe(409);
+    const confirmed = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "Second", confirmConflict: true }, mhCookie);
+    expect(confirmed.status).toBe(200);
+  });
 });
 
 describe("GET /api/leads/[id]/visits", () => {

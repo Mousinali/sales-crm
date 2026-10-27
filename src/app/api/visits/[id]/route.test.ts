@@ -72,6 +72,15 @@ describe("PATCH /api/visits/[id]", () => {
     expect(res.status).toBe(200);
   });
 
+  it("returns 409 when rescheduling into a conflicting slot, 200 once confirmed", async () => {
+    await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-18", startTime: "10:00", objective: "Occupied" });
+    const toMove = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-19", startTime: "09:00", objective: "To move" });
+    const conflicting = await patchVisit(toMove.id, { action: "RESCHEDULE", visitDate: "2026-11-18", startTime: "10:00" }, mhCookie);
+    expect(conflicting.status).toBe(409);
+    const confirmed = await patchVisit(toMove.id, { action: "RESCHEDULE", visitDate: "2026-11-18", startTime: "10:00", confirmConflict: true }, mhCookie);
+    expect(confirmed.status).toBe(200);
+  });
+
   it("cancels a visit", async () => {
     const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-14", startTime: "09:00", objective: "x" });
     const res = await patchVisit(visit.id, { action: "CANCEL" }, mhCookie);

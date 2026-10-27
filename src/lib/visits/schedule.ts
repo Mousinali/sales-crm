@@ -3,7 +3,7 @@ import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { recordLeadActivity } from "@/lib/leads/activities";
 import { recordNotification } from "@/lib/notifications/record";
-import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError } from "./errors";
+import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError, VisitConflictError } from "./errors";
 import type { VisitRow } from "./types";
 
 async function getVisitOrThrow(pool: Pool, visitId: number): Promise<VisitRow> {
@@ -39,6 +39,7 @@ export async function scheduleVisit(
     location?: string;
     objective: string;
     preparationNotes?: string;
+    confirmConflict?: boolean;
   },
 ): Promise<VisitRow> {
   if (input.actorRole !== "MARKETING_HEAD") {
@@ -47,6 +48,19 @@ export async function scheduleVisit(
 
   await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
   await assertActiveSalesperson(pool, input.salespersonId);
+
+  if (!input.confirmConflict) {
+    const conflict = await findConflictingVisit(pool, {
+      salespersonId: input.salespersonId,
+      visitDate: input.visitDate,
+      startTime: input.startTime,
+    });
+    if (conflict) {
+      throw new VisitConflictError(
+        `Salesperson ${input.salespersonId} already has a visit at ${input.visitDate} ${input.startTime}`,
+      );
+    }
+  }
 
   const { rows } = await pool.query<VisitRow>(
     `INSERT INTO client_visits
@@ -85,17 +99,47 @@ export async function scheduleVisit(
 
 export async function rescheduleVisit(
   pool: Pool,
-  input: { actorId: number; actorRole: Role; visitId: number; visitDate: string; startTime: string },
+  input: {
+    actorId: number;
+    actorRole: Role;
+    visitId: number;
+    visitDate: string;
+    startTime: string;
+    confirmConflict?: boolean;
+  },
 ): Promise<VisitRow> {
   if (input.actorRole !== "MARKETING_HEAD") {
     throw new VisitActionNotAllowedError(`${input.actorRole} cannot reschedule visits`);
   }
   const visit = await getVisitOrThrow(pool, input.visitId);
+  if (visit.status !== "SCHEDULED" && visit.status !== "RESCHEDULED") {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is ${visit.status} and cannot be rescheduled`);
+  }
+  await assertActiveSalesperson(pool, visit.salesperson_id);
+
+  if (!input.confirmConflict) {
+    const conflict = await findConflictingVisit(pool, {
+      salespersonId: visit.salesperson_id,
+      visitDate: input.visitDate,
+      startTime: input.startTime,
+    });
+    if (conflict) {
+      throw new VisitConflictError(
+        `Salesperson ${visit.salesperson_id} already has a visit at ${input.visitDate} ${input.startTime}`,
+      );
+    }
+  }
 
   const { rows } = await pool.query<VisitRow>(
-    `UPDATE client_visits SET status = 'RESCHEDULED', visit_date = $1, start_time = $2, updated_at = now() WHERE id = $3 RETURNING *`,
+    `UPDATE client_visits
+     SET status = 'RESCHEDULED', visit_date = $1, start_time = $2, updated_at = now()
+     WHERE id = $3 AND status IN ('SCHEDULED', 'RESCHEDULED')
+     RETURNING *`,
     [input.visitDate, input.startTime, input.visitId],
   );
+  if (rows.length === 0) {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is no longer SCHEDULED or RESCHEDULED`);
+  }
   const updated = rows[0];
 
   await recordLeadActivity(pool, {
@@ -122,11 +166,20 @@ export async function cancelVisit(
     throw new VisitActionNotAllowedError(`${input.actorRole} cannot cancel visits`);
   }
   const visit = await getVisitOrThrow(pool, input.visitId);
+  if (visit.status !== "SCHEDULED" && visit.status !== "RESCHEDULED") {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is ${visit.status} and cannot be cancelled`);
+  }
 
   const { rows } = await pool.query<VisitRow>(
-    `UPDATE client_visits SET status = 'CANCELLED', updated_at = now() WHERE id = $1 RETURNING *`,
+    `UPDATE client_visits
+     SET status = 'CANCELLED', updated_at = now()
+     WHERE id = $1 AND status IN ('SCHEDULED', 'RESCHEDULED')
+     RETURNING *`,
     [input.visitId],
   );
+  if (rows.length === 0) {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is no longer SCHEDULED or RESCHEDULED`);
+  }
   const updated = rows[0];
 
   await recordLeadActivity(pool, {

@@ -5,7 +5,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 import { scheduleVisit } from "@/lib/visits/schedule";
-import { VisitActionNotAllowedError } from "@/lib/visits/errors";
+import { VisitActionNotAllowedError, VisitConflictError } from "@/lib/visits/errors";
 import type { VisitRow } from "@/lib/visits/types";
 
 const scheduleSchema = z.object({
@@ -16,6 +16,7 @@ const scheduleSchema = z.object({
   location: z.string().optional(),
   objective: z.string(),
   preparationNotes: z.string().optional(),
+  confirmConflict: z.boolean().optional(),
 });
 
 export async function GET(
@@ -87,6 +88,9 @@ export async function POST(
     });
     return NextResponse.json(visit);
   } catch (error) {
+    if (error instanceof VisitConflictError) {
+      return NextResponse.json({ error: error.message, conflict: true }, { status: 409 });
+    }
     if (error instanceof VisitActionNotAllowedError || error instanceof LeadNotAccessibleError) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

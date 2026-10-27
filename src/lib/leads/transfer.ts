@@ -95,6 +95,13 @@ export async function transferLead(
       ],
     );
 
+    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== lead.salesperson_owner_id) {
+      await client.query(
+        `UPDATE client_visits SET salesperson_id = $1, updated_at = now() WHERE lead_id = $2 AND status IN ('SCHEDULED', 'RESCHEDULED')`,
+        [updatedLead.salesperson_owner_id, updatedLead.id],
+      );
+    }
+
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -186,6 +193,13 @@ export async function bulkTransferLeads(
           input.reason,
         ],
       );
+
+      if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== lead.salesperson_owner_id) {
+        await client.query(
+          `UPDATE client_visits SET salesperson_id = $1, updated_at = now() WHERE lead_id = $2 AND status IN ('SCHEDULED', 'RESCHEDULED')`,
+          [updatedLead.salesperson_owner_id, updatedLead.id],
+        );
+      }
     }
 
     await client.query("COMMIT");

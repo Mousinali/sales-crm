@@ -7,7 +7,7 @@ import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
 import { listNotifications } from "@/lib/notifications/record";
 import { scheduleVisit, findConflictingVisit, rescheduleVisit, cancelVisit, recordVisitOutcome } from "./schedule";
-import { VisitActionNotAllowedError, VisitNotAccessibleError } from "./errors";
+import { VisitActionNotAllowedError, VisitNotAccessibleError, VisitConflictError } from "./errors";
 
 const adminEmail = `visit-admin-${Date.now()}@example.com`;
 let mhId: number;
@@ -74,6 +74,17 @@ describe("scheduleVisit", () => {
       scheduleVisit(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: lead.id, salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "x" }),
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
+
+  it("rejects a conflicting slot unless the caller confirms it", async () => {
+    const first = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-20", startTime: "10:00", objective: "First" });
+    visitIds.push(first.id);
+    await expect(
+      scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-20", startTime: "10:00", objective: "Second" }),
+    ).rejects.toThrow(VisitConflictError);
+    const confirmed = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-20", startTime: "10:00", objective: "Second", confirmConflict: true });
+    visitIds.push(confirmed.id);
+    expect(confirmed.status).toBe("SCHEDULED");
+  });
 });
 
 describe("findConflictingVisit", () => {
@@ -95,6 +106,7 @@ describe("rescheduleVisit / cancelVisit", () => {
     visitIds.push(visit.id);
     const updated = await rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, visitDate: "2026-11-10", startTime: "09:00" });
     expect(updated).toMatchObject({ status: "RESCHEDULED", visit_date: "2026-11-10" });
+    expect((await listNotifications(pool, salespersonId)).some((n) => n.type === "VISIT_RESCHEDULED")).toBe(true);
   });
 
   it("cancels a visit and notifies the assigned Salesperson", async () => {
@@ -111,6 +123,41 @@ describe("rescheduleVisit / cancelVisit", () => {
     await expect(
       rescheduleVisit(pool, { actorId: preSalesId, actorRole: "PRE_SALES", visitId: visit.id, visitDate: "2026-11-10", startTime: "09:00" }),
     ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
+  it("rejects rescheduling into a conflicting slot unless confirmed", async () => {
+    const occupied = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-21", startTime: "10:00", objective: "Occupied" });
+    visitIds.push(occupied.id);
+    const toMove = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-22", startTime: "09:00", objective: "To move" });
+    visitIds.push(toMove.id);
+    await expect(
+      rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: toMove.id, visitDate: "2026-11-21", startTime: "10:00" }),
+    ).rejects.toThrow(VisitConflictError);
+    const updated = await rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: toMove.id, visitDate: "2026-11-21", startTime: "10:00", confirmConflict: true });
+    expect(updated.status).toBe("RESCHEDULED");
+  });
+
+  it("rejects rescheduling a visit whose Salesperson has since been deactivated", async () => {
+    const soonInactive = await createUser(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", role: "SALESPERSON", name: "Soon Inactive", email: `visit-soon-inactive-${Date.now()}@example.com` });
+    createdEmails.push(soonInactive.email);
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId: soonInactive.id, visitDate: "2026-11-23", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await pool.query("UPDATE users SET status = 'INACTIVE' WHERE id = $1", [soonInactive.id]);
+    await expect(
+      rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, visitDate: "2026-11-24", startTime: "09:00" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
+  it("rejects rescheduling or cancelling a visit that is already Completed, Cancelled, or Missed", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-25", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await recordVisitOutcome(pool, { actorId: salespersonId, actorRole: "SALESPERSON", visitId: visit.id, outcome: "COMPLETED" });
+    await expect(
+      rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, visitDate: "2026-11-26", startTime: "09:00" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+    await expect(cancelVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id })).rejects.toThrow(
+      VisitActionNotAllowedError,
+    );
   });
 });
 
@@ -131,7 +178,7 @@ describe("recordVisitOutcome", () => {
   });
 
   it("rejects a Marketing Head recording an outcome directly (only the assigned Salesperson may)", async () => {
-    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-10", startTime: "09:00", objective: "x" });
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-12", startTime: "09:00", objective: "x" });
     visitIds.push(visit.id);
     await expect(
       recordVisitOutcome(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, outcome: "COMPLETED" }),

@@ -8,6 +8,8 @@ import { createLead } from "./create";
 import { assignLead } from "./assign";
 import { transferLead, bulkTransferLeads } from "./transfer";
 import { InvalidLeadReasonError, LeadActionNotAllowedError } from "./errors";
+import { listNotifications } from "@/lib/notifications/record";
+import { scheduleVisit, recordVisitOutcome } from "@/lib/visits/schedule";
 
 const adminEmail = `transfer-admin-${Date.now()}@example.com`;
 let mhId: number;
@@ -53,6 +55,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await pool.query("DELETE FROM lead_transfer_history WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM notifications WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM client_visits WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_assignments WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
@@ -69,6 +72,8 @@ describe("transferLead", () => {
     expect(updated.salesperson_owner_id).toBe(otherSalespersonId);
     const { rows } = await pool.query("SELECT * FROM lead_transfer_history WHERE lead_id = $1", [assignedLead.id]);
     expect(rows[0]).toMatchObject({ previous_salesperson_owner_id: originalSalespersonId, new_salesperson_owner_id: otherSalespersonId, reason: "Territory realignment" });
+    expect((await listNotifications(pool, originalSalespersonId)).some((n) => n.type === "LEAD_TRANSFERRED" && n.lead_id === assignedLead.id)).toBe(true);
+    expect((await listNotifications(pool, otherSalespersonId)).some((n) => n.type === "LEAD_TRANSFERRED" && n.lead_id === assignedLead.id)).toBe(true);
   });
 
   it("rejects a transfer with no reason", async () => {
@@ -95,6 +100,21 @@ describe("transferLead", () => {
     await expect(
       transferLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
     ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("reassigns the lead's upcoming visits to the new Salesperson, leaving completed visits alone", async () => {
+    const visitLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Visit Transfer Co", phone: "8", serviceRequirements: "x", leadSource: "OTHER" });
+    await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [visitLead.id]);
+    leadIds.push(visitLead.id);
+    const upcoming = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: visitLead.id, salespersonId: originalSalespersonId, visitDate: "2026-12-05", startTime: "09:00", objective: "x" });
+    const past = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: visitLead.id, salespersonId: originalSalespersonId, visitDate: "2026-12-06", startTime: "09:00", objective: "x" });
+    await recordVisitOutcome(pool, { actorId: originalSalespersonId, actorRole: "SALESPERSON", visitId: past.id, outcome: "COMPLETED" });
+
+    await transferLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: visitLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "Reassign" });
+
+    const { rows } = await pool.query("SELECT id, salesperson_id FROM client_visits WHERE id = ANY($1) ORDER BY id", [[upcoming.id, past.id]]);
+    expect(rows[0]).toMatchObject({ id: upcoming.id, salesperson_id: otherSalespersonId });
+    expect(rows[1]).toMatchObject({ id: past.id, salesperson_id: originalSalespersonId });
   });
 
   it("bulk-transfers several leads in one call, writing one history row per lead", async () => {
