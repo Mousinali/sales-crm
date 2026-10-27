@@ -163,11 +163,20 @@ export async function recordVisitOutcome(
   if (visit.salesperson_id !== input.actorId) {
     throw new VisitNotAccessibleError(`Salesperson ${input.actorId} cannot access visit ${input.visitId}`);
   }
+  if (visit.status !== "SCHEDULED" && visit.status !== "RESCHEDULED") {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is ${visit.status} and cannot have an outcome recorded`);
+  }
 
   const { rows } = await pool.query<VisitRow>(
-    `UPDATE client_visits SET status = $1, outcome_notes = $2, next_action = $3, updated_at = now() WHERE id = $4 RETURNING *`,
+    `UPDATE client_visits
+     SET status = $1, outcome_notes = $2, next_action = $3, updated_at = now()
+     WHERE id = $4 AND status IN ('SCHEDULED', 'RESCHEDULED')
+     RETURNING *`,
     [input.outcome, input.outcomeNotes ?? null, input.nextAction ?? null, input.visitId],
   );
+  if (rows.length === 0) {
+    throw new VisitActionNotAllowedError(`Visit ${input.visitId} is no longer SCHEDULED or RESCHEDULED`);
+  }
   return rows[0];
 }
 

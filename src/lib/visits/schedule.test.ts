@@ -137,4 +137,13 @@ describe("recordVisitOutcome", () => {
       recordVisitOutcome(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, outcome: "COMPLETED" }),
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
+
+  it("rejects recording an outcome on a visit that was already cancelled", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-11", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await cancelVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id });
+    await expect(
+      recordVisitOutcome(pool, { actorId: salespersonId, actorRole: "SALESPERSON", visitId: visit.id, outcome: "COMPLETED" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
 });
