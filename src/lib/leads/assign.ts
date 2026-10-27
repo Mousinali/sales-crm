@@ -4,8 +4,9 @@ import { assertLeadVisible } from "./guard";
 import { recordLeadActivity } from "./activities";
 import { LeadActionNotAllowedError } from "./errors";
 import type { LeadRow } from "./types";
+import { recordNotification } from "@/lib/notifications/record";
 
-async function assertActiveUserWithRole(pool: Pool, userId: number, role: Role): Promise<void> {
+export async function assertActiveUserWithRole(pool: Pool, userId: number, role: Role): Promise<void> {
   const { rows } = await pool.query<{ role: Role; status: "ACTIVE" | "INACTIVE" }>(
     "SELECT role, status FROM users WHERE id = $1",
     [userId],
@@ -85,6 +86,23 @@ export async function assignLead(
       type: "ASSIGNMENT",
       notes: `Assigned pre-sales owner ${updatedLead.pre_sales_owner_id ?? "unchanged"}, salesperson ${updatedLead.salesperson_owner_id ?? "unchanged"}`,
     });
+
+    if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== lead.salesperson_owner_id) {
+      await recordNotification(pool, {
+        recipientUserId: updatedLead.salesperson_owner_id,
+        type: "LEAD_ASSIGNED",
+        leadId: updatedLead.id,
+        message: `You were assigned ${updatedLead.company_name}`,
+      });
+    }
+    if (updatedLead.pre_sales_owner_id !== null && updatedLead.pre_sales_owner_id !== lead.pre_sales_owner_id) {
+      await recordNotification(pool, {
+        recipientUserId: updatedLead.pre_sales_owner_id,
+        type: "LEAD_ASSIGNED",
+        leadId: updatedLead.id,
+        message: `You were assigned ${updatedLead.company_name}`,
+      });
+    }
 
     return updatedLead;
   } catch (error) {

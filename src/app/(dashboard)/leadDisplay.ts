@@ -1,4 +1,5 @@
 import type { LeadStatus, LeadPriority } from "@/lib/leads/types";
+import type { VisitStatus } from "@/lib/visits/types";
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: "New",
@@ -34,4 +35,20 @@ export const LEAD_PRIORITY_BADGE_CLASSES: Record<LeadPriority, string> = {
   LOW: "bg-zinc-100 text-zinc-600",
   MEDIUM: "bg-sky-50 text-sky-700",
   HIGH: "bg-rose-50 text-rose-700",
+};
+
+export const VISIT_STATUS_LABELS: Record<VisitStatus, string> = {
+  SCHEDULED: "Scheduled",
+  COMPLETED: "Completed",
+  RESCHEDULED: "Rescheduled",
+  CANCELLED: "Cancelled",
+  MISSED: "Missed",
+};
+
+export const VISIT_STATUS_BADGE_CLASSES: Record<VisitStatus, string> = {
+  SCHEDULED: "bg-sky-50 text-sky-700",
+  COMPLETED: "bg-emerald-50 text-emerald-700",
+  RESCHEDULED: "bg-amber-50 text-amber-700",
+  CANCELLED: "bg-zinc-100 text-zinc-600",
+  MISSED: "bg-rose-50 text-rose-700",
 };

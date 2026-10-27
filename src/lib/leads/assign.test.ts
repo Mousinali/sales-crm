@@ -7,6 +7,7 @@ import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { assignLead } from "./assign";
 import { LeadActionNotAllowedError } from "./errors";
+import { listNotifications } from "@/lib/notifications/record";
 
 const adminEmail = `assign-admin-${Date.now()}@example.com`;
 let mhId: number;
@@ -49,6 +50,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM notifications WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_assignments WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
@@ -121,5 +123,11 @@ describe("assignLead", () => {
     await expect(
       assignLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: qualifiedLead.id, salespersonId: otherSalespersonId }),
     ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
+  it("notifies the newly assigned Salesperson", async () => {
+    await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: qualifiedLead.id, salespersonId });
+    const notifications = await listNotifications(pool, salespersonId);
+    expect(notifications.some((n) => n.type === "LEAD_ASSIGNED" && n.lead_id === qualifiedLead.id)).toBe(true);
   });
 });
