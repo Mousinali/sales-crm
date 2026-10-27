@@ -13,6 +13,7 @@ let superAdminId: number;
 let mhCookie: string;
 let preSalesCookie: string;
 let salespersonId: number;
+let mustChangePasswordCookie: string;
 const createdEmails: string[] = [];
 const sessionUserIds: number[] = [];
 const leadIds: number[] = [];
@@ -34,6 +35,7 @@ beforeAll(async () => {
   await pool.query("UPDATE users SET must_change_password = false WHERE id = ANY($1)", [[mh.id, ps.id]]);
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
+  mustChangePasswordCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
 
   lead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Visit Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
@@ -87,5 +89,10 @@ describe("GET /api/leads/[id]/visits", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.visits.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a user who must change their password with 403", async () => {
+    const res = await getVisits(lead.id, mustChangePasswordCookie);
+    expect(res.status).toBe(403);
   });
 });
