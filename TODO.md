@@ -55,6 +55,13 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase3-leads.md`
   edit bug, activity-timeline readability, and a "return for more info" path
   back to Pending Review. Full detail in the Phase 3 commit messages.
 - All tests passing (142/142), `tsc --noEmit` clean, `next build` clean
+- [x] Post-launch addition (2026-10-27): extended lead record with
+  `business_type`, `address`, `state`, `pincode`, `country` (default
+  India), `whatsapp_number`, `remarks` (migration `0012`), exposed on
+  both the create and edit forms, plus `req.md` §5.1/`API.md` updated.
+  `industry`/`location`/`estimated_budget`/`designation`/follow-up date
+  remain deferred from the note above (industry is now surfaced in the
+  UI as "Industry type"; the rest are still backend-only).
 
 ## Phase 4 — Transfers and visits ✅ done
 
