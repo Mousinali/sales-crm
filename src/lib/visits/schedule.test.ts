@@ -83,6 +83,12 @@ describe("scheduleVisit", () => {
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
 
+  it("rejects Super Admin scheduling a visit", async () => {
+    await expect(
+      scheduleVisit(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: lead.id, salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "x" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
   it("rejects a conflicting slot unless the caller confirms it", async () => {
     const first = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-20", startTime: "10:00", objective: "First" });
     visitIds.push(first.id);
@@ -172,6 +178,25 @@ describe("rescheduleVisit / cancelVisit", () => {
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
 
+  it("rejects HR cancelling a visit", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-12-03", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      cancelVisit(pool, { actorId: superAdminId, actorRole: "HR", visitId: visit.id }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
+  it("rejects Super Admin rescheduling or cancelling a visit", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-12-04", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      rescheduleVisit(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", visitId: visit.id, visitDate: "2026-12-05", startTime: "09:00" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+    await expect(
+      cancelVisit(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", visitId: visit.id }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
   it("rejects rescheduling into a conflicting slot unless confirmed", async () => {
     const occupied = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-21", startTime: "10:00", objective: "Occupied" });
     visitIds.push(occupied.id);
@@ -237,6 +262,14 @@ describe("recordVisitOutcome", () => {
     visitIds.push(visit.id);
     await expect(
       recordVisitOutcome(pool, { actorId: superAdminId, actorRole: "HR", visitId: visit.id, outcome: "COMPLETED" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
+  });
+
+  it("rejects Super Admin recording a visit outcome", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-12-06", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      recordVisitOutcome(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", visitId: visit.id, outcome: "COMPLETED" }),
     ).rejects.toThrow(VisitActionNotAllowedError);
   });
 

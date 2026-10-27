@@ -28,6 +28,17 @@ function loginRequest(body: unknown, headers?: Record<string, string>) {
 }
 
 describe("POST /api/auth/login", () => {
+  it("returns 400 (not 500) for malformed JSON", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "not json",
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("accepts a non-email identifier like the seeded admin login and sets a session cookie", async () => {
     const res = await POST(loginRequest({ email, password: "1234" }));
     expect(res.status).toBe(200);

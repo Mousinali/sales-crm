@@ -61,4 +61,23 @@ describe("checkRateLimit", () => {
     // remove a still-active, still-blocked entry to make room for churn.
     expect(checkRateLimit("victim", 5, 10 * 60_000)).toBe(false);
   });
+
+  it("never evicts a partially-used counter (2+ attempts) to make room, only truly-fresh single-attempt entries", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    // This identifier has already made 2 of its 5 allowed attempts —
+    // evicting it would let a flood of junk keys reset a target's
+    // in-progress attempt count back to zero before it ever locks out.
+    checkRateLimit("in-progress", 5, 10 * 60_000);
+    checkRateLimit("in-progress", 5, 10 * 60_000);
+
+    for (let i = 0; i < 10_010; i++) checkRateLimit(`flood-key-${i}`, 5, 10 * 60_000);
+
+    // 3 more calls brings it to 5 total — if it survived as count=2, this
+    // trips the limit; if it got evicted and restarted fresh, it wouldn't.
+    checkRateLimit("in-progress", 5, 10 * 60_000);
+    checkRateLimit("in-progress", 5, 10 * 60_000);
+    checkRateLimit("in-progress", 5, 10 * 60_000);
+    expect(checkRateLimit("in-progress", 5, 10 * 60_000)).toBe(false);
+  });
 });

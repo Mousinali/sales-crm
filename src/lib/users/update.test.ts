@@ -90,4 +90,11 @@ describe("setUserStatus", () => {
     await setUserStatus(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id, status: "ACTIVE" });
     expect(await getSessionUser(preDeactivateToken)).toBeNull();
   });
+
+  it("rejects a Pre-sales user activating or deactivating any user", async () => {
+    const target = await makeMarketingHead();
+    await expect(
+      setUserStatus(pool, { actorId: superAdminId, actorRole: "PRE_SALES", targetId: target.id, status: "INACTIVE" }),
+    ).rejects.toThrow(RoleNotManageableError);
+  });
 });

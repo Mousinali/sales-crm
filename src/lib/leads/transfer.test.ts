@@ -102,6 +102,12 @@ describe("transferLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
+  it("rejects Super Admin calling transfer", async () => {
+    await expect(
+      transferLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: assignedLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
+    ).rejects.toThrow(LeadActionNotAllowedError);
+  });
+
   it("rejects transferring a Salesperson owner onto a lead that hasn't been qualified yet", async () => {
     const pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Transfer Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(pendingLead.id);

@@ -16,16 +16,19 @@ function pruneExpired(now: number, windowMs: number): void {
 // Evicting the oldest entries outright could remove one that is currently
 // mid-lockout (count >= its own limit), un-blocking an attacker who floods
 // the store with junk keys — worse than the growth problem this guards
-// against. Evicting only non-blocked entries avoids that while still
-// making room for new users, so a full store doesn't lock everyone out of
-// login either. Only if every entry is genuinely blocked does a new key
-// fail closed — an extreme scenario (thousands of identifiers mid-lockout
-// at once) where that's an acceptable, temporary cost.
-function evictNonBlocked(count: number): void {
+// against. Evicting only entries with exactly one attempt recorded avoids
+// that while still making room for new users (so a full store doesn't
+// lock everyone out of login), without resetting any identifier that
+// already has 2+ attempts in progress — a flood of fresh junk keys must
+// not be able to reset a target's partially-used counter back to zero
+// before it ever locks out. Only if every entry has 2+ attempts does a new
+// key fail closed — an extreme scenario where that's an acceptable,
+// temporary cost.
+function evictFreshEntries(count: number): void {
   let remaining = count;
   for (const [key, entry] of attempts) {
     if (remaining <= 0) break;
-    if (entry.count < entry.limit) {
+    if (entry.count === 1) {
       attempts.delete(key);
       remaining -= 1;
     }
@@ -38,7 +41,7 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   if (!entry || now - entry.windowStart > windowMs) {
     if (attempts.size >= MAX_ENTRIES) {
       pruneExpired(now, windowMs);
-      if (attempts.size >= MAX_ENTRIES) evictNonBlocked(attempts.size - MAX_ENTRIES + 1);
+      if (attempts.size >= MAX_ENTRIES) evictFreshEntries(attempts.size - MAX_ENTRIES + 1);
       if (attempts.size >= MAX_ENTRIES) return false;
     }
     attempts.set(key, { count: 1, limit, windowStart: now });

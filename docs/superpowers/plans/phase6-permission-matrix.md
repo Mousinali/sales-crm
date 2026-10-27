@@ -19,7 +19,7 @@ Legend: **A** = Allowed, **D** = Denied, **O** = Allowed only if owner/assignee.
 
 - SUPER_ADMIN↔HR target-scope denial: `src/lib/users/create.test.ts:53` ("rejects SUPER_ADMIN creating a PRE_SALES account").
 - MARKETING_HEAD denied managing a peer MARKETING_HEAD: `src/lib/users/update.test.ts:54`, `src/lib/users/resetAccess.test.ts:52`.
-- PRE_SALES/SALESPERSON denied **entirely** (zero manageable roles) — **GAP**, closed this phase: `src/lib/users/create.test.ts` ("rejects a Pre-sales user creating any account"), `src/lib/users/update.test.ts` ("rejects a Salesperson updating any user"), `src/lib/users/resetAccess.test.ts` ("rejects a Salesperson resetting access").
+- PRE_SALES/SALESPERSON denied **entirely** (zero manageable roles) — **GAP**, closed this phase. One representative zero-privilege role is proven per function (both roles share the same empty-manageable-roles code path, so this proves the structural guarantee rather than duplicating the same assertion for both): `src/lib/users/create.test.ts` ("rejects a Pre-sales user creating any account"), `src/lib/users/update.test.ts` → `updateUserProfile` ("rejects a Salesperson updating any user") and `setUserStatus` ("rejects a Pre-sales user activating or deactivating any user" — `setUserStatus` had **no role-denial test of any kind** before this fix pass, not even for a role already covered elsewhere), `src/lib/users/resetAccess.test.ts` ("rejects a Pre-sales user resetting access").
 
 ## Leads (Phase 3 — `req.md` §5–§6, §18)
 
@@ -34,7 +34,7 @@ Legend: **A** = Allowed, **D** = Denied, **O** = Allowed only if owner/assignee.
 - SALESPERSON denied create/edit/review/assign/transfer: `src/lib/leads/create.test.ts:38`, `update.test.ts:109`, `review.test.ts:85`, `assign.test.ts:122`, (transfer: covered by the generic non-MH check, same code path as PRE_SALES's test below).
 - PRE_SALES denied review/assign/transfer, allowed-if-owner edit, denied non-owner edit: `review.test.ts:73`, `assign.test.ts:93`, `transfer.test.ts:91`, `update.test.ts:103/109`.
 - HR denied create/edit/review/assign/transfer/bulk-transfer — **GAP**, closed this phase (code already denied HR via each function's allowlist; none had a test naming HR, the one role `req.md` §18 explicitly calls out as having "no lead... access"): `create.test.ts`, `update.test.ts`, `review.test.ts`, `assign.test.ts`, `transfer.test.ts` (×2, single + bulk).
-- SUPER_ADMIN denied create/review/assign/transfer — **GAP**, closed this phase (consistent with Phase 3/4's existing, already-reviewed design that Marketing Head owns these operational actions; Super Admin's §3.1 role is oversight/correction, not routine review/assignment): `create.test.ts`, `review.test.ts`, `assign.test.ts`.
+- SUPER_ADMIN denied create/review/assign/transfer (single) — **GAP**, closed this phase (consistent with Phase 3/4's existing, already-reviewed design that Marketing Head owns these operational actions; Super Admin's §3.1 role is oversight/correction, not routine review/assignment): `create.test.ts` ("rejects Super Admin creating a lead"), `review.test.ts` ("rejects Super Admin calling review"), `assign.test.ts` ("rejects Super Admin calling assign"), `transfer.test.ts` ("rejects Super Admin calling transfer").
 
 ## Client visits (Phase 4 — `req.md` §8)
 
@@ -45,10 +45,11 @@ Legend: **A** = Allowed, **D** = Denied, **O** = Allowed only if owner/assignee.
 | Cancel | D | D (§18) | A | D | D |
 | Record outcome | D | D (§18) | D (§8.3 step 5 — the Salesperson records it) | D | O — the assigned Salesperson only |
 
-- PRE_SALES denied schedule/reschedule: `schedule.test.ts:72`, `schedule.test.ts:120` (reschedule only — see Findings).
+- PRE_SALES denied schedule/reschedule/cancel: `schedule.test.ts` ("rejects a Pre-sales user scheduling a visit", "rejects a non-Marketing-Head rescheduling or cancelling" — this one test now exercises both reschedule and cancel for the same PRE_SALES actor, see Findings).
 - MARKETING_HEAD denied recording an outcome directly, and ownership-gated outcome recording (another Salesperson): `schedule.test.ts` ("rejects a Marketing Head recording an outcome directly"), `schedule.test.ts:177`.
-- Cancel had **no denial test at all** — **GAP (the riskiest kind: an untested branch, not just an untested role)**, closed this phase: `schedule.test.ts` ("rejects a non-Marketing-Head cancelling a visit").
-- HR denied schedule/reschedule/record-outcome — **GAP**, closed this phase: `schedule.test.ts` (×3).
+- Cancel had **no denial test at all** — **GAP (the riskiest kind: an untested branch, not just an untested role)**, closed this phase: `schedule.test.ts` ("rejects a non-Marketing-Head rescheduling or cancelling", extended to actually call `cancelVisit` too, not just `rescheduleVisit` as its name already implied).
+- HR denied schedule/reschedule/cancel/record-outcome — **GAP**, closed this phase: `schedule.test.ts` ("rejects HR scheduling a visit", "rejects HR rescheduling a visit", "rejects HR cancelling a visit", "rejects HR recording a visit outcome").
+- SUPER_ADMIN denied schedule/reschedule/cancel/record-outcome — **GAP**, closed this phase (same reasoning as leads: Marketing Head owns routine visit operations): `schedule.test.ts` ("rejects Super Admin scheduling a visit", "rejects Super Admin rescheduling or cancelling a visit", "rejects Super Admin recording a visit outcome").
 
 ## Email announcements (Phase 5 — `req.md` §9.3)
 
@@ -77,3 +78,5 @@ Legend: **A** = Allowed, **D** = Denied, **O** = Allowed only if owner/assignee.
 ## Findings
 
 Every **GAP** above was found to be **already correctly denied in code** — none required a production-code fix, only a new test proving the existing check. The one near-miss: `cancelVisit` had zero test coverage of its role check (not even for the role already covered elsewhere, PRE_SALES) — found and closed in this task. No Critical or Important code defect surfaced; this task's value is entirely in converting "presumably denied" into "proven denied," per `req.md` §17 Acceptance Criterion 15 ("Unauthorized users cannot access protected data by directly calling API routes").
+
+**Fresh-context review, post-Task-6:** a whole-branch review found this document had overclaimed in three ways, all fixed in the same pass — `setUserStatus` had zero test coverage at all (not a citation error, a real test gap, now closed); SUPER_ADMIN's denial was asserted for transfer/schedule/reschedule/cancel/record-outcome without a matching test (now added); and the resetAccess citation named "a Salesperson" when the actual test uses "a Pre-sales user" (text corrected above). No further code defects — every addition here, like the original audit, found an already-correct check that simply hadn't been proven yet.
