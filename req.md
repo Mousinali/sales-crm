@@ -234,7 +234,7 @@ Lead fields:
 -   Email address
 -   Company website
 -   Location
--   Service interested (required)
+-   Service interested (required, multiple)
 -   Estimated budget (optional)
 -   Lead source
 -   Priority
@@ -247,6 +247,13 @@ Lead fields:
 -   Next follow-up date and time
 -   Remarks (free-text)
 -   General notes
+
+"Service interested" is a searchable multiselect, not free text — it
+draws from a company-wide master list of services (e.g. Web Development,
+Bulk SMS, Business WhatsApp API, Digital Marketing) that a Super Admin
+maintains: adding new services, editing a service's name or description,
+and activating/deactivating one. A deactivated service is hidden from
+new selections but stays visible on any lead that already selected it.
 
 Lead source options for the first version:
 

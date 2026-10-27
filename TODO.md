@@ -62,6 +62,17 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase3-leads.md`
   `industry`/`location`/`estimated_budget`/`designation`/follow-up date
   remain deferred from the note above (industry is now surfaced in the
   UI as "Industry type"; the rest are still backend-only).
+- [x] Post-launch addition (2026-10-27): "Service interested" is now a
+  searchable multiselect (new `MultiSelectSearch` component) backed by a
+  company-wide `services` master list (migration `0013`), not free text.
+  New `/services` page lets a Super Admin add/edit/activate/deactivate
+  services; `GET/POST /api/services`, `PATCH /api/services/[id]`. Leads
+  reference services through a `lead_services` join table; the old
+  `service_requirements` column is nullable and no longer written to.
+  `req.md` §5.1 and `API.md` updated. A security-review pass caught and
+  fixed a real bug: a non-Super-Admin could read inactive services by
+  passing `?status=INACTIVE` explicitly — the role now pins the filter
+  regardless of what's requested.
 
 ## Phase 4 — Transfers and visits ✅ done
 

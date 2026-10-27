@@ -162,7 +162,8 @@ Create a lead. Only `PRE_SALES` and `MARKETING_HEAD` may create one.
 {
   "companyName": "string, required",
   "phone": "string, required",
-  "serviceRequirements": "string, required",
+  "serviceIds": "number[], required, at least 1 — see Services below",
+  "serviceRequirements": "string, optional — legacy free-text, superseded by serviceIds",
   "leadSource": "WEBSITE_ENQUIRY | REFERRAL | COLD_OUTREACH | EXISTING_CLIENT | OTHER, required",
   "contactPerson": "string, optional",
   "designation": "string, optional",
@@ -183,11 +184,12 @@ Create a lead. Only `PRE_SALES` and `MARKETING_HEAD` may create one.
 }
 ```
 
-**Success:** `201 <LeadRow>` — see [LeadRow](#leadrow). Status always starts at `PENDING_REVIEW`. If the creator is `PRE_SALES`, `pre_sales_owner_id` defaults to them.
+**Success:** `201 <LeadRow & { services: ServiceRow[] }>` — see [LeadRow](#leadrow)/[ServiceRow](#servicerow). Status always starts at `PENDING_REVIEW`. If the creator is `PRE_SALES`, `pre_sales_owner_id` defaults to them.
 
 **Errors:**
 | Status | Body | When |
 |---|---|---|
+| 400 | `{ "error": "Invalid input" }` | `serviceIds` missing/empty, or any other validation failure |
 | 403 | `{ "error": "Forbidden" }` | creator role isn't `PRE_SALES`/`MARKETING_HEAD` |
 
 ### `GET /api/leads`
@@ -227,7 +229,7 @@ Advisory duplicate check — call before creating a lead. Restricted to `PRE_SAL
 
 Fetch one lead.
 
-**Success:** `200 <LeadRow>`
+**Success:** `200 <LeadRow & { services: ServiceRow[] }>` — `services` is the lead's current "service interested" selection.
 
 **Errors:**
 | Status | Body | When |
@@ -238,7 +240,7 @@ Fetch one lead.
 
 Edit a lead's fields, or archive it. `SALESPERSON` and `HR` can never edit; `PRE_SALES` only if they created it or are its current `pre_sales_owner_id`; `MARKETING_HEAD` always.
 
-**Body (≥1 key):** any of `companyName`, `contactPerson`, `designation`, `phone`, `whatsappNumber`, `email`, `website`, `industry`, `businessType`, `location`, `address`, `state`, `pincode`, `country`, `serviceRequirements`, `estimatedBudget` (number), `priority`, `nextFollowUpAt` (date), `notes`, `remarks` — plus:
+**Body (≥1 key):** any of `companyName`, `contactPerson`, `designation`, `phone`, `whatsappNumber`, `email`, `website`, `industry`, `businessType`, `location`, `address`, `state`, `pincode`, `country`, `serviceRequirements`, `serviceIds` (number[], min 1 if given — **replaces** the lead's full service selection, not a merge), `estimatedBudget` (number), `priority`, `nextFollowUpAt` (date), `notes`, `remarks` — plus:
 ```json
 { "archived": true }
 ```
@@ -458,6 +460,55 @@ Mark one of the caller's own notifications read. No body.
 
 ---
 
+## Services
+
+The master list leads pick from for "Service interested" (§5.1).
+
+### `GET /api/services`
+
+List services. A non-`SUPER_ADMIN` caller always gets only `ACTIVE` ones — passing `?status=INACTIVE` (or any other value) as a non-Super-Admin does **not** bypass this; the role, not the query, decides.
+
+**Query params (optional):** `status` — `ACTIVE` | `INACTIVE`. Only a `SUPER_ADMIN` can actually widen the result with it.
+
+**Success:** `200 { "services": [ServiceRow, ...] }`, alphabetical by name.
+
+### `POST /api/services`
+
+Create a service. `SUPER_ADMIN` only.
+
+**Body:**
+```json
+{ "name": "string, required", "description": "string, optional" }
+```
+
+**Success:** `201 <ServiceRow>` — starts `ACTIVE`.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 403 | `{ "error": "Forbidden" }` | caller isn't `SUPER_ADMIN` |
+| 409 | `{ "error": "A service named \"...\" already exists" }` | name already in use (case-sensitive unique) |
+
+### `PATCH /api/services/[id]`
+
+Edit a service's name, description, and/or status. `SUPER_ADMIN` only.
+
+**Body (≥1 key):**
+```json
+{ "name": "string, optional", "description": "string, optional", "status": "ACTIVE | INACTIVE, optional" }
+```
+
+**Success:** `200 <ServiceRow>`.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 403 | `{ "error": "Forbidden" }` | caller isn't `SUPER_ADMIN` |
+| 404 | `{ "error": "Not found" }` | service doesn't exist |
+| 409 | `{ "error": "A service named \"...\" already exists" }` | renamed to a name already in use |
+
+---
+
 ## Data shapes
 
 ### UserRow
@@ -496,7 +547,7 @@ Mark one of the caller's own notifications read. No body.
   state: string | null;
   pincode: string | null;
   country: string; // NOT NULL, defaults to "India"
-  service_requirements: string;
+  service_requirements: string | null; // legacy free-text, nullable, superseded by the `services` array (see ServiceRow) — not written by current create/edit forms
   estimated_budget: string | null; // NUMERIC column — returned as a string, not a number
   lead_source: "WEBSITE_ENQUIRY" | "REFERRAL" | "COLD_OUTREACH" | "EXISTING_CLIENT" | "OTHER";
   priority: "LOW" | "MEDIUM" | "HIGH";
@@ -545,6 +596,19 @@ Mark one of the caller's own notifications read. No body.
   outcome_notes: string | null;
   next_action: string | null;
   created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### ServiceRow
+
+```ts
+{
+  id: number;
+  name: string; // unique
+  description: string | null;
+  status: "ACTIVE" | "INACTIVE";
   created_at: string;
   updated_at: string;
 }
