@@ -72,7 +72,10 @@ export default function LeadsView({
         return;
       }
       const body = await response.json();
-      setLeads(body.leads ?? []);
+      const newLeads: LeadRow[] = body.leads ?? [];
+      setLeads(newLeads);
+      const newLeadIds = new Set(newLeads.map((l) => l.id));
+      setSelectedLeadIds((current) => new Set(Array.from(current).filter((id) => newLeadIds.has(id))));
     } catch {
       setListError("Could not load the leads list.");
     }

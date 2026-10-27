@@ -85,4 +85,19 @@ describe("LeadsView", () => {
       expect(fetchSpy).toHaveBeenCalledWith("/api/leads/transfer-bulk", expect.objectContaining({ method: "POST" })),
     );
   });
+
+  it("drops a selected lead from the bulk-transfer selection once a refetch no longer returns it", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (String(url).includes("/api/users")) return new Response(JSON.stringify({ users: [] }));
+      // Simulate a filter change: the refetch comes back without the lead that was selected.
+      return new Response(JSON.stringify({ leads: [] }));
+    });
+    render(<LeadsView initialLeads={sampleLeads} viewerRole="MARKETING_HEAD" />);
+
+    fireEvent.click(screen.getByLabelText(/select sample co/i));
+    expect(screen.getByRole("button", { name: /transfer selected \(1\)/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /apply filters/i }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /transfer selected/i })).not.toBeInTheDocument());
+  });
 });
