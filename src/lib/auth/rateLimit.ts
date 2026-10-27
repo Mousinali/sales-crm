@@ -14,14 +14,19 @@ const MAX_ENTRIES = 10_000;
 // whatever they want — including their own counter — resetting it
 // indefinitely and defeating the limit entirely. Throttling admission
 // instead means no live entry is ever touched to make room for another.
+//
+// Tracked per namespace (the part of the key before its first ":", e.g.
+// "email" for login, "change-password" for change-password), not as one
+// global counter — otherwise a flood of brand-new login identifiers would
+// also block brand-new change-password admissions, an unrelated feature
+// sharing nothing but this module.
 const NEW_KEY_WINDOW_MS = 60_000;
 const MAX_NEW_KEYS_PER_WINDOW = 500;
-// Lazily initialized on first use (not Date.now() at import time), so it
-// tracks whatever clock is active when a key is first admitted rather than
-// the real wall clock at module load — otherwise a faked/mocked clock in
-// tests could never look "stale" relative to a real timestamp set earlier.
-let newKeyWindowStart: number | null = null;
-let newKeysThisWindow = 0;
+const newKeyWindows = new Map<string, { windowStart: number; count: number }>();
+
+function namespaceOf(key: string): string {
+  return key.split(":", 1)[0];
+}
 
 function pruneExpired(now: number, windowMs: number): void {
   for (const [key, entry] of attempts) {
@@ -33,13 +38,16 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || now - entry.windowStart > windowMs) {
-    if (newKeyWindowStart === null || now - newKeyWindowStart > NEW_KEY_WINDOW_MS) {
-      newKeyWindowStart = now;
-      newKeysThisWindow = 0;
+    const namespace = namespaceOf(key);
+    const admission = newKeyWindows.get(namespace);
+    if (!admission || now - admission.windowStart > NEW_KEY_WINDOW_MS) {
+      newKeyWindows.set(namespace, { windowStart: now, count: 0 });
     }
-    if (newKeysThisWindow >= MAX_NEW_KEYS_PER_WINDOW) {
-      // A flood of brand-new identifiers — fail closed for new keys only.
-      // Every identifier already being tracked keeps working normally;
+    const current = newKeyWindows.get(namespace)!;
+    if (current.count >= MAX_NEW_KEYS_PER_WINDOW) {
+      // A flood of brand-new identifiers within this namespace — fail
+      // closed for new keys in that namespace only. Every identifier
+      // already being tracked, in any namespace, keeps working normally;
       // nothing already in the store is evicted or reset.
       return false;
     }
@@ -47,7 +55,7 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
       pruneExpired(now, windowMs);
       if (attempts.size >= MAX_ENTRIES) return false;
     }
-    newKeysThisWindow += 1;
+    current.count += 1;
     attempts.set(key, { count: 1, limit, windowStart: now });
     return true;
   }
@@ -68,6 +76,5 @@ export function _rateLimitStoreSize(): number {
 
 export function _resetRateLimitForTesting(): void {
   attempts.clear();
-  newKeyWindowStart = null;
-  newKeysThisWindow = 0;
+  newKeyWindows.clear();
 }
