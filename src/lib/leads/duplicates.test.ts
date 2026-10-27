@@ -94,4 +94,22 @@ describe("findPotentialDuplicates", () => {
     const result = await findPotentialDuplicates(pool, { companyName: "Unrelated Third Name", phone: "9879876543", website: "N/A" } as never);
     expect(result.some((l) => l.id === leadA.id || l.id === leadB.id)).toBe(false);
   });
+
+  it("matches a lead against its own unchanged values — excluding self is the caller's job, not this query's", async () => {
+    const lead = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Self Match Co", phone: "1472583690", serviceRequirements: "x", leadSource: "OTHER",
+    });
+    leadIds.push(lead.id);
+    const dup = await findPotentialDuplicates(pool, { companyName: lead.company_name, phone: lead.phone });
+    expect(dup.some((l) => l.id === lead.id)).toBe(true);
+  });
+
+  it("does not treat a company name differing only by legal suffix as a duplicate (shortcut: exact-normalized-match only, not fuzzy — upgrade if the business asks for suffix-insensitive matching)", async () => {
+    const lead = await createLead(pool, {
+      creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Acme Inc", phone: "9638527410", serviceRequirements: "x", leadSource: "OTHER",
+    });
+    leadIds.push(lead.id);
+    const dup = await findPotentialDuplicates(pool, { companyName: "Acme" });
+    expect(dup.some((l) => l.id === lead.id)).toBe(false);
+  });
 });

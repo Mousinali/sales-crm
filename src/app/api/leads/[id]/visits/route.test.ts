@@ -88,6 +88,15 @@ describe("POST /api/leads/[id]/visits", () => {
     const confirmed = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "Second", confirmConflict: true }, mhCookie);
     expect(confirmed.status).toBe(200);
   });
+
+  it("returns 400 (not 500) for an empty visitDate, startTime, or objective", async () => {
+    const emptyDate = await postVisit(lead.id, { salespersonId, visitDate: "", startTime: "14:00", objective: "x" }, mhCookie);
+    expect(emptyDate.status).toBe(400);
+    const emptyTime = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "", objective: "x" }, mhCookie);
+    expect(emptyTime.status).toBe(400);
+    const emptyObjective = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "" }, mhCookie);
+    expect(emptyObjective.status).toBe(400);
+  });
 });
 
 describe("GET /api/leads/[id]/visits", () => {

@@ -81,6 +81,14 @@ describe("PATCH /api/visits/[id]", () => {
     expect(confirmed.status).toBe(200);
   });
 
+  it("returns 400 (not 500) for an empty visitDate or startTime when rescheduling", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-28", startTime: "09:00", objective: "x" });
+    const emptyDate = await patchVisit(visit.id, { action: "RESCHEDULE", visitDate: "", startTime: "10:00" }, mhCookie);
+    expect(emptyDate.status).toBe(400);
+    const emptyTime = await patchVisit(visit.id, { action: "RESCHEDULE", visitDate: "2026-11-29", startTime: "" }, mhCookie);
+    expect(emptyTime.status).toBe(400);
+  });
+
   it("cancels a visit", async () => {
     const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-14", startTime: "09:00", objective: "x" });
     const res = await patchVisit(visit.id, { action: "CANCEL" }, mhCookie);

@@ -10,11 +10,11 @@ import type { VisitRow } from "@/lib/visits/types";
 
 const scheduleSchema = z.object({
   salespersonId: z.number().int(),
-  visitDate: z.string(),
-  startTime: z.string(),
+  visitDate: z.string().trim().min(1),
+  startTime: z.string().trim().min(1),
   expectedDurationMinutes: z.number().int().optional(),
   location: z.string().optional(),
-  objective: z.string(),
+  objective: z.string().trim().min(1),
   preparationNotes: z.string().optional(),
   confirmConflict: z.boolean().optional(),
 });

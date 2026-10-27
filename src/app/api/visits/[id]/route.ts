@@ -6,7 +6,7 @@ import { rescheduleVisit, cancelVisit, recordVisitOutcome } from "@/lib/visits/s
 import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError, VisitConflictError } from "@/lib/visits/errors";
 
 const patchSchema = z.union([
-  z.object({ action: z.literal("RESCHEDULE"), visitDate: z.string(), startTime: z.string(), confirmConflict: z.boolean().optional() }),
+  z.object({ action: z.literal("RESCHEDULE"), visitDate: z.string().trim().min(1), startTime: z.string().trim().min(1), confirmConflict: z.boolean().optional() }),
   z.object({ action: z.literal("CANCEL") }),
   z.object({
     action: z.literal("RECORD_OUTCOME"),
