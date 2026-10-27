@@ -437,7 +437,7 @@ Reschedule, cancel, or record the outcome of a visit — one endpoint, three act
 
 ## Notifications
 
-In-app only — no email delivery yet (Phase 5).
+In-app only. Real email delivery exists for Marketing Head/Super Admin announcements (see [Email Announcements](#email-announcements)), not for assignment/transfer/visit notifications — those stay in-app-only per the Phase 5 plan's scoping.
 
 ### `GET /api/notifications`
 
@@ -506,6 +506,112 @@ Edit a service's name, description, and/or status. `SUPER_ADMIN` only.
 | 403 | `{ "error": "Forbidden" }` | caller isn't `SUPER_ADMIN` |
 | 404 | `{ "error": "Not found" }` | service doesn't exist |
 | 409 | `{ "error": "A service named \"...\" already exists" }` | renamed to a name already in use |
+
+---
+
+## Email Announcements
+
+`MARKETING_HEAD`/`SUPER_ADMIN` only (§9.3). Recipients are always resolved to the active, eligible set at send time — a caller-supplied `userId`/`userIds` is filtered the same way `ALL_PRE_SALES`/`ALL_SALESPEOPLE` are, never trusted as-is.
+
+### `POST /api/email-announcements`
+
+Compose and send an announcement. Sending is synchronous — one SMTP attempt per recipient happens inside this request before it returns.
+
+**Body:**
+```json
+{
+  "subject": "string, required",
+  "body": "string, required",
+  "recipientGroup":
+    { "type": "USER", "userId": "number" } |
+    { "type": "USERS", "userIds": "number[], min 1" } |
+    { "type": "ALL_PRE_SALES" } |
+    { "type": "ALL_SALESPEOPLE" }
+}
+```
+
+**Success:** `201 <EmailAnnouncementRow & { recipientStatusCounts: Record<string, number> }>` — see [EmailAnnouncementRow](#emailannouncementrow). A recipient id that isn't an active `PRE_SALES`/`SALESPERSON` is silently dropped, not an error; a `USERS`/group resolving to zero eligible recipients still creates the announcement with no recipients.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "Invalid input" }` | missing/malformed body |
+| 403 | `{ "error": "Forbidden" }` | caller isn't `MARKETING_HEAD`/`SUPER_ADMIN` |
+
+### `GET /api/email-announcements`
+
+List announcements. `SUPER_ADMIN` sees every announcement; `MARKETING_HEAD` sees only their own.
+
+**Success:** `200 { "announcements": [EmailAnnouncementRow & { recipientStatusCounts }, ...] }`, newest first.
+
+### `POST /api/email-announcements/[id]/retry`
+
+Re-attempt every `FAILED` recipient of this announcement, up to a bounded attempt count. Already-`SENT` rows are never touched; the claim step is atomic, so two concurrent retries on the same announcement can't both resend the same row. A recipient no longer an active `PRE_SALES`/`SALESPERSON` is marked `FAILED` again without resending.
+
+**Success:** `200 { "retried": number, "stillFailed": number }`.
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "Invalid id" }` | id isn't a number |
+| 403 | `{ "error": "Forbidden" }` | caller isn't `MARKETING_HEAD`/`SUPER_ADMIN`, or is a `MARKETING_HEAD` who didn't send this announcement |
+| 404 | `{ "error": "Not found" }` | announcement doesn't exist |
+
+---
+
+## Tasks
+
+Personal follow-ups (§10's Task half). Any role may create a task for themselves. Only `MARKETING_HEAD`/`SUPER_ADMIN` may assign a task to someone else, and only to an active `PRE_SALES`/`SALESPERSON`. An optional linked lead is checked against the creator's own lead visibility — the same rule `leads`/`visits` already use, not a separate one.
+
+### `POST /api/tasks`
+
+**Body:**
+```json
+{
+  "assignedUserId": "number, required",
+  "title": "string, required",
+  "description": "string, optional",
+  "dueAt": "ISO timestamp, required",
+  "priority": "LOW | MEDIUM | HIGH, optional, default MEDIUM",
+  "leadId": "number, optional"
+}
+```
+
+**Success:** `201 <TaskRow>` — see [TaskRow](#taskrow).
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "Invalid input" }` | missing/malformed body |
+| 400 | `{ "error": "Referenced user or lead does not exist" }` | `assignedUserId`/`leadId` doesn't reference a real row (FK violation) |
+| 403 | `{ "error": "..." }` | non-`MARKETING_HEAD`/`SUPER_ADMIN` assigning to someone else; assignee isn't an active `PRE_SALES`/`SALESPERSON`; or the creator can't see the linked lead |
+| 404 | `{ "error": "..." }` | `leadId` doesn't exist |
+
+### `GET /api/tasks`
+
+List tasks. `MARKETING_HEAD`/`SUPER_ADMIN` see every task; everyone else sees only tasks assigned to them.
+
+**Query params (optional):** `status` — one of `PENDING | IN_PROGRESS | COMPLETED | CANCELLED`. `dueWithin` — `OVERDUE | TODAY | UPCOMING`, computed against the database's current time at query time; a `COMPLETED`/`CANCELLED` task is excluded from all three buckets.
+
+**Success:** `200 { "tasks": [TaskRow, ...] }`, ordered by `due_at`.
+
+### `PATCH /api/tasks/[id]`
+
+Update a task's status, title, description, due date, and/or priority. Only the assigned user may call this — not the creator, not `MARKETING_HEAD`/`SUPER_ADMIN` (see Deferred in `TODO.md`).
+
+**Body (≥1 key):**
+```json
+{ "status": "...", "title": "...", "description": "...", "dueAt": "...", "priority": "..." }
+```
+
+**Success:** `200 <TaskRow>` — setting `status: "COMPLETED"` stamps `completed_at`; moving off `COMPLETED` does not clear it (see Deferred in `TODO.md`).
+
+**Errors:**
+| Status | Body | When |
+|---|---|---|
+| 400 | `{ "error": "Invalid input" }` | missing/malformed body |
+| 403 | `{ "error": "Forbidden" }` | caller isn't the task's assigned user |
+| 404 | `{ "error": "Not found" }` | task doesn't exist |
 
 ---
 
@@ -628,8 +734,41 @@ Edit a service's name, description, and/or status. `SUPER_ADMIN` only.
 }
 ```
 
+### EmailAnnouncementRow
+
+```ts
+{
+  id: number;
+  sender_user_id: number;
+  subject: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+// GET/POST responses attach a derived field, not a real column:
+// recipientStatusCounts: Record<"PENDING" | "SENT" | "FAILED" | "RETRYING", number>
+```
+
+### TaskRow
+
+```ts
+{
+  id: number;
+  lead_id: number | null;
+  assigned_user_id: number;
+  title: string;
+  description: string | null;
+  due_at: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  created_by: number;
+  created_at: string;
+  completed_at: string | null;
+}
+```
+
 ---
 
 ## Not yet documented here
 
-Phase 5 (email announcements, tasks, dashboards) and Phase 6 (hardening) are planned but not implemented — see `TODO.md` and the plan docs under `docs/superpowers/plans/`. This file will grow as each phase lands.
+Phase 6 (hardening, testing, deployment) is planned but not implemented — see `TODO.md` and the plan doc under `docs/superpowers/plans/`. This file will grow as each phase lands.

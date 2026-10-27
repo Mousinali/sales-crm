@@ -2,8 +2,8 @@
 
 Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-27.
 
-Phases 1–4 are merged to `main`. `API.md` at the repo root documents the
-full API as it stands, including Phase 4's transfer/visit/notification
+Phases 1–5 are merged to `main`. `API.md` at the repo root documents the
+full API as it stands, including Phase 5's email-announcement and task
 endpoints.
 
 ## Phase 1 — Project foundation ✅ done
@@ -110,14 +110,59 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase4-transfers-visits.md`
   HR calling transfer/visit routes, bulk rollback-on-one-bad-lead).
 - All tests passing (200/200), `tsc --noEmit` clean, `next build` clean
 
-## Phase 5 — Emails, tasks, and reports (planned, not implemented)
+## Phase 5 — Emails, tasks, and reports ✅ done
 
 Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase5-emails-tasks-reports.md`
 
-- [ ] Marketing Head email announcements (adds the `nodemailer` dependency)
-- [ ] Delivery logs + safe retry handling
-- [ ] Tasks, follow-ups, reminders
-- [ ] Role-specific dashboards and reports
+- [x] Marketing Head/Super Admin email announcements (adds the `nodemailer`
+  dependency) — compose to one user, selected users, or all active
+  Pre-sales/Salespeople; recipients resolved to exactly the active,
+  eligible set at send time (not a stale or caller-supplied list)
+- [x] Per-recipient delivery logs (`email_announcements`, `email_recipients`,
+  `email_logs`) with PENDING/SENT/FAILED/RETRYING states and a manual,
+  atomic-claim "Retry failed" action (never re-sends an already-SENT row,
+  safe under concurrent retries)
+- [x] Personal tasks/follow-ups (`tasks` table) — any role may create a
+  task for themselves; only Marketing Head/Super Admin may assign one to
+  someone else, and only to an active Pre-sales/Salesperson; an optional
+  linked lead is checked against the creator's own lead visibility
+- [x] Role-specific dashboards replacing the Phase 2 placeholder welcome
+  card — Super Admin, Marketing Head, Pre-sales, Salesperson each get the
+  widgets `req.md` §11 lists for that role (HR keeps the minimal welcome
+  card, having no lead/task/email data of its own)
+- [x] Migrations `0014`–`0015` (`email_*` tables, `tasks`)
+- [x] Full UI: `/announcements` (compose modal, history table with
+  per-recipient status, Retry failed), `/tasks` (filterable list, inline
+  Start/Complete/Cancel, new-task modal with an Assign-to picker shown
+  only to Marketing Head/Super Admin), `/dashboard` rebuilt per role
+- [x] Fresh whole-branch review (opus) — no Critical findings. Important,
+  fixed in a follow-up commit: task due-date buckets (overdue/today/
+  upcoming) included completed/cancelled tasks forever; task assignment
+  and the optional `leadId` link had no server-side check, only the UI
+  hid the controls (`req.md` §3.6: "do not rely only on hiding UI
+  controls" — also independently caught by an automated security-review
+  hook); Super Admin/Marketing Head "upcoming visits" silently dropped
+  rescheduled visits (inconsistent with the Salesperson dashboard's own
+  query). Also added while in there: Marketing Head's "leads by assigned
+  Pre-sales user and Salesperson" breakdown (`req.md` §11.2, named in the
+  spec but missed by the plan). Deferred to a future polish pass (not
+  blocking): day-boundary bucketing depends on the DB server's timezone
+  (a pre-existing pattern already shared with Phase 4's visit queries,
+  not unique to this phase); "Leads created over time" and "Team activity
+  summary" (§11.1/§11.2, vague in shape, would need their own design
+  pass); synchronous SMTP sending has no rate limit and an
+  interrupted/timed-out send leaves some recipients un-rowed and others
+  stuck `PENDING`/`RETRYING` (the plan already ruled out a queue/scheduler
+  for this phase); a Marketing Head can't edit/cancel a task they
+  assigned to someone else, and the Tasks UI has no assignee column for
+  team view; `completed_at` isn't cleared on a status change away from
+  COMPLETED; a zero-recipient send still reports success; no error UI on
+  a failed retry/status-change; no length limits on announcement/task
+  text fields; `sendEmail.ts`'s `SMTP_PORT`/`secure` handling and
+  `.env.example` documentation gaps; archived-lead inclusion is
+  inconsistent across the four dashboards' lead counts.
+- All tests passing (295/295, stable over repeated full-suite runs),
+  `tsc --noEmit` clean, `next build` clean
 
 ## Phase 6 — Testing and deployment (planned, not implemented)
 
