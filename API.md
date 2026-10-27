@@ -36,6 +36,7 @@ No session required.
 |---|---|---|
 | 400 | `{ "error": "Invalid credentials" }` | malformed body |
 | 401 | `{ "error": "Invalid credentials" }` | no such user, user not `ACTIVE`, or wrong password — same message in every case, so a failed login never reveals which part was wrong |
+| 429 | `{ "error": "Too many attempts. Try again later." }` | 5 attempts within 15 minutes for this `email` — a successful login resets the count |
 
 ### `POST /api/auth/logout`
 
@@ -61,6 +62,7 @@ Requires a session (this is the one endpoint the `mustChangePassword` check does
 |---|---|---|
 | 400 | `{ "error": "Password must be at least 8 characters" }` | new password too short |
 | 403 | `{ "error": "Current password is incorrect" }` | `currentPassword` missing (when required) or wrong |
+| 429 | `{ "error": "Too many attempts. Try again later." }` | 5 wrong-`currentPassword` guesses within 15 minutes for this user (only once `mustChangePassword` is false — that's the one case `currentPassword` is actually checked); a correct guess resets the count |
 
 ---
 
@@ -771,4 +773,4 @@ Update a task's status, title, description, due date, and/or priority. Only the 
 
 ## Not yet documented here
 
-Phase 6 (hardening, testing, deployment) is planned but not implemented — see `TODO.md` and the plan doc under `docs/superpowers/plans/`. This file will grow as each phase lands.
+All six planned phases (`req.md` §16) are implemented and merged. Phase 7 (internal chat, `req.md` §19) has no plan doc yet — see `TODO.md`.

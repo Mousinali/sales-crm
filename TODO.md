@@ -2,9 +2,10 @@
 
 Tracking against `req.md` §16 (Implementation Plan). Status as of 2026-10-27.
 
-Phases 1–5 are merged to `main`. `API.md` at the repo root documents the
-full API as it stands, including Phase 5's email-announcement and task
-endpoints.
+Phases 1–6 are merged to `main`. `API.md` at the repo root documents the
+full API as it stands. Phase 6 added no new endpoints — it audited and
+hardened Phases 1–5's existing ones (see Phase 6's entry below for what
+it found and fixed).
 
 ## Phase 1 — Project foundation ✅ done
 
@@ -164,16 +165,79 @@ Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase5-emails-tasks-reports.m
 - All tests passing (295/295, stable over repeated full-suite runs),
   `tsc --noEmit` clean, `next build` clean
 
-## Phase 6 — Testing and deployment (planned, not implemented)
+## Phase 6 — Testing and deployment ✅ done
 
 Plan: `docs/superpowers/plans/2026-10-26-sales-crm-phase6-testing-deployment.md`
 
-- [ ] Role and record-level permission tests
-- [ ] Concurrent assignment/transfer tests
-- [ ] Email failure/retry tests
-- [ ] Form validation + duplicate-detection tests
-- [ ] Production env vars, HTTPS, backups, monitoring
-- [ ] Security review before company use
+This phase is audit-and-harden only (no new features) — its tasks tested
+existing Phase 1–5 code and fixed what they found.
+
+- [x] Role and record-level permission tests — a full role × action matrix
+  across Phases 2–5 (`docs/superpowers/plans/phase6-permission-matrix.md`),
+  closing every gap it found. Every GAP cell was already correctly denied
+  in code (just unproven) except one real omission: `setUserStatus` had no
+  role-denial test at all.
+- [x] Concurrent assignment/transfer tests — found and fixed a real,
+  100%-reproducible double-booking race in `scheduleVisit`/`rescheduleVisit`
+  (the conflict check and the write weren't atomic), closed with a Postgres
+  advisory lock. Also found, in the final review pass, that
+  `transferLead`/`assignLead` read the lead's current owners before
+  opening their transaction with no row lock, letting two concurrent
+  transfers corrupt `lead_transfer_history`'s audit trail — fixed with
+  `SELECT ... FOR UPDATE`.
+- [x] Email failure/retry tests — both new tests passed immediately against
+  Phase 5's existing `retryFailedRecipients`.
+- [x] Form validation + duplicate-detection tests — found `visitDate`/
+  `startTime`/`objective` accepted empty and malformed strings, crashing
+  Postgres with a raw 500 instead of a clean 400 (and a non-padded time
+  like "9:00" would have hashed to a different advisory-lock key than
+  Postgres's normalized value, silently defeating the double-booking
+  lock above). Fixed with strict format validation on both routes.
+- [x] Production env vars, HTTPS, backups, monitoring —
+  `docs/superpowers/plans/phase6-production-readiness.md`. Verified
+  migration idempotency and a `pg_dump`/`pg_restore` round-trip against a
+  disposable database. Monitoring/logging recorded as a genuine gap, not
+  filled with an unrequested dependency.
+- [x] Security review before company use —
+  `docs/superpowers/plans/phase6-security-review.md`, walking `req.md` §13
+  line by line. One real Fail: no rate limiting existed anywhere (login or
+  change-password). Fixed with `src/lib/auth/rateLimit.ts`, an in-memory
+  fixed-window limiter keyed by email (login) or the session's own user id
+  (change-password) — never by a client-supplied value. This module went
+  through six rounds of hardening in the final review (each round's
+  automated security check found a fresh angle on the same root problem:
+  any eviction rule based on a key's own state is gameable by an attacker
+  who can manufacture distinct keys). The final design evicts nothing; it
+  bounds the store by throttling new-identifier admission per namespace
+  (500/60s), which protects every identifier already being tracked
+  unconditionally. Residual, documented-not-silent risk: a same-namespace
+  volumetric flood can delay *brand-new* identifiers in that one namespace
+  for up to 60s — the accepted cost of an in-memory, single-process
+  limiter (upgrade path: a shared store with real TTLs, e.g. Redis, named
+  in the module's own comment).
+- [x] Fresh whole-branch review (opus) — 5 Important findings, all fixed:
+  the login rate limiter (pre-final-redesign) was keyed by a spoofable
+  `X-Forwarded-For` header with no trusted-proxy convention to anchor it
+  to; `change-password` had no rate limit at all (a second, unthrottled
+  password oracle for anyone holding a stolen session cookie); the
+  visit-date/time validation gap above; the transfer/assign audit-trail
+  race above; and the permission-matrix doc overclaiming coverage it
+  didn't have (now corrected, with the one real missing test added).
+- All tests passing (339/339 in isolation and in most full-suite runs),
+  `tsc --noEmit` clean, `next build` clean.
+- **Known issue, diagnosed not fixed:** `src/lib/email/announce.test.ts`
+  fails intermittently under the full parallel suite (always passes in
+  isolation). Root cause confirmed, not guessed: Postgres's
+  `max_connections` is 100; `src/lib/db.ts`'s pool has no explicit `max`
+  (pg's default is 10); Vitest runs with `isolate: true`, so each of the
+  now-69 test files gets its own process and its own pool — up to 690
+  potential connections against a 100-connection ceiling. Not fixed here:
+  both correct fixes (capping each pool's `max`, or `isolate: false`) risk
+  side effects outside this phase's scope — a low per-pool cap could
+  serialize this phase's own concurrency tests (which need 2+ genuinely
+  simultaneous connections to exercise a real race), and `isolate: false`
+  changes module-sharing semantics for every test file in the project.
+  Needs a dedicated follow-up.
 
 ## Phase 7 — Internal chat (planned, not implemented)
 
@@ -202,3 +266,8 @@ proposed — placed last here since no plan doc exists yet).
   sibling imports (`./types`, `./errors`) stay relative. A filesystem path
   passed to `path.join(__dirname, ...)` (e.g. to locate `migrations/`) is
   not a module import and stays relative too.
+- `npm test` can intermittently fail a handful of `src/lib/email/announce.test.ts`
+  tests under the full parallel suite (always passes run alone) — see
+  Phase 6's entry above for the diagnosed root cause (Postgres connection-pool
+  exhaustion across 69+ per-file pools, not a logic bug). If you see this,
+  re-run; don't chase it as a regression.
