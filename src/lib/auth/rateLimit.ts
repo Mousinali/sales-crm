@@ -7,31 +7,25 @@
 const attempts = new Map<string, { count: number; limit: number; windowStart: number }>();
 const MAX_ENTRIES = 10_000;
 
+// Bounds the store's size by capping how fast brand-new identifiers are
+// admitted, not by evicting existing ones. Any eviction rule keyed on an
+// entry's own state (its count, its age) is gameable: an attacker can
+// always manufacture enough distinct keys to make that rule evict
+// whatever they want — including their own counter — resetting it
+// indefinitely and defeating the limit entirely. Throttling admission
+// instead means no live entry is ever touched to make room for another.
+const NEW_KEY_WINDOW_MS = 60_000;
+const MAX_NEW_KEYS_PER_WINDOW = 500;
+// Lazily initialized on first use (not Date.now() at import time), so it
+// tracks whatever clock is active when a key is first admitted rather than
+// the real wall clock at module load — otherwise a faked/mocked clock in
+// tests could never look "stale" relative to a real timestamp set earlier.
+let newKeyWindowStart: number | null = null;
+let newKeysThisWindow = 0;
+
 function pruneExpired(now: number, windowMs: number): void {
   for (const [key, entry] of attempts) {
     if (now - entry.windowStart > windowMs) attempts.delete(key);
-  }
-}
-
-// Evicting the oldest entries outright could remove one that is currently
-// mid-lockout (count >= its own limit), un-blocking an attacker who floods
-// the store with junk keys — worse than the growth problem this guards
-// against. Evicting only entries with exactly one attempt recorded avoids
-// that while still making room for new users (so a full store doesn't
-// lock everyone out of login), without resetting any identifier that
-// already has 2+ attempts in progress — a flood of fresh junk keys must
-// not be able to reset a target's partially-used counter back to zero
-// before it ever locks out. Only if every entry has 2+ attempts does a new
-// key fail closed — an extreme scenario where that's an acceptable,
-// temporary cost.
-function evictFreshEntries(count: number): void {
-  let remaining = count;
-  for (const [key, entry] of attempts) {
-    if (remaining <= 0) break;
-    if (entry.count === 1) {
-      attempts.delete(key);
-      remaining -= 1;
-    }
   }
 }
 
@@ -39,11 +33,21 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || now - entry.windowStart > windowMs) {
+    if (newKeyWindowStart === null || now - newKeyWindowStart > NEW_KEY_WINDOW_MS) {
+      newKeyWindowStart = now;
+      newKeysThisWindow = 0;
+    }
+    if (newKeysThisWindow >= MAX_NEW_KEYS_PER_WINDOW) {
+      // A flood of brand-new identifiers — fail closed for new keys only.
+      // Every identifier already being tracked keeps working normally;
+      // nothing already in the store is evicted or reset.
+      return false;
+    }
     if (attempts.size >= MAX_ENTRIES) {
       pruneExpired(now, windowMs);
-      if (attempts.size >= MAX_ENTRIES) evictFreshEntries(attempts.size - MAX_ENTRIES + 1);
       if (attempts.size >= MAX_ENTRIES) return false;
     }
+    newKeysThisWindow += 1;
     attempts.set(key, { count: 1, limit, windowStart: now });
     return true;
   }
@@ -60,4 +64,10 @@ export function resetRateLimit(key: string): void {
 
 export function _rateLimitStoreSize(): number {
   return attempts.size;
+}
+
+export function _resetRateLimitForTesting(): void {
+  attempts.clear();
+  newKeyWindowStart = null;
+  newKeysThisWindow = 0;
 }
