@@ -3,8 +3,17 @@ import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { recordLeadActivity } from "@/lib/leads/activities";
 import { recordNotification } from "@/lib/notifications/record";
-import { VisitActionNotAllowedError } from "./errors";
+import { VisitActionNotAllowedError, VisitNotFoundError } from "./errors";
 import type { VisitRow } from "./types";
+
+async function getVisitOrThrow(pool: Pool, visitId: number): Promise<VisitRow> {
+  const { rows } = await pool.query<VisitRow>("SELECT * FROM client_visits WHERE id = $1", [visitId]);
+  const visit = rows[0];
+  if (!visit) {
+    throw new VisitNotFoundError(`No visit with id ${visitId}`);
+  }
+  return visit;
+}
 
 async function assertActiveSalesperson(pool: Pool, userId: number): Promise<void> {
   const { rows } = await pool.query<{ role: Role; status: "ACTIVE" | "INACTIVE" }>(
@@ -72,6 +81,68 @@ export async function scheduleVisit(
   });
 
   return visit;
+}
+
+export async function rescheduleVisit(
+  pool: Pool,
+  input: { actorId: number; actorRole: Role; visitId: number; visitDate: string; startTime: string },
+): Promise<VisitRow> {
+  if (input.actorRole !== "MARKETING_HEAD") {
+    throw new VisitActionNotAllowedError(`${input.actorRole} cannot reschedule visits`);
+  }
+  const visit = await getVisitOrThrow(pool, input.visitId);
+
+  const { rows } = await pool.query<VisitRow>(
+    `UPDATE client_visits SET status = 'RESCHEDULED', visit_date = $1, start_time = $2, updated_at = now() WHERE id = $3 RETURNING *`,
+    [input.visitDate, input.startTime, input.visitId],
+  );
+  const updated = rows[0];
+
+  await recordLeadActivity(pool, {
+    leadId: visit.lead_id,
+    actorId: input.actorId,
+    type: "CLIENT_VISIT",
+    notes: `Rescheduled to ${input.visitDate} ${input.startTime}`,
+  });
+  await recordNotification(pool, {
+    recipientUserId: visit.salesperson_id,
+    type: "VISIT_RESCHEDULED",
+    leadId: visit.lead_id,
+    message: `Your client visit was rescheduled to ${input.visitDate} ${input.startTime}`,
+  });
+
+  return updated;
+}
+
+export async function cancelVisit(
+  pool: Pool,
+  input: { actorId: number; actorRole: Role; visitId: number },
+): Promise<VisitRow> {
+  if (input.actorRole !== "MARKETING_HEAD") {
+    throw new VisitActionNotAllowedError(`${input.actorRole} cannot cancel visits`);
+  }
+  const visit = await getVisitOrThrow(pool, input.visitId);
+
+  const { rows } = await pool.query<VisitRow>(
+    `UPDATE client_visits SET status = 'CANCELLED', updated_at = now() WHERE id = $1 RETURNING *`,
+    [input.visitId],
+  );
+  const updated = rows[0];
+
+  await recordLeadActivity(pool, {
+    leadId: visit.lead_id,
+    actorId: input.actorId,
+    type: "CLIENT_VISIT",
+    notes: "Visit cancelled",
+  });
+  await recordNotification(pool, {
+    recipientUserId: visit.salesperson_id,
+    type: "VISIT_CANCELLED",
+    leadId: visit.lead_id,
+    message: "Your client visit was cancelled",
+  });
+
+  return updated;
 }
 
 export async function findConflictingVisit(

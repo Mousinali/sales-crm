@@ -6,7 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
 import { listNotifications } from "@/lib/notifications/record";
-import { scheduleVisit, findConflictingVisit } from "./schedule";
+import { scheduleVisit, findConflictingVisit, rescheduleVisit, cancelVisit } from "./schedule";
 import { VisitActionNotAllowedError } from "./errors";
 
 const adminEmail = `visit-admin-${Date.now()}@example.com`;
@@ -83,5 +83,30 @@ describe("findConflictingVisit", () => {
 
   it("does not flag a different time or a cancelled visit", async () => {
     expect(await findConflictingVisit(pool, { salespersonId, visitDate: "2026-11-03", startTime: "11:00" })).toBeNull();
+  });
+});
+
+describe("rescheduleVisit / cancelVisit", () => {
+  it("reschedules a visit, keeping it findable by its new slot's conflict check", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-05", startTime: "09:00", objective: "Reschedule me" });
+    visitIds.push(visit.id);
+    const updated = await rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, visitDate: "2026-11-10", startTime: "09:00" });
+    expect(updated).toMatchObject({ status: "RESCHEDULED", visit_date: "2026-11-10" });
+  });
+
+  it("cancels a visit and notifies the assigned Salesperson", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-06", startTime: "09:00", objective: "Cancel me" });
+    visitIds.push(visit.id);
+    const updated = await cancelVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id });
+    expect(updated.status).toBe("CANCELLED");
+    expect((await listNotifications(pool, visit.salesperson_id)).some((n) => n.type === "VISIT_CANCELLED")).toBe(true);
+  });
+
+  it("rejects a non-Marketing-Head rescheduling or cancelling", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-07", startTime: "09:00", objective: "x" });
+    visitIds.push(visit.id);
+    await expect(
+      rescheduleVisit(pool, { actorId: preSalesId, actorRole: "PRE_SALES", visitId: visit.id, visitDate: "2026-11-10", startTime: "09:00" }),
+    ).rejects.toThrow(VisitActionNotAllowedError);
   });
 });
