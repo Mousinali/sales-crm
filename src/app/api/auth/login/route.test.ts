@@ -58,7 +58,7 @@ describe("POST /api/auth/login", () => {
     await pool.query("UPDATE users SET status = 'ACTIVE' WHERE id = $1", [userId]);
   });
 
-  it("rate-limits repeated failed login attempts for the same identifier, then lets a correct password through again after a reset", async () => {
+  it("rate-limits repeated failed login attempts for the same identifier, blocking even a correct password while limited", async () => {
     const rateLimitedEmail = `login-ratelimit-${Date.now()}@example.com`;
     const seeded = await seedSuperAdmin(pool, { email: rateLimitedEmail, name: "Rate Limit Test", password: "correctpw" });
 
@@ -74,6 +74,22 @@ describe("POST /api/auth/login", () => {
     // must block the identifier, not just repeat the same wrong guess.
     const stillLimited = await POST(loginRequest({ email: rateLimitedEmail, password: "correctpw" }));
     expect(stillLimited.status).toBe(429);
+
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
+  });
+
+  it("resets the attempt counter on a successful login, so a later failed attempt doesn't inherit the earlier count", async () => {
+    const email = `login-ratelimit-reset-${Date.now()}@example.com`;
+    const seeded = await seedSuperAdmin(pool, { email, name: "Reset Test", password: "correctpw" });
+
+    // 4 of the 5 allowed attempts, then a successful login.
+    for (let i = 0; i < 4; i++) await POST(loginRequest({ email, password: "wrongpw" }));
+    expect((await POST(loginRequest({ email, password: "correctpw" }))).status).toBe(200);
+
+    // If the counter weren't reset, one more failure here would be the
+    // 6th attempt against the original window and trip the limit.
+    expect((await POST(loginRequest({ email, password: "wrongpw" }))).status).toBe(401);
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
