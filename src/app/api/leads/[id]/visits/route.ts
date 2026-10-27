@@ -8,10 +8,15 @@ import { scheduleVisit } from "@/lib/visits/schedule";
 import { VisitActionNotAllowedError, VisitConflictError } from "@/lib/visits/errors";
 import type { VisitRow } from "@/lib/visits/types";
 
+// Strict YYYY-MM-DD / HH:MM format, not just non-empty: a loosely-shaped
+// string ("not-a-date", "9am") crashes the DB with a raw syntax error
+// instead of a clean 400, and a non-padded variant ("9:00" vs "09:00")
+// would hash to a different advisory-lock key for what Postgres treats as
+// the same slot, defeating scheduleVisit's double-booking lock.
 const scheduleSchema = z.object({
   salespersonId: z.number().int(),
-  visitDate: z.string().trim().min(1),
-  startTime: z.string().trim().min(1),
+  visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
   expectedDurationMinutes: z.number().int().optional(),
   location: z.string().optional(),
   objective: z.string().trim().min(1),

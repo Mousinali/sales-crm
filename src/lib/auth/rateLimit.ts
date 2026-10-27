@@ -13,29 +13,17 @@ function pruneExpired(now: number, windowMs: number): void {
   }
 }
 
-// Pruning only removes entries whose window has already elapsed — a flood
-// of unique keys arriving faster than any window expires would otherwise
-// still grow the store past MAX_ENTRIES forever. Map iteration order is
-// insertion order, so evicting the oldest entries first is a real ceiling,
-// not just a best-effort cleanup.
-function evictOldest(overBy: number): void {
-  const it = attempts.keys();
-  for (let i = 0; i < overBy; i++) {
-    const next = it.next();
-    if (next.done) break;
-    attempts.delete(next.value);
-  }
-}
-
 export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || now - entry.windowStart > windowMs) {
-    // About to insert/replace a key — make room first so the map never
-    // exceeds MAX_ENTRIES even right after this insert.
     if (attempts.size >= MAX_ENTRIES) {
       pruneExpired(now, windowMs);
-      if (attempts.size >= MAX_ENTRIES) evictOldest(attempts.size - MAX_ENTRIES + 1);
+      // Still full of live entries after pruning: fail closed for this new
+      // key rather than evict an existing one to make room. Evicting here
+      // could un-block an entry that is currently mid-lockout, which would
+      // defeat the whole point of the limit for that identifier.
+      if (attempts.size >= MAX_ENTRIES) return false;
     }
     attempts.set(key, { count: 1, windowStart: now });
     return true;

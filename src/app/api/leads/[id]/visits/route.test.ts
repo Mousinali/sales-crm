@@ -97,6 +97,13 @@ describe("POST /api/leads/[id]/visits", () => {
     const emptyObjective = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "14:00", objective: "" }, mhCookie);
     expect(emptyObjective.status).toBe(400);
   });
+
+  it("returns 400 (not 500) for a malformed visitDate or startTime", async () => {
+    const badDate = await postVisit(lead.id, { salespersonId, visitDate: "not-a-date", startTime: "14:00", objective: "x" }, mhCookie);
+    expect(badDate.status).toBe(400);
+    const badTime = await postVisit(lead.id, { salespersonId, visitDate: "2026-11-02", startTime: "9am", objective: "x" }, mhCookie);
+    expect(badTime.status).toBe(400);
+  });
 });
 
 describe("GET /api/leads/[id]/visits", () => {

@@ -32,4 +32,19 @@ describe("checkRateLimit", () => {
     }
     expect(_rateLimitStoreSize()).toBeLessThanOrEqual(10_000);
   });
+
+  it("never un-blocks an already-rate-limited key by evicting it to make room for new ones", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    // Trip the limit for one real identifier first.
+    for (let i = 0; i < 5; i++) checkRateLimit("victim", 5, 10 * 60_000);
+    expect(checkRateLimit("victim", 5, 10 * 60_000)).toBe(false);
+
+    // Flood the store with enough unique keys to hit the cap.
+    for (let i = 0; i < 10_010; i++) checkRateLimit(`flood-key-${i}`, 5, 10 * 60_000);
+
+    // The victim's own lockout must still hold — eviction must never
+    // remove a still-active, still-blocked entry to make room for churn.
+    expect(checkRateLimit("victim", 5, 10 * 60_000)).toBe(false);
+  });
 });

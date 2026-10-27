@@ -6,7 +6,11 @@ import { rescheduleVisit, cancelVisit, recordVisitOutcome } from "@/lib/visits/s
 import { VisitActionNotAllowedError, VisitNotFoundError, VisitNotAccessibleError, VisitConflictError } from "@/lib/visits/errors";
 
 const patchSchema = z.union([
-  z.object({ action: z.literal("RESCHEDULE"), visitDate: z.string().trim().min(1), startTime: z.string().trim().min(1), confirmConflict: z.boolean().optional() }),
+  // Strict YYYY-MM-DD / HH:MM — see src/app/api/leads/[id]/visits/route.ts
+  // for why: a loosely-shaped string crashes the DB with a raw error, and a
+  // non-padded variant would hash to a different advisory-lock key for the
+  // same Postgres slot.
+  z.object({ action: z.literal("RESCHEDULE"), visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"), startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"), confirmConflict: z.boolean().optional() }),
   z.object({ action: z.literal("CANCEL") }),
   z.object({
     action: z.literal("RECORD_OUTCOME"),

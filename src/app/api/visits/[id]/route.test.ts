@@ -89,6 +89,14 @@ describe("PATCH /api/visits/[id]", () => {
     expect(emptyTime.status).toBe(400);
   });
 
+  it("returns 400 (not 500) for a malformed visitDate or startTime when rescheduling", async () => {
+    const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-30", startTime: "09:00", objective: "x" });
+    const badDate = await patchVisit(visit.id, { action: "RESCHEDULE", visitDate: "not-a-date", startTime: "10:00" }, mhCookie);
+    expect(badDate.status).toBe(400);
+    const badTime = await patchVisit(visit.id, { action: "RESCHEDULE", visitDate: "2026-12-02", startTime: "9am" }, mhCookie);
+    expect(badTime.status).toBe(400);
+  });
+
   it("cancels a visit", async () => {
     const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-11-14", startTime: "09:00", objective: "x" });
     const res = await patchVisit(visit.id, { action: "CANCEL" }, mhCookie);
