@@ -48,63 +48,34 @@ describe("LeadsView", () => {
   });
 
   it("renders the initial lead list", () => {
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="PRE_SALES" />);
     expect(screen.getByText("Sample Co")).toBeInTheDocument();
   });
 
-  it("renders the initial lead list and opens the create modal with a duplicate warning", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
-      if (String(url).includes("/duplicates")) return new Response(JSON.stringify({ duplicates: [{ id: 1, companyName: "Acme Corp", status: "PENDING_REVIEW" }] }));
-      return new Response(JSON.stringify({ id: 2 }), { status: 201 });
-    });
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
-    fireEvent.click(screen.getByRole("button", { name: /new lead/i }));
-    fireEvent.change(screen.getByLabelText(/company/i), { target: { value: "Acme Corp" } });
-    fireEvent.blur(screen.getByLabelText(/company/i));
-    expect(await screen.findByText(/similar lead/i)).toBeInTheDocument();
+  it("links New Lead to the dedicated /leads/new page instead of opening a modal", () => {
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="PRE_SALES" />);
+    expect(screen.getByRole("link", { name: /new lead/i })).toHaveAttribute("href", "/leads/new");
   });
 
-  it("submits the extended contact-detail fields, defaulting country to India", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
-      if (String(url).includes("/duplicates")) return new Response(JSON.stringify({ duplicates: [] }));
-      if (String(url).includes("/api/services")) return new Response(JSON.stringify({ services: [{ id: 7, name: "Web Development" }] }));
-      return new Response(JSON.stringify({ id: 2 }), { status: 201 });
-    });
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
-    fireEvent.click(screen.getByRole("button", { name: /new lead/i }));
-    fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
-    fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Retail" } });
-    fireEvent.change(screen.getByLabelText(/^company$/i), { target: { value: "New Co" } });
-    fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "12 MG Road" } });
-    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Karnataka" } });
-    fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "560001" } });
-    fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "123" } });
-    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });
-    fireEvent.click(await screen.findByLabelText(/service interested/i));
-    fireEvent.click(screen.getByRole("checkbox", { name: /web development/i }));
-    fireEvent.change(screen.getByLabelText(/^remarks$/i), { target: { value: "Call after 5pm" } });
-    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
-
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/leads", expect.objectContaining({ method: "POST" })));
-    const call = fetchSpy.mock.calls.find(([url, init]) => url === "/api/leads" && (init as RequestInit)?.method === "POST");
-    const body = JSON.parse((call?.[1] as RequestInit).body as string);
-    expect(body).toMatchObject({
-      industry: "Manufacturing",
-      businessType: "Retail",
-      companyName: "New Co",
-      address: "12 MG Road",
-      state: "Karnataka",
-      pincode: "560001",
-      country: "India",
-      whatsappNumber: "9876543210",
-      serviceIds: [7],
-      remarks: "Call after 5pm",
-    });
+  it("allows row selection for export but hides bulk transfer for a non-Marketing-Head viewer", () => {
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="PRE_SALES" />);
+    expect(screen.getByLabelText(/select sample co/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/select sample co/i));
+    expect(screen.queryByText(/transfer selected/i)).not.toBeInTheDocument();
   });
 
-  it("hides row selection and bulk transfer for a non-Marketing-Head viewer", () => {
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="PRE_SALES" />);
-    expect(screen.queryByLabelText(/select sample co/i)).not.toBeInTheDocument();
+  it("builds an export link with the selected lead ids and chosen format", () => {
+    const clickedUrls: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clickedUrls.push(this.href);
+    });
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="PRE_SALES" />);
+    fireEvent.click(screen.getByLabelText(/select sample co/i));
+    fireEvent.click(screen.getByRole("button", { name: /export excel/i }));
+    expect(clickedUrls).toHaveLength(1);
+    expect(clickedUrls[0]).toContain("/api/leads/export?");
+    expect(clickedUrls[0]).toContain("ids=1");
+    expect(clickedUrls[0]).toContain("format=xlsx");
   });
 
   it("lets a Marketing Head select leads and bulk-transfer them with a confirmation step", async () => {
@@ -114,7 +85,7 @@ describe("LeadsView", () => {
       if (String(url).includes("/transfer-bulk")) return new Response(JSON.stringify({ leads: [] }));
       return new Response(JSON.stringify({ leads: sampleLeads }));
     });
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="MARKETING_HEAD" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" />);
 
     fireEvent.click(screen.getByLabelText(/select sample co/i));
     fireEvent.click(screen.getByRole("button", { name: /transfer selected/i }));
@@ -137,7 +108,7 @@ describe("LeadsView", () => {
       // Simulate a filter change: the refetch comes back without the lead that was selected.
       return new Response(JSON.stringify({ leads: [] }));
     });
-    render(<LeadsView initialLeads={sampleLeads} viewerRole="MARKETING_HEAD" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" />);
 
     fireEvent.click(screen.getByLabelText(/select sample co/i));
     expect(screen.getByRole("button", { name: /transfer selected \(1\)/i })).toBeInTheDocument();

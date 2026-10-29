@@ -30,10 +30,29 @@ export default async function DashboardLayout({
 
   const NAV_ITEMS: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
+    { href: "/calendar", label: "Calendar", icon: "ri-calendar-line" },
+    { href: "/chat", label: "Chat", icon: "ri-chat-3-line" },
     ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
       ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
       : []),
-    ...(user.role !== "HR" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
+    ...(user.role !== "HR"
+      ? [
+          {
+            href: "/leads",
+            label: "Leads",
+            icon: "ri-contacts-line",
+            children: [
+              // Mirrors LeadsView's `canCreate` check (PRE_SALES/MARKETING_HEAD
+              // only) — /leads/new redirects anyone else straight back to
+              // /leads, so there's no point offering the link to them here.
+              ...(user.role === "PRE_SALES" || user.role === "MARKETING_HEAD"
+                ? [{ href: "/leads/new", label: "Add Lead", icon: "ri-add-line" }]
+                : []),
+              { href: "/leads", label: "Lead List", icon: "ri-list-check" },
+            ],
+          },
+        ]
+      : []),
     ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
       ? [{ href: "/announcements", label: "Announcements", icon: "ri-mail-send-line" }]
       : []),

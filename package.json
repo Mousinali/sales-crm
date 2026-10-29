@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "tsx watch --exclude .next --exclude node_modules server.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "test": "vitest run",
     "migrate": "tsx scripts/migrate.ts",
@@ -14,12 +14,16 @@
   },
   "dependencies": {
     "argon2": "^0.45.1",
+    "exceljs": "^4.4.0",
     "next": "16.4.2",
     "nodemailer": "^10.2.1",
     "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "remixicon": "^4.9.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4",
+    "sonner": "^2.0.8",
     "zod": "^4.6.7"
   },
   "devDependencies": {

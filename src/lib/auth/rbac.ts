@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSessionUser, SESSION_COOKIE_NAME } from "./session";
+import { getSessionUser, sessionTokenFromCookieHeader, SESSION_COOKIE_NAME } from "./session";
 import type { Role } from "./roles";
 
 export type AuthUser = { id: number; role: Role; name: string; email: string; mustChangePassword: boolean };
@@ -59,12 +59,7 @@ export async function requireRole(roles: Role[]): Promise<AuthUser> {
 
 /** Extracts the raw session token from a Request's Cookie header, or undefined if absent. */
 export function sessionTokenFromRequest(request: Request): string | undefined {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  const match = cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
-  return match?.slice(SESSION_COOKIE_NAME.length + 1);
+  return sessionTokenFromCookieHeader(request.headers.get("cookie") ?? "");
 }
 
 /**

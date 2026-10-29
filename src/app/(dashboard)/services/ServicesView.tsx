@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { toast } from "@/lib/toast";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
 import type { ServiceRow, ServiceStatus } from "@/lib/services/types";
 import { SERVICE_STATUSES } from "@/lib/services/types";
 
@@ -21,6 +23,16 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 
 export default function ServicesView({ initialServices }: { initialServices: ServiceRow[] }) {
   const [services, setServices] = useState<ServiceRow[]>(initialServices);
+
+  async function refetch() {
+    const response = await fetch("/api/services");
+    if (!response.ok) {
+      toast.error("Could not refresh services");
+      return;
+    }
+    const body = await response.json();
+    setServices(body.services ?? []);
+  }
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -50,16 +62,20 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
         body: JSON.stringify({ name: createName.trim(), description: createDescription.trim() || undefined }),
       });
       if (!response.ok) {
-        setCreateError(await parseErrorMessage(response, "Could not create the service."));
+        const message = await parseErrorMessage(response, "Could not create the service.");
+        setCreateError(message);
+        toast.error("Could not create service", message);
         setCreating(false);
         return;
       }
       const created: ServiceRow = await response.json();
       setServices((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success("Service created", created.name);
       setCreating(false);
       setCreateOpen(false);
     } catch {
       setCreateError("Could not create the service.");
+      toast.error("Could not create service");
       setCreating(false);
     }
   }
@@ -95,16 +111,20 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
         body: JSON.stringify({ name: editName.trim(), description: editDescription.trim() || undefined, status: editStatus }),
       });
       if (!response.ok) {
-        setEditError(await parseErrorMessage(response, "Could not save changes."));
+        const message = await parseErrorMessage(response, "Could not save changes.");
+        setEditError(message);
+        toast.error("Could not save changes", message);
         setEditSaving(false);
         return;
       }
       const updated: ServiceRow = await response.json();
       setServices((current) => current.map((s) => (s.id === updated.id ? updated : s)).sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success("Service updated", updated.name);
       setEditSaving(false);
       setEditingService(null);
     } catch {
       setEditError("Could not save changes.");
+      toast.error("Could not save changes");
       setEditSaving(false);
     }
   }
@@ -117,14 +137,17 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
             The services leads can select as &ldquo;Service interested&rdquo;. Deactivating one hides it from new
             selections without affecting leads that already have it.
           </p>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-          >
-            <i className="ri-add-line text-base" aria-hidden="true" />
-            New service
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <RefreshButton onRefresh={refetch} />
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+            >
+              <i className="ri-add-line text-base" aria-hidden="true" />
+              New service
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

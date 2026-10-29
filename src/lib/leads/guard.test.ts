@@ -7,6 +7,7 @@ import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { assertLeadVisible } from "./guard";
 import { LeadNotFoundError, LeadNotAccessibleError } from "./errors";
+import { scheduleVisit } from "@/lib/visits/schedule";
 
 const adminEmail = `guard-admin-${Date.now()}@example.com`;
 let mhId: number;
@@ -38,6 +39,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM notifications WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM client_visits WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
   await pool.query(
     "DELETE FROM audit_logs WHERE actor_user_id IN (SELECT id FROM users WHERE email = ANY($1))",
@@ -58,6 +62,19 @@ describe("assertLeadVisible", () => {
 
   it("rejects a Salesperson the lead isn't assigned to", async () => {
     await expect(assertLeadVisible(pool, { id: salespersonId, role: "SALESPERSON" }, myLead.id)).rejects.toThrow(LeadNotAccessibleError);
+  });
+
+  it("allows a Salesperson who has a client visit scheduled on the lead, even without ownership", async () => {
+    await scheduleVisit(pool, {
+      actorId: mhId,
+      actorRole: "MARKETING_HEAD",
+      leadId: myLead.id,
+      salespersonId,
+      visitDate: "2026-12-15",
+      startTime: "10:00",
+      objective: "Demo",
+    });
+    await expect(assertLeadVisible(pool, { id: salespersonId, role: "SALESPERSON" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
   });
 
   it("throws LeadNotFoundError for a non-existent id", async () => {

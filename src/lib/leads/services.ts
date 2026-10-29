@@ -43,3 +43,20 @@ export async function listLeadServices(pool: Pool, leadId: number): Promise<Serv
   );
   return rows;
 }
+
+// Bulk variant for export: one query for every lead instead of N, returning
+// each lead's service names pre-joined into a single display string.
+export async function listServiceNamesForLeads(pool: Pool, leadIds: number[]): Promise<Map<number, string>> {
+  const byLeadId = new Map<number, string>();
+  if (leadIds.length === 0) return byLeadId;
+
+  const { rows } = await pool.query<{ lead_id: number; names: string }>(
+    `SELECT ls.lead_id, string_agg(s.name, ', ' ORDER BY s.name) AS names
+     FROM lead_services ls JOIN services s ON s.id = ls.service_id
+     WHERE ls.lead_id = ANY($1)
+     GROUP BY ls.lead_id`,
+    [leadIds],
+  );
+  for (const row of rows) byLeadId.set(row.lead_id, row.names);
+  return byLeadId;
+}

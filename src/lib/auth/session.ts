@@ -4,6 +4,24 @@ import type { Role } from "./roles";
 
 export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME!;
 
+/**
+ * Extracts the raw session token from a raw `Cookie` header string, or
+ * undefined if absent. Deliberately kept in this Next-agnostic module
+ * (rather than `rbac.ts`, which imports `next/headers`/`next/navigation`):
+ * the Socket.IO custom server (`server.ts`) imports this directly, and
+ * loading `next/headers` outside of Next's own request pipeline — which
+ * happens if anything in that import chain pulls in `rbac.ts` — crashes
+ * Next's internal AsyncLocalStorage bootstrap when `next({...})` is also
+ * constructed in the same process.
+ */
+export function sessionTokenFromCookieHeader(cookieHeader: string): string | undefined {
+  const match = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
+  return match?.slice(SESSION_COOKIE_NAME.length + 1);
+}
+
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }

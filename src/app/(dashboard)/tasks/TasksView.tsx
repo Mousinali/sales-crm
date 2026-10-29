@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "@/lib/toast";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
 import type { Role } from "@/lib/auth/roles";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/tasks/types";
 import { LEAD_PRIORITIES, type LeadPriority } from "@/lib/leads/types";
 import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
+import Pagination from "@/app/(dashboard)/Pagination";
 
 type Task = {
   id: number;
@@ -40,8 +43,23 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
   return fallback;
 }
 
-export default function TasksView({ initialTasks, viewerId, viewerRole }: { initialTasks: Task[]; viewerId: number; viewerRole: Role }) {
+export default function TasksView({
+  initialTasks,
+  initialTotal,
+  initialTotalPages,
+  viewerId,
+  viewerRole,
+}: {
+  initialTasks: Task[];
+  initialTotal: number;
+  initialTotalPages: number;
+  viewerId: number;
+  viewerRole: Role;
+}) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [total, setTotal] = useState(initialTotal);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "">("");
   const [dueFilter, setDueFilter] = useState<"OVERDUE" | "TODAY" | "UPCOMING" | "">("");
   const [listError, setListError] = useState<string | null>(null);
@@ -60,19 +78,23 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAssignOthers]);
 
-  async function refetch(status: TaskStatus | "", dueWithin: typeof dueFilter) {
+  async function refetch(status: TaskStatus | "", dueWithin: typeof dueFilter, targetPage: number) {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (dueWithin) params.set("dueWithin", dueWithin);
+    params.set("page", String(targetPage));
     setListError(null);
     try {
-      const response = await fetch(`/api/tasks${params.toString() ? `?${params.toString()}` : ""}`);
+      const response = await fetch(`/api/tasks?${params.toString()}`);
       if (!response.ok) {
         setListError(await parseErrorMessage(response, "Could not load tasks."));
         return;
       }
       const body = await response.json();
       setTasks(body.tasks ?? []);
+      setTotal(body.total ?? 0);
+      setTotalPages(body.totalPages ?? 1);
+      setPage(targetPage);
     } catch {
       setListError("Could not load tasks.");
     }
@@ -80,7 +102,7 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
 
   function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void refetch(statusFilter, dueFilter);
+    void refetch(statusFilter, dueFilter, 1);
   }
 
   async function setStatus(taskId: number, status: TaskStatus) {
@@ -89,9 +111,12 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    if (!response.ok) return;
-    const updated: Task = await response.json();
-    setTasks((current) => current.map((t) => (t.id === taskId ? updated : t)));
+    if (!response.ok) {
+      toast.error("Could not update task", await parseErrorMessage(response, "Could not update the task's status."));
+      return;
+    }
+    toast.success("Task updated", STATUS_LABELS[status]);
+    void refetch(statusFilter, dueFilter, page);
   }
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -134,18 +159,19 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
         }),
       });
       if (!response.ok) {
-        setCreateError(await parseErrorMessage(response, "Could not create the task."));
+        const message = await parseErrorMessage(response, "Could not create the task.");
+        setCreateError(message);
+        toast.error("Could not create task", message);
         setCreating(false);
         return;
       }
-      const created: Task = await response.json();
-      if (created.assigned_user_id === viewerId || canAssignOthers) {
-        setTasks((current) => [...current, created]);
-      }
+      toast.success("Task created", title.trim());
       setCreating(false);
       setCreateOpen(false);
+      void refetch(statusFilter, dueFilter, page);
     } catch {
       setCreateError("Could not create the task.");
+      toast.error("Could not create task");
       setCreating(false);
     }
   }
@@ -197,14 +223,17 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-          >
-            <i className="ri-add-line text-base" aria-hidden="true" />
-            New task
-          </button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={() => refetch(statusFilter, dueFilter, page)} />
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+            >
+              <i className="ri-add-line text-base" aria-hidden="true" />
+              New task
+            </button>
+          </div>
         </div>
 
         {listError && (
@@ -295,6 +324,7 @@ export default function TasksView({ initialTasks, viewerId, viewerRole }: { init
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch(statusFilter, dueFilter, nextPage)} />
       </div>
 
       {createOpen && (

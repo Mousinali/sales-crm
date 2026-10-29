@@ -3,7 +3,7 @@ import { z } from "zod";
 import { pool } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/passwords";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
-import { checkRateLimit, resetRateLimit } from "@/lib/auth/rateLimit";
+import { checkRateLimit, resetRateLimit, getRetryAfterSeconds } from "@/lib/auth/rateLimit";
 
 const LOGIN_RATE_LIMIT = 5;
 const LOGIN_RATE_WINDOW_MS = 15 * 60_000;
@@ -39,7 +39,11 @@ export async function POST(request: Request): Promise<Response> {
   // rate-limit login, not to survive a targeted denial-of-service.
   const rateLimitKey = `email:${email}`;
   if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)) {
-    return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    const retryAfterSeconds = getRetryAfterSeconds(rateLimitKey, LOGIN_RATE_WINDOW_MS);
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later.", retryAfterSeconds },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+    );
   }
 
   const { rows } = await pool.query<{ id: number; password_hash: string; status: "ACTIVE" | "INACTIVE" }>(

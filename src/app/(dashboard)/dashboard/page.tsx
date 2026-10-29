@@ -1,3 +1,5 @@
+import Link from "next/link";
+import DashboardRefreshButton from "./DashboardRefreshButton";
 import { requireUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "@/app/(dashboard)/roleDisplay";
@@ -40,16 +42,19 @@ function BreakdownList({ title, counts }: { title: string; counts: Record<string
 
 function WelcomeCard({ name, role }: { name: string; role: keyof typeof ROLE_LABELS }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-6">
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
-        {initialsOf(name)}
-      </span>
-      <div>
-        <p className="text-base font-semibold text-zinc-900">Welcome back, {name}</p>
-        <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[role]}`}>
-          {ROLE_LABELS[role]}
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-6">
+      <div className="flex items-center gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
+          {initialsOf(name)}
         </span>
+        <div>
+          <p className="text-base font-semibold text-zinc-900">Welcome back, {name}</p>
+          <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[role]}`}>
+            {ROLE_LABELS[role]}
+          </span>
+        </div>
       </div>
+      <DashboardRefreshButton />
     </div>
   );
 }
@@ -184,6 +189,25 @@ export default async function DashboardPage() {
         <StatTile label="Overdue" value={d.overdueTasks.length} />
         <StatTile label="Won" value={d.wonCount} />
         <StatTile label="Lost" value={d.lostCount} />
+      </div>
+      <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <p className="mb-3 text-sm font-semibold text-zinc-900">Upcoming visits ({d.upcomingVisits.length})</p>
+        {d.upcomingVisits.length === 0 ? (
+          <p className="text-sm text-zinc-500">No visits scheduled.</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {d.upcomingVisits.map((visit) => (
+              <li key={visit.id} className="flex items-center justify-between border-b border-zinc-100 pb-2 last:border-0 last:pb-0">
+                <Link href={`/leads/${visit.lead_id}`} className="font-medium text-indigo-700 hover:underline">
+                  {visit.company_name}
+                </Link>
+                <span className="text-xs text-zinc-400">
+                  {visit.visit_date} {visit.start_time}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <BreakdownList title="Pipeline by status" counts={d.leadsByStatus} />

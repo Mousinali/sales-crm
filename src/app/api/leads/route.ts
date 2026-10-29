@@ -4,7 +4,8 @@ import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES } from "@/lib/leads/types";
 import { createLead } from "@/lib/leads/create";
-import { listLeads } from "@/lib/leads/list";
+import { listLeadsPage } from "@/lib/leads/list";
+import { parsePageParams } from "@/lib/pagination";
 import { listLeadServices } from "@/lib/leads/services";
 import { LeadActionNotAllowedError } from "@/lib/leads/errors";
 
@@ -101,6 +102,7 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
-  const leads = await listLeads(pool, user, parsed.data);
-  return NextResponse.json({ leads });
+  const page = parsePageParams(url.searchParams);
+  const result = await listLeadsPage(pool, user, parsed.data, page);
+  return NextResponse.json({ leads: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
 }

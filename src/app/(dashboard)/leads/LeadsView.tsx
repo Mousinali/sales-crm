@@ -2,14 +2,14 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { toast } from "@/lib/toast";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
 import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_STATUSES, type LeadSource, type LeadPriority, type LeadStatus } from "@/lib/leads/types";
 import type { LeadRow } from "@/lib/leads/types";
 import type { Role } from "@/lib/auth/roles";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
-import MultiSelectSearch from "@/app/(dashboard)/MultiSelectSearch";
-import type { ServiceRow } from "@/lib/services/types";
+import Pagination from "@/app/(dashboard)/Pagination";
 
-type DuplicateMatch = { id: number; companyName: string; status: LeadStatus };
 type SimpleUser = { id: number; name: string };
 
 async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -28,12 +28,19 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 
 export default function LeadsView({
   initialLeads,
+  initialTotal,
+  initialTotalPages,
   viewerRole,
 }: {
   initialLeads: LeadRow[];
+  initialTotal: number;
+  initialTotalPages: number;
   viewerRole: Role;
 }) {
   const [leads, setLeads] = useState<LeadRow[]>(initialLeads);
+  const [total, setTotal] = useState(initialTotal);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "">("");
@@ -44,38 +51,7 @@ export default function LeadsView({
 
   const canCreate = viewerRole === "PRE_SALES" || viewerRole === "MARKETING_HEAD";
 
-  useEffect(() => {
-    if (!canCreate) return;
-    fetch("/api/services?status=ACTIVE")
-      .then((res) => (res.ok ? res.json() : { services: [] }))
-      .then((body) => setServiceOptions(body.services ?? []))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCreate]);
-
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [industry, setIndustry] = useState("");
-  const [businessType, setBusinessType] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [address, setAddress] = useState("");
-  const [leadState, setLeadState] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [country, setCountry] = useState("India");
-  const [contactPerson, setContactPerson] = useState("");
-  const [phone, setPhone] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [website, setWebsite] = useState("");
-  const [serviceOptions, setServiceOptions] = useState<ServiceRow[]>([]);
-  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [remarks, setRemarks] = useState("");
-  const [leadSource, setLeadSource] = useState<LeadSource>(LEAD_SOURCES[0]);
-  const [priority, setPriority] = useState<LeadPriority>("MEDIUM");
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
-
-  async function refetch() {
+  async function refetch(targetPage: number) {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (sourceFilter) params.set("source", sourceFilter);
@@ -83,10 +59,11 @@ export default function LeadsView({
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (search.trim()) params.set("q", search.trim());
+    params.set("page", String(targetPage));
 
     setListError(null);
     try {
-      const response = await fetch(`/api/leads${params.toString() ? `?${params.toString()}` : ""}`);
+      const response = await fetch(`/api/leads?${params.toString()}`);
       if (!response.ok) {
         setListError(await parseErrorMessage(response, "Could not load the leads list."));
         return;
@@ -94,6 +71,9 @@ export default function LeadsView({
       const body = await response.json();
       const newLeads: LeadRow[] = body.leads ?? [];
       setLeads(newLeads);
+      setTotal(body.total ?? 0);
+      setTotalPages(body.totalPages ?? 1);
+      setPage(targetPage);
       const newLeadIds = new Set(newLeads.map((l) => l.id));
       setSelectedLeadIds((current) => new Set(Array.from(current).filter((id) => newLeadIds.has(id))));
     } catch {
@@ -103,116 +83,14 @@ export default function LeadsView({
 
   function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void refetch();
-  }
-
-  function openCreateModal() {
-    setIndustry("");
-    setBusinessType("");
-    setCompanyName("");
-    setAddress("");
-    setLeadState("");
-    setPincode("");
-    setCountry("India");
-    setContactPerson("");
-    setPhone("");
-    setWhatsappNumber("");
-    setEmail("");
-    setWebsite("");
-    setSelectedServiceIds([]);
-    setRemarks("");
-    setLeadSource(LEAD_SOURCES[0]);
-    setPriority("MEDIUM");
-    setCreateError(null);
-    setDuplicates([]);
-    setCreateModalOpen(true);
-  }
-
-  function closeCreateModal() {
-    setCreateModalOpen(false);
-  }
-
-  async function checkDuplicates() {
-    if (!companyName.trim()) return;
-    // The duplicates endpoint requires both companyName and phone, but the
-    // check is advisory: fire it as soon as the company name is filled in
-    // (the usual case is company name first, phone second), and let a 400
-    // from an incomplete query resolve to "no warning yet" rather than
-    // waiting for every field before checking at all.
-    const params = new URLSearchParams({ companyName: companyName.trim(), phone: phone.trim() });
-    if (email.trim()) params.set("email", email.trim());
-    if (website.trim()) params.set("website", website.trim());
-    try {
-      const response = await fetch(`/api/leads/duplicates?${params.toString()}`);
-      if (!response.ok) return;
-      const body = await response.json();
-      setDuplicates(body.duplicates ?? []);
-    } catch {
-      // Duplicate-check is advisory; a failed check just means no warning shown.
-    }
-  }
-
-  async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!companyName.trim()) {
-      setCreateError("Enter a company name.");
-      return;
-    }
-    if (!phone.trim()) {
-      setCreateError("Enter a phone number.");
-      return;
-    }
-    if (selectedServiceIds.length === 0) {
-      setCreateError("Select at least one service.");
-      return;
-    }
-
-    setCreateError(null);
-    setCreating(true);
-
-    try {
-      const response = await fetch("/api/leads", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          industry: industry.trim() || undefined,
-          businessType: businessType.trim() || undefined,
-          companyName: companyName.trim(),
-          address: address.trim() || undefined,
-          state: leadState.trim() || undefined,
-          pincode: pincode.trim() || undefined,
-          country: country.trim() || undefined,
-          contactPerson: contactPerson.trim() || undefined,
-          phone: phone.trim(),
-          whatsappNumber: whatsappNumber.trim() || undefined,
-          email: email.trim() || undefined,
-          website: website.trim() || undefined,
-          serviceIds: selectedServiceIds,
-          remarks: remarks.trim() || undefined,
-          leadSource,
-          priority,
-        }),
-      });
-
-      if (!response.ok) {
-        setCreateError(await parseErrorMessage(response, "Could not create the lead."));
-        setCreating(false);
-        return;
-      }
-
-      const created = await response.json();
-      setLeads((current) => [created, ...current]);
-      setCreateModalOpen(false);
-      setCreating(false);
-    } catch {
-      setCreateError("Could not create the lead.");
-      setCreating(false);
-    }
+    void refetch(1);
   }
 
   // Bulk transfer
   const canBulkTransfer = viewerRole === "MARKETING_HEAD";
+  // Selection is also used for export, so every role that can see this list
+  // gets the checkbox column, not just roles that can bulk-transfer.
+  const canSelectLeads = true;
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
   const [preSalesOptions, setPreSalesOptions] = useState<SimpleUser[]>([]);
   const [salespersonOptions, setSalespersonOptions] = useState<SimpleUser[]>([]);
@@ -248,6 +126,24 @@ export default function LeadsView({
 
   function toggleSelectAll() {
     setSelectedLeadIds((current) => (current.size === leads.length ? new Set() : new Set(leads.map((l) => l.id))));
+  }
+
+  function exportLeads(format: "csv" | "xlsx") {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (sourceFilter) params.set("source", sourceFilter);
+    if (priorityFilter) params.set("priority", priorityFilter);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    if (search.trim()) params.set("q", search.trim());
+    if (selectedLeadIds.size > 0) params.set("ids", Array.from(selectedLeadIds).join(","));
+    params.set("format", format);
+    // An anchor click (not `location.assign`) so the browser treats this as
+    // a file download via the response's Content-Disposition header, rather
+    // than a page navigation.
+    const link = document.createElement("a");
+    link.href = `/api/leads/export?${params.toString()}`;
+    link.click();
   }
 
   function openBulkTransfer() {
@@ -288,16 +184,20 @@ export default function LeadsView({
         }),
       });
       if (!response.ok) {
-        setBulkTransferError(await parseErrorMessage(response, "Could not transfer the selected leads."));
+        const message = await parseErrorMessage(response, "Could not transfer the selected leads.");
+        setBulkTransferError(message);
+        toast.error("Could not transfer leads", message);
         setBulkTransferSubmitting(false);
         return;
       }
-      await refetch();
+      toast.success(`${selectedLeadIds.size} lead${selectedLeadIds.size === 1 ? "" : "s"} transferred`);
+      await refetch(page);
       setSelectedLeadIds(new Set());
       setBulkTransferSubmitting(false);
       setBulkTransferConfirming(false);
     } catch {
       setBulkTransferError("Could not transfer the selected leads.");
+      toast.error("Could not transfer leads");
       setBulkTransferSubmitting(false);
     }
   }
@@ -413,6 +313,23 @@ export default function LeadsView({
           </form>
 
           <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={() => refetch(page)} />
+            <button
+              type="button"
+              onClick={() => exportLeads("csv")}
+              title={selectedLeadIds.size > 0 ? `Export ${selectedLeadIds.size} selected lead(s) as CSV` : "Export all matching leads as CSV"}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              Export CSV{selectedLeadIds.size > 0 ? ` (${selectedLeadIds.size})` : ""}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportLeads("xlsx")}
+              title={selectedLeadIds.size > 0 ? `Export ${selectedLeadIds.size} selected lead(s) as Excel` : "Export all matching leads as Excel"}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              Export Excel{selectedLeadIds.size > 0 ? ` (${selectedLeadIds.size})` : ""}
+            </button>
             {canBulkTransfer && selectedLeadIds.size > 0 && (
               <button
                 type="button"
@@ -423,14 +340,13 @@ export default function LeadsView({
               </button>
             )}
             {canCreate && (
-              <button
-                type="button"
-                onClick={openCreateModal}
+              <Link
+                href="/leads/new"
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
               >
                 <i className="ri-add-line text-base" aria-hidden="true" />
                 New Lead
-              </button>
+              </Link>
             )}
           </div>
         </div>
@@ -445,7 +361,7 @@ export default function LeadsView({
           <table className="min-w-full divide-y divide-zinc-200 text-sm">
             <thead className="bg-zinc-50">
               <tr>
-                {canBulkTransfer && (
+                {canSelectLeads && (
                   <th scope="col" className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
@@ -472,14 +388,14 @@ export default function LeadsView({
             <tbody className="divide-y divide-zinc-100">
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={canBulkTransfer ? 5 : 4} className="px-4 py-6 text-center text-zinc-500">
+                  <td colSpan={canSelectLeads ? 5 : 4} className="px-4 py-6 text-center text-zinc-500">
                     No leads found.
                   </td>
                 </tr>
               )}
               {leads.map((lead) => (
                 <tr key={lead.id}>
-                  {canBulkTransfer && (
+                  {canSelectLeads && (
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -524,269 +440,8 @@ export default function LeadsView({
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch(nextPage)} />
       </div>
-
-      {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-base font-semibold text-zinc-900">New Lead</h2>
-            <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="industry" className="text-sm font-medium text-zinc-700">
-                  Industry type
-                </label>
-                <input
-                  id="industry"
-                  type="text"
-                  value={industry}
-                  onChange={(event) => setIndustry(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="businessType" className="text-sm font-medium text-zinc-700">
-                  Business type
-                </label>
-                <input
-                  id="businessType"
-                  type="text"
-                  value={businessType}
-                  onChange={(event) => setBusinessType(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="companyName" className="text-sm font-medium text-zinc-700">
-                  Company
-                </label>
-                <input
-                  id="companyName"
-                  type="text"
-                  value={companyName}
-                  onChange={(event) => setCompanyName(event.target.value)}
-                  onBlur={checkDuplicates}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="address" className="text-sm font-medium text-zinc-700">
-                  Address
-                </label>
-                <input
-                  id="address"
-                  type="text"
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="leadState" className="text-sm font-medium text-zinc-700">
-                    State
-                  </label>
-                  <input
-                    id="leadState"
-                    type="text"
-                    value={leadState}
-                    onChange={(event) => setLeadState(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="pincode" className="text-sm font-medium text-zinc-700">
-                    Pincode
-                  </label>
-                  <input
-                    id="pincode"
-                    type="text"
-                    value={pincode}
-                    onChange={(event) => setPincode(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="country" className="text-sm font-medium text-zinc-700">
-                    Country
-                  </label>
-                  <input
-                    id="country"
-                    type="text"
-                    value={country}
-                    onChange={(event) => setCountry(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-              </div>
-
-              {duplicates.length > 0 && (
-                <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  <p className="font-medium">This looks like it might already be a similar lead:</p>
-                  <ul className="mt-1 list-inside list-disc">
-                    {duplicates.map((d) => (
-                      <li key={d.id}>{d.companyName}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="contactPerson" className="text-sm font-medium text-zinc-700">
-                  Contact person
-                </label>
-                <input
-                  id="contactPerson"
-                  type="text"
-                  value={contactPerson}
-                  onChange={(event) => setContactPerson(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="phone" className="text-sm font-medium text-zinc-700">
-                  Phone
-                </label>
-                <input
-                  id="phone"
-                  type="text"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  onBlur={checkDuplicates}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="whatsappNumber" className="text-sm font-medium text-zinc-700">
-                  WhatsApp number
-                </label>
-                <input
-                  id="whatsappNumber"
-                  type="text"
-                  value={whatsappNumber}
-                  onChange={(event) => setWhatsappNumber(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="email" className="text-sm font-medium text-zinc-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="text"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="website" className="text-sm font-medium text-zinc-700">
-                  Website
-                </label>
-                <input
-                  id="website"
-                  type="text"
-                  value={website}
-                  onChange={(event) => setWebsite(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="serviceInterested" className="text-sm font-medium text-zinc-700">
-                  Service interested
-                </label>
-                <MultiSelectSearch
-                  id="serviceInterested"
-                  options={serviceOptions}
-                  selectedIds={selectedServiceIds}
-                  onChange={setSelectedServiceIds}
-                  placeholder="Search services…"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="remarks" className="text-sm font-medium text-zinc-700">
-                  Remarks
-                </label>
-                <textarea
-                  id="remarks"
-                  value={remarks}
-                  onChange={(event) => setRemarks(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="leadSource" className="text-sm font-medium text-zinc-700">
-                  Lead source
-                </label>
-                <select
-                  id="leadSource"
-                  value={leadSource}
-                  onChange={(event) => setLeadSource(event.target.value as LeadSource)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                >
-                  {LEAD_SOURCES.map((source) => (
-                    <option key={source} value={source}>
-                      {source}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="priority" className="text-sm font-medium text-zinc-700">
-                  Priority
-                </label>
-                <select
-                  id="priority"
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value as LeadPriority)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                >
-                  {LEAD_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {LEAD_PRIORITY_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {createError && (
-                <p role="alert" className="text-sm text-red-600">
-                  {createError}
-                </p>
-              )}
-
-              <div className="mt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {bulkTransferOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">

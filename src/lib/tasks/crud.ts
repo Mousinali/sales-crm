@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "@/lib/leads/guard";
+import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
 import { TaskNotFoundError, TaskNotAccessibleError, TaskActionNotAllowedError } from "./errors";
 import type { TaskRow, TaskStatus, TaskPriority } from "./types";
 
@@ -54,11 +55,11 @@ export async function createTask(
   return rows[0];
 }
 
-export async function listTasks(
-  pool: Pool,
-  viewer: { id: number; role: Role },
-  filters: { status?: TaskStatus; dueWithin?: "TODAY" | "OVERDUE" | "UPCOMING" },
-): Promise<TaskRow[]> {
+type TaskFilters = { status?: TaskStatus; dueWithin?: "TODAY" | "OVERDUE" | "UPCOMING" };
+
+// Shared by `listTasks` (dashboards want every matching row) and
+// `listTasksPage` (the Tasks table), so visibility/filter rules can't drift.
+function buildTasksWhere(viewer: { id: number; role: Role }, filters: TaskFilters): { whereClause: string; params: unknown[] } {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -80,11 +81,30 @@ export async function listTasks(
   // this, every completed/cancelled task would sit on these lists forever.
   if (filters.dueWithin !== undefined) conditions.push(`status IN ('PENDING', 'IN_PROGRESS')`);
 
-  const { rows } = await pool.query<TaskRow>(
-    `SELECT * FROM tasks ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""} ORDER BY due_at`,
-    params,
-  );
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { whereClause, params };
+}
+
+export async function listTasks(pool: Pool, viewer: { id: number; role: Role }, filters: TaskFilters): Promise<TaskRow[]> {
+  const { whereClause, params } = buildTasksWhere(viewer, filters);
+  const { rows } = await pool.query<TaskRow>(`SELECT * FROM tasks ${whereClause} ORDER BY due_at`, params);
   return rows;
+}
+
+export async function listTasksPage(
+  pool: Pool,
+  viewer: { id: number; role: Role },
+  filters: TaskFilters,
+  page: PageParams,
+): Promise<PagedResult<TaskRow>> {
+  const { whereClause, params } = buildTasksWhere(viewer, filters);
+  const { rows } = await pool.query<TaskRow & { total_count: number }>(
+    `SELECT *, count(*) OVER() AS total_count FROM tasks ${whereClause}
+     ORDER BY due_at
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, page.pageSize, (page.page - 1) * page.pageSize],
+  );
+  return toPagedResult(rows, page);
 }
 
 export async function updateTask(

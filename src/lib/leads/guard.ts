@@ -27,6 +27,17 @@ export async function assertLeadVisible(
     if (lead.salesperson_owner_id === viewer.id) {
       return lead;
     }
+    // A Marketing Head can schedule a client visit for a salesperson on a
+    // lead that salesperson doesn't (yet) own — e.g. introducing them to an
+    // account before a formal transfer. That visit still needs to open to
+    // somewhere, so having a visit on this lead also grants visibility.
+    const { rows: visitRows } = await pool.query(
+      "SELECT 1 FROM client_visits WHERE lead_id = $1 AND salesperson_id = $2 LIMIT 1",
+      [leadId, viewer.id],
+    );
+    if (visitRows.length > 0) {
+      return lead;
+    }
     throw new LeadNotAccessibleError(`SALESPERSON ${viewer.id} cannot access lead ${leadId}`);
   }
 

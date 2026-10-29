@@ -5,7 +5,7 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
-import { listLeads } from "./list";
+import { listLeads, listLeadsPage } from "./list";
 
 const adminEmail = `list-leads-admin-${Date.now()}@example.com`;
 let adminId: number;
@@ -37,7 +37,10 @@ beforeAll(async () => {
   archivedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Archived Co", phone: "3", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET archived_at = now() WHERE id = $1", [archivedLead.id]);
 
-  leadIds.push(own.id, leadByOtherPreSales.id, archivedLead.id);
+  const pageFixtureA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "list-leads-page-fixture A", phone: "4", serviceRequirements: "x", leadSource: "OTHER" });
+  const pageFixtureB = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "list-leads-page-fixture B", phone: "5", serviceRequirements: "x", leadSource: "OTHER" });
+
+  leadIds.push(own.id, leadByOtherPreSales.id, archivedLead.id, pageFixtureA.id, pageFixtureB.id);
 });
 
 afterAll(async () => {
@@ -95,5 +98,32 @@ describe("listLeads", () => {
     todayMidnight.setHours(0, 0, 0, 0);
     const rows = await listLeads(pool, { id: adminId, role: "SUPER_ADMIN" }, { dateFrom: yesterday, dateTo: todayMidnight });
     expect(rows.some((l) => l.id === leadByOtherPreSales.id)).toBe(true);
+  });
+});
+
+describe("listLeadsPage", () => {
+  // Scoped to this test file's own two leads via `q`, rather than the
+  // unscoped SUPER_ADMIN "every lead in the database" view: that view is
+  // shared with every other test file running concurrently, so comparing
+  // two separate queries against it (an "all" snapshot, then a page) races
+  // against other files creating/deleting their own leads in between.
+  const q = "list-leads-page-fixture";
+
+  it("returns one page of rows alongside the full match count, not the count of just that page", async () => {
+    const page1 = await listLeadsPage(pool, { id: adminId, role: "SUPER_ADMIN" }, { q }, { page: 1, pageSize: 1 });
+    expect(page1.items).toHaveLength(1);
+    expect(page1.total).toBe(2);
+    expect(page1.totalPages).toBe(2);
+  });
+
+  it("offsets to the next page, returning the other matching row", async () => {
+    const page1 = await listLeadsPage(pool, { id: adminId, role: "SUPER_ADMIN" }, { q }, { page: 1, pageSize: 1 });
+    const page2 = await listLeadsPage(pool, { id: adminId, role: "SUPER_ADMIN" }, { q }, { page: 2, pageSize: 1 });
+    expect(page2.items[0]?.id).not.toBe(page1.items[0]?.id);
+  });
+
+  it("still returns an empty, zero-total page for HR rather than erroring", async () => {
+    const result = await listLeadsPage(pool, { id: hrId, role: "HR" }, {}, { page: 1, pageSize: 20 });
+    expect(result).toEqual({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
   });
 });

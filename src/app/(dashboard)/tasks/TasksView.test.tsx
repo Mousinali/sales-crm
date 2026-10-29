@@ -19,15 +19,22 @@ describe("TasksView", () => {
   });
 
   it("renders the initial task list", () => {
-    render(<TasksView initialTasks={[sampleTask]} viewerId={42} viewerRole="SALESPERSON" />);
+    render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={42} viewerRole="SALESPERSON" />);
     expect(screen.getByText("Follow up")).toBeInTheDocument();
   });
 
   it("lets the assigned user complete their task inline", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ...sampleTask, status: "COMPLETED" }))));
-    render(<TasksView initialTasks={[sampleTask]} viewerId={42} viewerRole="SALESPERSON" />);
+    const completedTask = { ...sampleTask, status: "COMPLETED" as const };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) =>
+      Promise.resolve(
+        new Response(
+          init?.method === "PATCH"
+            ? JSON.stringify(completedTask)
+            : JSON.stringify({ tasks: [completedTask], total: 1, totalPages: 1 }),
+        ),
+      ),
+    );
+    render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={42} viewerRole="SALESPERSON" />);
     fireEvent.click(screen.getByRole("button", { name: /^complete$/i }));
     await waitFor(() =>
       expect(fetchSpy).toHaveBeenCalledWith("/api/tasks/1", expect.objectContaining({ method: "PATCH" })),
@@ -36,15 +43,20 @@ describe("TasksView", () => {
   });
 
   it("hides inline status actions for a task not assigned to the viewer", () => {
-    render(<TasksView initialTasks={[sampleTask]} viewerId={99} viewerRole="SALESPERSON" />);
+    render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={99} viewerRole="SALESPERSON" />);
     expect(screen.queryByRole("button", { name: /^complete$/i })).not.toBeInTheDocument();
   });
 
   it("creates a new task assigned to self", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ ...sampleTask, id: 2, title: "New one" }), { status: 201 }));
-    render(<TasksView initialTasks={[]} viewerId={42} viewerRole="SALESPERSON" />);
+    const newTask = { ...sampleTask, id: 2, title: "New one" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) =>
+      Promise.resolve(
+        init?.method === "POST"
+          ? new Response(JSON.stringify(newTask), { status: 201 })
+          : new Response(JSON.stringify({ tasks: [newTask], total: 1, totalPages: 1 })),
+      ),
+    );
+    render(<TasksView initialTasks={[]} initialTotal={0} initialTotalPages={1} viewerId={42} viewerRole="SALESPERSON" />);
     fireEvent.click(screen.getByRole("button", { name: /new task/i }));
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "New one" } });
     fireEvent.change(screen.getByLabelText(/due/i, { selector: "#taskDueAt" }), { target: { value: "2026-12-01T10:00" } });

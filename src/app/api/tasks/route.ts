@@ -4,9 +4,10 @@ import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { LEAD_PRIORITIES } from "@/lib/leads/types";
 import { TASK_STATUSES } from "@/lib/tasks/types";
-import { createTask, listTasks } from "@/lib/tasks/crud";
+import { createTask, listTasksPage } from "@/lib/tasks/crud";
 import { TaskActionNotAllowedError } from "@/lib/tasks/errors";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
+import { parsePageParams } from "@/lib/pagination";
 
 const createTaskSchema = z.object({
   assignedUserId: z.number().int(),
@@ -72,6 +73,7 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
-  const tasks = await listTasks(pool, user, parsed.data);
-  return NextResponse.json({ tasks });
+  const page = parsePageParams(url.searchParams);
+  const result = await listTasksPage(pool, user, parsed.data, page);
+  return NextResponse.json({ tasks: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
 }

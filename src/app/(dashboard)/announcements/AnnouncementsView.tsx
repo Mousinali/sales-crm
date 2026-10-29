@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "@/lib/toast";
 import MultiSelectSearch from "@/app/(dashboard)/MultiSelectSearch";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
 
 type Announcement = {
   id: number;
@@ -90,28 +92,42 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
         body: JSON.stringify({ subject: subject.trim(), body: body.trim(), recipientGroup }),
       });
       if (!response.ok) {
-        setSendError(await parseErrorMessage(response, "Could not send the announcement."));
+        const message = await parseErrorMessage(response, "Could not send the announcement.");
+        setSendError(message);
+        toast.error("Could not send announcement", message);
         setSending(false);
         return;
       }
       const created: Announcement = await response.json();
       setAnnouncements((current) => [created, ...current]);
+      toast.success("Announcement sent", subject.trim());
       setSending(false);
       setSendSuccess(true);
     } catch {
       setSendError("Could not send the announcement.");
+      toast.error("Could not send announcement");
       setSending(false);
     }
   }
 
+  async function refetchAnnouncements() {
+    const response = await fetch("/api/email-announcements");
+    if (!response.ok) {
+      toast.error("Could not refresh announcements");
+      return;
+    }
+    const body = await response.json();
+    setAnnouncements(body.announcements ?? []);
+  }
+
   async function retryFailed(announcementId: number) {
     const response = await fetch(`/api/email-announcements/${announcementId}/retry`, { method: "POST" });
-    if (!response.ok) return;
-    const historyResponse = await fetch("/api/email-announcements");
-    if (historyResponse.ok) {
-      const body = await historyResponse.json();
-      setAnnouncements(body.announcements ?? []);
+    if (!response.ok) {
+      toast.error("Could not retry delivery", await parseErrorMessage(response, "Could not retry delivery."));
+      return;
     }
+    await refetchAnnouncements();
+    toast.success("Retrying delivery");
   }
 
   return (
@@ -119,14 +135,17 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <div className="flex items-center justify-between border-b border-zinc-200 p-4">
           <h2 className="text-sm font-semibold text-zinc-900">Sent announcements</h2>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-          >
-            <i className="ri-add-line text-base" aria-hidden="true" />
-            New Announcement
-          </button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={refetchAnnouncements} />
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+            >
+              <i className="ri-add-line text-base" aria-hidden="true" />
+              New Announcement
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

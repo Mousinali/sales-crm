@@ -4,7 +4,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import LeadDetailView from "./LeadDetailView";
 import type { LeadRow } from "@/lib/leads/types";
 import type { VisitRow } from "@/lib/visits/types";
-import type { ServiceRow } from "@/lib/services/types";
 
 const pendingLead: LeadRow = {
   id: 1,
@@ -185,38 +184,13 @@ describe("LeadDetailView", () => {
     );
   });
 
-  it("edits the extended contact-detail fields", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
-      const url = String(input);
-      if (url.includes("/visits")) return Promise.resolve(new Response(JSON.stringify({ visits: [] })));
-      if (url === `/api/leads/${pendingLead.id}`) return Promise.resolve(new Response(JSON.stringify({ ok: true })));
-      return Promise.resolve(new Response(JSON.stringify({ users: [] })));
-    });
-    const existingService: ServiceRow = { id: 7, name: "Web Development", description: null, status: "ACTIVE", created_at: new Date(), updated_at: new Date() };
-    render(<LeadDetailView lead={pendingLead} activities={[]} services={[existingService]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+  it("links Edit to the dedicated edit page instead of opening a modal", () => {
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    expect(screen.getByRole("link", { name: /^edit$/i })).toHaveAttribute("href", `/leads/${pendingLead.id}/edit`);
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
-    fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
-    fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Wholesale" } });
-    fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "Plot 9" } });
-    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Gujarat" } });
-    fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "380001" } });
-    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9000000000" } });
-    fireEvent.change(screen.getByLabelText(/^remarks$/i), { target: { value: "Call before visiting" } });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
-
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(`/api/leads/${pendingLead.id}`, expect.objectContaining({ method: "PATCH" })));
-    const call = fetchSpy.mock.calls.find(([url, init]) => url === `/api/leads/${pendingLead.id}` && (init as RequestInit)?.method === "PATCH");
-    const body = JSON.parse((call?.[1] as RequestInit).body as string);
-    expect(body).toMatchObject({
-      industry: "Manufacturing",
-      businessType: "Wholesale",
-      address: "Plot 9",
-      state: "Gujarat",
-      pincode: "380001",
-      whatsappNumber: "9000000000",
-      remarks: "Call before visiting",
-      serviceIds: [7],
-    });
+  it("hides the Edit link for a viewer who cannot edit the lead", () => {
+    render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="SALESPERSON" viewerId={salespersonId} />);
+    expect(screen.queryByRole("link", { name: /^edit$/i })).not.toBeInTheDocument();
   });
 });

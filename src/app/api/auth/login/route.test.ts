@@ -74,6 +74,9 @@ describe("POST /api/auth/login", () => {
     // must block the identifier, not just repeat the same wrong guess.
     const stillLimited = await POST(loginRequest({ email: rateLimitedEmail, password: "correctpw" }));
     expect(stillLimited.status).toBe(429);
+    const body = await stillLimited.json();
+    expect(body.retryAfterSeconds).toBeGreaterThan(0);
+    expect(stillLimited.headers.get("retry-after")).toBe(String(body.retryAfterSeconds));
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);

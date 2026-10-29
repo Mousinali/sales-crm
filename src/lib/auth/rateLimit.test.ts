@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkRateLimit, _rateLimitStoreSize, _resetRateLimitForTesting } from "./rateLimit";
+import { checkRateLimit, getRetryAfterSeconds, _rateLimitStoreSize, _resetRateLimitForTesting } from "./rateLimit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -78,5 +78,34 @@ describe("checkRateLimit", () => {
 
     vi.setSystemTime(70_000); // past the 60s admission window
     expect(checkRateLimit("email:admitted-after-rollover", 5, 10 * 60_000)).toBe(true);
+  });
+});
+
+describe("getRetryAfterSeconds", () => {
+  beforeEach(() => {
+    _resetRateLimitForTesting();
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is 0 for a key that was never rate-limited", () => {
+    expect(getRetryAfterSeconds("email:never-seen", 10 * 60_000)).toBe(0);
+  });
+
+  it("counts down the remaining window, reaching 0 once it elapses", () => {
+    const windowMs = 10 * 60_000;
+    checkRateLimit("email:limited", 5, windowMs);
+
+    expect(getRetryAfterSeconds("email:limited", windowMs)).toBe(600);
+
+    vi.setSystemTime(60_000); // 1 minute into the 10-minute window
+    expect(getRetryAfterSeconds("email:limited", windowMs)).toBe(540);
+
+    vi.setSystemTime(windowMs + 1);
+    expect(getRetryAfterSeconds("email:limited", windowMs)).toBe(0);
   });
 });

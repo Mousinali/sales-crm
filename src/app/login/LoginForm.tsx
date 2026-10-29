@@ -1,12 +1,43 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+
+async function parseLoginError(response: Response): Promise<{ message: string; retryAfterSeconds: number }> {
+  try {
+    const body = await response.json();
+    const retryAfterSeconds = typeof body?.retryAfterSeconds === "number" && body.retryAfterSeconds > 0 ? body.retryAfterSeconds : 0;
+    if (typeof body?.error === "string") return { message: body.error, retryAfterSeconds };
+  } catch {
+    // fall through to fallback
+  }
+  return { message: "Invalid credentials.", retryAfterSeconds: 0 };
+}
+
+function formatCountdown(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [retrySecondsLeft, setRetrySecondsLeft] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Ticks the lockout countdown down once a second, only while one is
+  // active — gated on the >0/=0 boundary rather than the raw number so the
+  // interval isn't torn down and recreated on every single tick.
+  useEffect(() => {
+    if (retrySecondsLeft <= 0) return;
+    const timer = setInterval(() => {
+      setRetrySecondsLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retrySecondsLeft > 0]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,17 +58,21 @@ export default function LoginForm() {
       });
 
       if (!response.ok) {
-        setError("Invalid credentials.");
+        const { message, retryAfterSeconds } = await parseLoginError(response);
+        setError(message);
+        setRetrySecondsLeft(retryAfterSeconds);
         setSubmitting(false);
         return;
       }
 
       window.location.href = "/dashboard";
     } catch {
-      setError("Invalid credentials.");
+      setError("Could not reach the server. Check your connection and try again.");
       setSubmitting(false);
     }
   }
+
+  const locked = retrySecondsLeft > 0;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
@@ -55,7 +90,7 @@ export default function LoginForm() {
           spellCheck={false}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          className="rounded-md border border-zinc-300 px-3 py-2 text-base text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
         />
       </div>
 
@@ -63,29 +98,39 @@ export default function LoginForm() {
         <label htmlFor="password" className="text-sm font-medium text-zinc-700">
           Password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 pr-10 text-base text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((value) => !value)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+          >
+            <i className={showPassword ? "ri-eye-off-line" : "ri-eye-line"} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {error && (
         <p role="alert" className="text-sm text-red-600">
-          {error}
+          {locked ? `Too many attempts. Try again in ${formatCountdown(retrySecondsLeft)}.` : error}
         </p>
       )}
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || locked}
         className="mt-2 inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Sign in
+        {locked ? `Try again in ${formatCountdown(retrySecondsLeft)}` : "Sign in"}
       </button>
     </form>
   );

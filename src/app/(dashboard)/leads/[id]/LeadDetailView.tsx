@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { LeadRow, LeadPriority } from "@/lib/leads/types";
-import { LEAD_PRIORITIES } from "@/lib/leads/types";
+import Link from "next/link";
+import { toast } from "@/lib/toast";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
+import type { LeadRow } from "@/lib/leads/types";
 import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
 import type { VisitRow } from "@/lib/visits/types";
 import type { ServiceRow } from "@/lib/services/types";
-import MultiSelectSearch from "@/app/(dashboard)/MultiSelectSearch";
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE_CLASSES,
@@ -45,7 +46,7 @@ export default function LeadDetailView({
 }) {
   const [lead, setLead] = useState<LeadRow>(initialLead);
   const [activities, setActivities] = useState<LeadActivityRow[]>(initialActivities);
-  const [leadServices, setLeadServices] = useState<ServiceRow[]>(initialServices);
+  const leadServices = initialServices;
 
   async function refreshActivities() {
     const response = await fetch(`/api/leads/${lead.id}/activities`);
@@ -53,6 +54,17 @@ export default function LeadDetailView({
       const body = await response.json();
       setActivities(body.activities ?? []);
     }
+  }
+
+  async function refreshLead() {
+    const response = await fetch(`/api/leads/${lead.id}`);
+    if (response.ok) {
+      setLead((await response.json()) as LeadRow);
+    }
+  }
+
+  async function refreshAll() {
+    await Promise.all([refreshLead(), refreshActivities(), refreshVisits()]);
   }
 
   const canEdit =
@@ -64,117 +76,6 @@ export default function LeadDetailView({
   // any point (req.md §3.3/§6.2); only assigning a Salesperson is itself
   // gated on Qualified/Converted, enforced server-side in assignLead.
   const canAssign = viewerRole === "MARKETING_HEAD";
-
-  // Edit modal
-  const [editOpen, setEditOpen] = useState(false);
-  const [industry, setIndustry] = useState(lead.industry ?? "");
-  const [businessType, setBusinessType] = useState(lead.business_type ?? "");
-  const [address, setAddress] = useState(lead.address ?? "");
-  const [leadState, setLeadState] = useState(lead.state ?? "");
-  const [pincode, setPincode] = useState(lead.pincode ?? "");
-  const [country, setCountry] = useState(lead.country);
-  const [contactPerson, setContactPerson] = useState(lead.contact_person ?? "");
-  const [phone, setPhone] = useState(lead.phone);
-  const [whatsappNumber, setWhatsappNumber] = useState(lead.whatsapp_number ?? "");
-  const [email, setEmail] = useState(lead.email ?? "");
-  const [website, setWebsite] = useState(lead.website ?? "");
-  const [serviceOptions, setServiceOptions] = useState<ServiceRow[]>([]);
-  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>(initialServices.map((s) => s.id));
-  const [remarks, setRemarks] = useState(lead.remarks ?? "");
-  const [notes, setNotes] = useState(lead.notes ?? "");
-  const [priority, setPriority] = useState<LeadPriority>(lead.priority);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!canEdit) return;
-    fetch("/api/services?status=ACTIVE")
-      .then((res) => (res.ok ? res.json() : { services: [] }))
-      .then((body) => setServiceOptions(body.services ?? []))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit]);
-
-  function openEdit() {
-    setIndustry(lead.industry ?? "");
-    setBusinessType(lead.business_type ?? "");
-    setAddress(lead.address ?? "");
-    setLeadState(lead.state ?? "");
-    setPincode(lead.pincode ?? "");
-    setCountry(lead.country);
-    setContactPerson(lead.contact_person ?? "");
-    setPhone(lead.phone);
-    setWhatsappNumber(lead.whatsapp_number ?? "");
-    setEmail(lead.email ?? "");
-    setWebsite(lead.website ?? "");
-    setSelectedServiceIds(leadServices.map((s) => s.id));
-    setRemarks(lead.remarks ?? "");
-    setNotes(lead.notes ?? "");
-    setPriority(lead.priority);
-    setEditError(null);
-    setEditOpen(true);
-  }
-
-  async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (selectedServiceIds.length === 0) {
-      setEditError("Select at least one service.");
-      return;
-    }
-    setSaving(true);
-    setEditError(null);
-    try {
-      const response = await fetch(`/api/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          industry: industry.trim() || undefined,
-          businessType: businessType.trim() || undefined,
-          address: address.trim() || undefined,
-          state: leadState.trim() || undefined,
-          pincode: pincode.trim() || undefined,
-          country: country.trim() || undefined,
-          contactPerson: contactPerson.trim() || undefined,
-          phone: phone.trim(),
-          whatsappNumber: whatsappNumber.trim() || undefined,
-          email: email.trim() || undefined,
-          website: website.trim() || undefined,
-          serviceIds: selectedServiceIds,
-          remarks: remarks.trim() || undefined,
-          notes: notes.trim() || undefined,
-          priority,
-        }),
-      });
-      if (!response.ok) {
-        setEditError(await parseErrorMessage(response, "Could not save changes."));
-        setSaving(false);
-        return;
-      }
-      setLeadServices(serviceOptions.filter((o) => selectedServiceIds.includes(o.id)));
-      setLead((current) => ({
-        ...current,
-        industry: industry.trim() || null,
-        business_type: businessType.trim() || null,
-        address: address.trim() || null,
-        state: leadState.trim() || null,
-        pincode: pincode.trim() || null,
-        country: country.trim() || current.country,
-        contact_person: contactPerson.trim() || null,
-        phone: phone.trim(),
-        whatsapp_number: whatsappNumber.trim() || null,
-        email: email.trim() || null,
-        website: website.trim() || null,
-        remarks: remarks.trim() || null,
-        notes: notes.trim() || null,
-        priority,
-      }));
-      setSaving(false);
-      setEditOpen(false);
-    } catch {
-      setEditError("Could not save changes.");
-      setSaving(false);
-    }
-  }
 
   // Review (qualify/reject/return)
   const [reviewPrompt, setReviewPrompt] = useState<ReviewAction | null>(null);
@@ -202,17 +103,21 @@ export default function LeadDetailView({
         body: JSON.stringify({ action, reason }),
       });
       if (!response.ok) {
-        setReviewError(await parseErrorMessage(response, "Could not update the lead's status."));
+        const message = await parseErrorMessage(response, "Could not update the lead's status.");
+        setReviewError(message);
+        toast.error("Could not update status", message);
         setReviewSubmitting(false);
         return;
       }
       const updated = await response.json();
       setLead(updated);
       await refreshActivities();
+      toast.success("Lead status updated", LEAD_STATUS_LABELS[updated.status as keyof typeof LEAD_STATUS_LABELS]);
       setReviewSubmitting(false);
       setReviewPrompt(null);
     } catch {
       setReviewError("Could not update the lead's status.");
+      toast.error("Could not update status");
       setReviewSubmitting(false);
     }
   }
@@ -265,16 +170,20 @@ export default function LeadDetailView({
         }),
       });
       if (!response.ok) {
-        setAssignError(await parseErrorMessage(response, "Could not assign the lead."));
+        const message = await parseErrorMessage(response, "Could not assign the lead.");
+        setAssignError(message);
+        toast.error("Could not assign lead", message);
         setAssignSubmitting(false);
         return;
       }
       const updated = await response.json();
       setLead(updated);
       await refreshActivities();
+      toast.success("Lead assigned");
       setAssignSubmitting(false);
     } catch {
       setAssignError("Could not assign the lead.");
+      toast.error("Could not assign lead");
       setAssignSubmitting(false);
     }
   }
@@ -318,17 +227,21 @@ export default function LeadDetailView({
         }),
       });
       if (!response.ok) {
-        setTransferError(await parseErrorMessage(response, "Could not transfer the lead."));
+        const message = await parseErrorMessage(response, "Could not transfer the lead.");
+        setTransferError(message);
+        toast.error("Could not transfer lead", message);
         setTransferSubmitting(false);
         return;
       }
       const updated = await response.json();
       setLead(updated);
       await refreshActivities();
+      toast.success("Lead transferred");
       setTransferSubmitting(false);
       setTransferOpen(false);
     } catch {
       setTransferError("Could not transfer the lead.");
+      toast.error("Could not transfer lead");
       setTransferSubmitting(false);
     }
   }
@@ -345,7 +258,10 @@ export default function LeadDetailView({
   }
 
   useEffect(() => {
-    void refreshVisits();
+    fetch(`/api/leads/${lead.id}/visits`)
+      .then((res) => (res.ok ? res.json() : { visits: [] }))
+      .then((body) => setVisits(body.visits ?? []))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id]);
 
@@ -381,12 +297,15 @@ export default function LeadDetailView({
         return;
       }
       if (!response.ok) {
-        setVisitError(await parseErrorMessage(response, "Could not schedule the visit."));
+        const message = await parseErrorMessage(response, "Could not schedule the visit.");
+        setVisitError(message);
+        toast.error("Could not schedule visit", message);
         setVisitSubmitting(false);
         return;
       }
       await refreshVisits();
       await refreshActivities();
+      toast.success("Visit scheduled");
       setVisitDate("");
       setVisitStartTime("");
       setVisitLocation("");
@@ -395,6 +314,7 @@ export default function LeadDetailView({
       setVisitSubmitting(false);
     } catch {
       setVisitError("Could not schedule the visit.");
+      toast.error("Could not schedule visit");
       setVisitSubmitting(false);
     }
   }
@@ -453,14 +373,18 @@ export default function LeadDetailView({
         return;
       }
       if (!response.ok) {
-        setVisitActionError(await parseErrorMessage(response, "Could not reschedule the visit."));
+        const message = await parseErrorMessage(response, "Could not reschedule the visit.");
+        setVisitActionError(message);
+        toast.error("Could not reschedule visit", message);
         return;
       }
       await refreshVisits();
       await refreshActivities();
+      toast.success("Visit rescheduled");
       closeVisitAction();
     } catch {
       setVisitActionError("Could not reschedule the visit.");
+      toast.error("Could not reschedule visit");
     }
   }
 
@@ -473,13 +397,17 @@ export default function LeadDetailView({
         body: JSON.stringify({ action: "CANCEL" }),
       });
       if (!response.ok) {
-        setVisitActionError(await parseErrorMessage(response, "Could not cancel the visit."));
+        const message = await parseErrorMessage(response, "Could not cancel the visit.");
+        setVisitActionError(message);
+        toast.error("Could not cancel visit", message);
         return;
       }
       await refreshVisits();
       await refreshActivities();
+      toast.success("Visit cancelled");
     } catch {
       setVisitActionError("Could not cancel the visit.");
+      toast.error("Could not cancel visit");
     }
   }
 
@@ -498,13 +426,17 @@ export default function LeadDetailView({
         }),
       });
       if (!response.ok) {
-        setVisitActionError(await parseErrorMessage(response, "Could not record the outcome."));
+        const message = await parseErrorMessage(response, "Could not record the outcome.");
+        setVisitActionError(message);
+        toast.error("Could not record outcome", message);
         return;
       }
       await refreshVisits();
+      toast.success("Outcome recorded");
       closeVisitAction();
     } catch {
       setVisitActionError("Could not record the outcome.");
+      toast.error("Could not record outcome");
     }
   }
 
@@ -529,15 +461,19 @@ export default function LeadDetailView({
         body: JSON.stringify({ type: activityType, notes: activityNotes.trim() }),
       });
       if (!response.ok) {
-        setActivityError(await parseErrorMessage(response, "Could not log the activity."));
+        const message = await parseErrorMessage(response, "Could not log the activity.");
+        setActivityError(message);
+        toast.error("Could not log activity", message);
         setLoggingActivity(false);
         return;
       }
       await refreshActivities();
+      toast.success("Activity logged");
       setActivityNotes("");
       setLoggingActivity(false);
     } catch {
       setActivityError("Could not log the activity.");
+      toast.error("Could not log activity");
       setLoggingActivity(false);
     }
   }
@@ -551,6 +487,7 @@ export default function LeadDetailView({
             <p className="text-sm text-zinc-500">{lead.contact_person}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <RefreshButton onRefresh={refreshAll} />
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAD_STATUS_BADGE_CLASSES[lead.status]}`}
             >
@@ -562,13 +499,12 @@ export default function LeadDetailView({
               {LEAD_PRIORITY_LABELS[lead.priority]}
             </span>
             {canEdit && (
-              <button
-                type="button"
-                onClick={openEdit}
+              <Link
+                href={`/leads/${lead.id}/edit`}
                 className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               >
                 Edit
-              </button>
+              </Link>
             )}
             {canAssign && (
               <button
@@ -612,6 +548,10 @@ export default function LeadDetailView({
           <div>
             <dt className="text-zinc-500">Website</dt>
             <dd className="text-zinc-900">{lead.website ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-500">Estimated budget</dt>
+            <dd className="text-zinc-900">{lead.estimated_budget ?? "—"}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-zinc-500">Service interested</dt>
@@ -1063,224 +1003,6 @@ export default function LeadDetailView({
           ))}
         </ul>
       </div>
-
-      {editOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-base font-semibold text-zinc-900">Edit lead</h2>
-            <form onSubmit={handleEditSubmit} className="flex flex-col gap-4" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editIndustry" className="text-sm font-medium text-zinc-700">
-                  Industry type
-                </label>
-                <input
-                  id="editIndustry"
-                  type="text"
-                  value={industry}
-                  onChange={(event) => setIndustry(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editBusinessType" className="text-sm font-medium text-zinc-700">
-                  Business type
-                </label>
-                <input
-                  id="editBusinessType"
-                  type="text"
-                  value={businessType}
-                  onChange={(event) => setBusinessType(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editAddress" className="text-sm font-medium text-zinc-700">
-                  Address
-                </label>
-                <input
-                  id="editAddress"
-                  type="text"
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="editLeadState" className="text-sm font-medium text-zinc-700">
-                    State
-                  </label>
-                  <input
-                    id="editLeadState"
-                    type="text"
-                    value={leadState}
-                    onChange={(event) => setLeadState(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="editPincode" className="text-sm font-medium text-zinc-700">
-                    Pincode
-                  </label>
-                  <input
-                    id="editPincode"
-                    type="text"
-                    value={pincode}
-                    onChange={(event) => setPincode(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <label htmlFor="editCountry" className="text-sm font-medium text-zinc-700">
-                    Country
-                  </label>
-                  <input
-                    id="editCountry"
-                    type="text"
-                    value={country}
-                    onChange={(event) => setCountry(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editContactPerson" className="text-sm font-medium text-zinc-700">
-                  Contact person
-                </label>
-                <input
-                  id="editContactPerson"
-                  type="text"
-                  value={contactPerson}
-                  onChange={(event) => setContactPerson(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editPhone" className="text-sm font-medium text-zinc-700">
-                  Phone
-                </label>
-                <input
-                  id="editPhone"
-                  type="text"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editWhatsappNumber" className="text-sm font-medium text-zinc-700">
-                  WhatsApp number
-                </label>
-                <input
-                  id="editWhatsappNumber"
-                  type="text"
-                  value={whatsappNumber}
-                  onChange={(event) => setWhatsappNumber(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editEmail" className="text-sm font-medium text-zinc-700">
-                  Email
-                </label>
-                <input
-                  id="editEmail"
-                  type="text"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editWebsite" className="text-sm font-medium text-zinc-700">
-                  Website
-                </label>
-                <input
-                  id="editWebsite"
-                  type="text"
-                  value={website}
-                  onChange={(event) => setWebsite(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editServiceInterested" className="text-sm font-medium text-zinc-700">
-                  Service interested
-                </label>
-                <MultiSelectSearch
-                  id="editServiceInterested"
-                  options={serviceOptions}
-                  selectedIds={selectedServiceIds}
-                  onChange={setSelectedServiceIds}
-                  placeholder="Search services…"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editRemarks" className="text-sm font-medium text-zinc-700">
-                  Remarks
-                </label>
-                <textarea
-                  id="editRemarks"
-                  value={remarks}
-                  onChange={(event) => setRemarks(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editNotes" className="text-sm font-medium text-zinc-700">
-                  Notes
-                </label>
-                <textarea
-                  id="editNotes"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="editPriority" className="text-sm font-medium text-zinc-700">
-                  Priority
-                </label>
-                <select
-                  id="editPriority"
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value as LeadPriority)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                >
-                  {LEAD_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {LEAD_PRIORITY_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {editError && (
-                <p role="alert" className="text-sm text-red-600">
-                  {editError}
-                </p>
-              )}
-
-              <div className="mt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(false)}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {transferOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">

@@ -70,6 +70,16 @@ export function resetRateLimit(key: string): void {
   attempts.delete(key);
 }
 
+// Seconds left until this key's window resets and it's admitted again — 0
+// if it isn't currently rate-limited. Lets a caller tell the user exactly
+// how long to wait instead of a vague "try again later".
+export function getRetryAfterSeconds(key: string, windowMs: number): number {
+  const entry = attempts.get(key);
+  if (!entry) return 0;
+  const remainingMs = entry.windowStart + windowMs - Date.now();
+  return Math.max(0, Math.ceil(remainingMs / 1000));
+}
+
 export function _rateLimitStoreSize(): number {
   return attempts.size;
 }

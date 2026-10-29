@@ -4,7 +4,8 @@ import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { ROLES } from "@/lib/auth/roles";
 import { createUser } from "@/lib/users/create";
-import { listUsers } from "@/lib/users/list";
+import { listUsers, listUsersPage } from "@/lib/users/list";
+import { parsePageParams } from "@/lib/pagination";
 import { RoleNotManageableError, EmailAlreadyExistsError } from "@/lib/users/errors";
 
 const createUserSchema = z.object({
@@ -76,6 +77,15 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
-  const users = await listUsers(pool, user.role, parsed.data);
-  return NextResponse.json({ users });
+  // Pagination is opt-in (via `page`): pickers like Tasks' "assign to"
+  // dropdown call this with just role/status filters and need every match,
+  // not one page of it. Only the Team table passes `page`.
+  if (!url.searchParams.has("page")) {
+    const users = await listUsers(pool, user.role, parsed.data);
+    return NextResponse.json({ users });
+  }
+
+  const page = parsePageParams(url.searchParams);
+  const result = await listUsersPage(pool, user.role, parsed.data, page);
+  return NextResponse.json({ users: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
 }

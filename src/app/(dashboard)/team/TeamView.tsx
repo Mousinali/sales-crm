@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { toast } from "@/lib/toast";
+import RefreshButton from "@/app/(dashboard)/RefreshButton";
 import { ROLES, type Role } from "@/lib/auth/roles";
 import type { UserRow } from "@/lib/users/types";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS, initialsOf } from "@/app/(dashboard)/roleDisplay";
+import Pagination from "@/app/(dashboard)/Pagination";
 
 type StatusFilter = "ACTIVE" | "INACTIVE" | "";
 
@@ -28,10 +31,14 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 
 export default function TeamView({
   initialUsers,
+  initialTotal,
+  initialTotalPages,
   viewerRole,
   creatableRoles,
 }: {
   initialUsers: UserRow[];
+  initialTotal: number;
+  initialTotalPages: number;
   viewerRole: Role;
   creatableRoles: Role[];
 }) {
@@ -42,6 +49,9 @@ export default function TeamView({
   const visibleRoleOptions: Role[] = viewerRole === "SUPER_ADMIN" ? [...ROLES] : creatableRoles;
 
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
+  const [total, setTotal] = useState(initialTotal);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
@@ -71,25 +81,30 @@ export default function TeamView({
   const [tempPasswordReveal, setTempPasswordReveal] = useState<TempPasswordReveal | null>(null);
   const [copyLabel, setCopyLabel] = useState("Copy");
 
-  async function refetch(overrides?: { search?: string; roleFilter?: Role | ""; statusFilter?: StatusFilter }) {
+  async function refetch(overrides?: { search?: string; roleFilter?: Role | ""; statusFilter?: StatusFilter; page?: number }) {
     const effectiveSearch = overrides?.search ?? search;
     const effectiveRole = overrides?.roleFilter ?? roleFilter;
     const effectiveStatus = overrides?.statusFilter ?? statusFilter;
+    const targetPage = overrides?.page ?? page;
 
     const params = new URLSearchParams();
     if (effectiveRole) params.set("role", effectiveRole);
     if (effectiveStatus) params.set("status", effectiveStatus);
     if (effectiveSearch.trim()) params.set("q", effectiveSearch.trim());
+    params.set("page", String(targetPage));
 
     setListError(null);
     try {
-      const response = await fetch(`/api/users${params.toString() ? `?${params.toString()}` : ""}`);
+      const response = await fetch(`/api/users?${params.toString()}`);
       if (!response.ok) {
         setListError(await parseErrorMessage(response, "Could not load the team list."));
         return;
       }
       const body = await response.json();
       setUsers(body.users ?? []);
+      setTotal(body.total ?? 0);
+      setTotalPages(body.totalPages ?? 1);
+      setPage(targetPage);
     } catch {
       setListError("Could not load the team list.");
     }
@@ -97,7 +112,7 @@ export default function TeamView({
 
   function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void refetch();
+    void refetch({ page: 1 });
   }
 
   function openCreateModal() {
@@ -139,29 +154,19 @@ export default function TeamView({
       });
 
       if (!response.ok) {
-        setCreateError(await parseErrorMessage(response, "Could not create the user."));
+        const message = await parseErrorMessage(response, "Could not create the user.");
+        setCreateError(message);
+        toast.error("Could not create user", message);
         setCreating(false);
         return;
       }
 
       const created = await response.json();
-      setUsers((current) => [
-        {
-          id: created.id,
-          role: createRole,
-          name: createName.trim(),
-          email: created.email,
-          status: "ACTIVE",
-          created_by: null,
-          created_at: new Date().toISOString() as unknown as Date,
-          updated_at: new Date().toISOString() as unknown as Date,
-        },
-        ...current,
-      ]);
       setCreateModalOpen(false);
       setCreating(false);
       setCopyLabel("Copy");
       setTempPasswordReveal({ email: created.email, tempPassword: created.tempPassword });
+      void refetch({ page: 1 });
     } catch {
       setCreateError("Could not create the user.");
       setCreating(false);
@@ -203,7 +208,9 @@ export default function TeamView({
       });
 
       if (!response.ok) {
-        setEditError(await parseErrorMessage(response, "Could not save changes."));
+        const message = await parseErrorMessage(response, "Could not save changes.");
+        setEditError(message);
+        toast.error("Could not save changes", message);
         setSaving(false);
         return;
       }
@@ -213,10 +220,12 @@ export default function TeamView({
           u.id === editingUser.id ? { ...u, name: editName.trim(), email: editEmail.trim() } : u,
         ),
       );
+      toast.success("User updated", editName.trim());
       setSaving(false);
       setEditingUser(null);
     } catch {
       setEditError("Could not save changes.");
+      toast.error("Could not save changes");
       setSaving(false);
     }
   }
@@ -246,7 +255,9 @@ export default function TeamView({
       });
 
       if (!response.ok) {
-        setConfirmError(await parseErrorMessage(response, "Could not update the user's status."));
+        const message = await parseErrorMessage(response, "Could not update the user's status.");
+        setConfirmError(message);
+        toast.error("Could not update user", message);
         setConfirmSubmitting(false);
         return;
       }
@@ -254,10 +265,12 @@ export default function TeamView({
       setUsers((current) =>
         current.map((u) => (u.id === confirmAction.user.id ? { ...u, status: nextStatus } : u)),
       );
+      toast.success(nextStatus === "ACTIVE" ? "User activated" : "User deactivated", confirmAction.user.name);
       setConfirmSubmitting(false);
       setConfirmAction(null);
     } catch {
       setConfirmError("Could not update the user's status.");
+      toast.error("Could not update user");
       setConfirmSubmitting(false);
     }
   }
@@ -282,7 +295,9 @@ export default function TeamView({
       const response = await fetch(`/api/users/${resetUser.id}/reset-access`, { method: "POST" });
 
       if (!response.ok) {
-        setResetError(await parseErrorMessage(response, "Could not reset access."));
+        const message = await parseErrorMessage(response, "Could not reset access.");
+        setResetError(message);
+        toast.error("Could not reset access", message);
         setResetSubmitting(false);
         return;
       }
@@ -294,6 +309,7 @@ export default function TeamView({
       setTempPasswordReveal({ email: resetUser.email, tempPassword: body.tempPassword });
     } catch {
       setResetError("Could not reset access.");
+      toast.error("Could not reset access");
       setResetSubmitting(false);
     }
   }
@@ -370,14 +386,17 @@ export default function TeamView({
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-          >
-            <i className="ri-user-add-line text-base" aria-hidden="true" />
-            New User
-          </button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={() => refetch()} />
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+            >
+              <i className="ri-user-add-line text-base" aria-hidden="true" />
+              New User
+            </button>
+          </div>
         </div>
 
         {listError && (
@@ -485,6 +504,7 @@ export default function TeamView({
           </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} />
       </div>
 
       {createModalOpen && (
