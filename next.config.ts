@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // Lets the dev server serve requests (assets, HMR) to a browser that
   // loaded the app from this LAN address instead of localhost — Next.js
   // rejects cross-origin dev requests from hosts not listed here.
-  // allowedDevOrigins: ["192.168.1.6"],
+  // allowedDevOrigins: ["192.168.0.45"],
   turbopack: {
     rules: {
       "*.css": {

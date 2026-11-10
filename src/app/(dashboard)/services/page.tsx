@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { listServices } from "@/lib/services/list";
+import PageHeading from "@/components/ui/PageHeading";
 import ServicesView from "./ServicesView";
 
 export default async function ServicesPage() {
@@ -9,7 +10,7 @@ export default async function ServicesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Services</h1>
+      <PageHeading title="Services" count={services.length} crumbs={[{ label: "Services" }]} />
       <ServicesView initialServices={services} />
     </div>
   );

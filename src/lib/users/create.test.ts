@@ -50,16 +50,18 @@ describe("createUser", () => {
     expect(await verifyPassword(rows[0].password_hash, result.tempPassword)).toBe(true);
   });
 
-  it("rejects SUPER_ADMIN creating a PRE_SALES account", async () => {
-    await expect(
-      createUser(pool, {
-        creatorId: superAdminId,
-        creatorRole: "SUPER_ADMIN",
-        role: "PRE_SALES",
-        name: "Should Fail",
-        email: `should-fail-${Date.now()}@example.com`,
-      }),
-    ).rejects.toThrow(RoleNotManageableError);
+  it("lets SUPER_ADMIN create a PRE_SALES account directly", async () => {
+    const email = `super-creates-ps-${Date.now()}@example.com`;
+    createdEmails.push(email);
+    const result = await createUser(pool, {
+      creatorId: superAdminId,
+      creatorRole: "SUPER_ADMIN",
+      role: "PRE_SALES",
+      name: "Direct PS",
+      email,
+    });
+    const { rows } = await pool.query("SELECT role FROM users WHERE id = $1", [result.id]);
+    expect(rows[0].role).toBe("PRE_SALES");
   });
 
   it("rejects a Pre-sales user creating any account", async () => {

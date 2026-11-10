@@ -12,12 +12,17 @@ const createUserSchema = z.object({
   role: z.enum(ROLES),
   name: z.string().trim().min(1),
   email: z.string().trim().email(),
+  employeeId: z.string().trim().min(1).optional(),
+  phone: z.string().trim().min(1).optional(),
+  whatsappNumber: z.string().trim().min(1).optional(),
+  designation: z.string().trim().min(1).optional(),
 });
 
 const listQuerySchema = z.object({
   role: z.enum(ROLES).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   q: z.string().trim().min(1).optional(),
+  archived: z.literal("true").optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -42,6 +47,10 @@ export async function POST(request: Request): Promise<Response> {
       role: parsed.data.role,
       name: parsed.data.name,
       email: parsed.data.email,
+      employeeId: parsed.data.employeeId,
+      phone: parsed.data.phone,
+      whatsappNumber: parsed.data.whatsappNumber,
+      designation: parsed.data.designation,
     });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
@@ -72,20 +81,28 @@ export async function GET(request: Request): Promise<Response> {
     role: url.searchParams.get("role") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
     q: url.searchParams.get("q") ?? undefined,
+    archived: url.searchParams.get("archived") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
+  // The Archive page (deleted/archived users) is Super-Admin-only — HR and
+  // Marketing Head keep their normal Team access, just not this view.
+  if (parsed.data.archived && user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const filters = { role: parsed.data.role, status: parsed.data.status, q: parsed.data.q, archivedOnly: parsed.data.archived === "true" };
+
   // Pagination is opt-in (via `page`): pickers like Tasks' "assign to"
   // dropdown call this with just role/status filters and need every match,
   // not one page of it. Only the Team table passes `page`.
   if (!url.searchParams.has("page")) {
-    const users = await listUsers(pool, user.role, parsed.data);
+    const users = await listUsers(pool, user.role, filters);
     return NextResponse.json({ users });
   }
 
   const page = parsePageParams(url.searchParams);
-  const result = await listUsersPage(pool, user.role, parsed.data, page);
+  const result = await listUsersPage(pool, user.role, filters, page);
   return NextResponse.json({ users: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
 }

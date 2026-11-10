@@ -2,12 +2,10 @@ import type { Pool } from "pg";
 import { listTasks } from "@/lib/tasks/crud";
 
 export async function getMarketingHeadDashboard(pool: Pool) {
-  const [total, pendingReview, byStatus, bySource, byPriority, qualified, converted, visits, transfers, byPreSalesOwner, bySalespersonOwner] =
+  const [total, pendingReview, byPriority, qualified, converted, visits, transfers, byPreSalesOwner, bySalespersonOwner] =
     await Promise.all([
       pool.query<{ count: string }>("SELECT count(*) FROM leads WHERE archived_at IS NULL"),
       pool.query<{ count: string }>("SELECT count(*) FROM leads WHERE status = 'PENDING_REVIEW' AND archived_at IS NULL"),
-      pool.query<{ status: string; count: string }>("SELECT status, count(*) FROM leads WHERE archived_at IS NULL GROUP BY status"),
-      pool.query<{ lead_source: string; count: string }>("SELECT lead_source, count(*) FROM leads WHERE archived_at IS NULL GROUP BY lead_source"),
       pool.query<{ priority: string; count: string }>("SELECT priority, count(*) FROM leads WHERE archived_at IS NULL GROUP BY priority"),
       pool.query<{ count: string }>("SELECT count(*) FROM leads WHERE status = 'QUALIFIED'"),
       pool.query<{ count: string }>("SELECT count(*) FROM leads WHERE status = 'CONVERTED'"),
@@ -38,8 +36,6 @@ export async function getMarketingHeadDashboard(pool: Pool) {
   return {
     totalLeads,
     pendingReviewLeads: Number(pendingReview.rows[0].count),
-    leadsByStatus: Object.fromEntries(byStatus.rows.map((r) => [r.status, Number(r.count)])),
-    leadsBySource: Object.fromEntries(bySource.rows.map((r) => [r.lead_source, Number(r.count)])),
     leadsByPriority: Object.fromEntries(byPriority.rows.map((r) => [r.priority, Number(r.count)])),
     leadsByPreSalesOwner: Object.fromEntries(byPreSalesOwner.rows.map((r) => [r.name, Number(r.count)])),
     leadsBySalespersonOwner: Object.fromEntries(bySalespersonOwner.rows.map((r) => [r.name, Number(r.count)])),

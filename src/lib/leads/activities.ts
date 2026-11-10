@@ -11,6 +11,9 @@ export type LeadActivityRow = {
   type: LeadActivityType;
   notes: string | null;
   created_at: Date;
+  // Only present on rows from listLeadActivities (joined in there) — who
+  // performed it, for the lead detail page's timeline.
+  actor_name?: string;
 };
 
 export async function recordLeadActivity(
@@ -31,7 +34,9 @@ export async function listLeadActivities(
   await assertLeadVisible(pool, viewer, leadId);
 
   const { rows } = await pool.query<LeadActivityRow>(
-    `SELECT * FROM lead_activities WHERE lead_id = $1 ORDER BY created_at DESC`,
+    `SELECT la.*, u.name AS actor_name FROM lead_activities la
+     JOIN users u ON u.id = la.actor_user_id
+     WHERE la.lead_id = $1 ORDER BY la.created_at DESC`,
     [leadId],
   );
   return rows;

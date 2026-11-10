@@ -98,3 +98,14 @@ export async function markDelivered(pool: Pool, input: { recipientId: number }):
   );
   return rows;
 }
+
+// Total across every conversation — the sidebar's Chat badge, not a
+// per-thread count, so it just counts rows rather than going through
+// listConversations' per-counterpart grouping.
+export async function getUnreadMessageCount(pool: Pool, viewerId: number): Promise<number> {
+  const { rows } = await pool.query<{ count: string }>(
+    `SELECT count(*) FROM direct_messages WHERE recipient_id = $1 AND read_at IS NULL`,
+    [viewerId],
+  );
+  return Number(rows[0].count);
+}

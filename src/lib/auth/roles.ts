@@ -2,7 +2,7 @@ export const ROLES = ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALES
 export type Role = typeof ROLES[number];
 
 const MANAGEABLE_ROLES: Record<Role, readonly Role[]> = {
-  SUPER_ADMIN: ["HR", "MARKETING_HEAD"],
+  SUPER_ADMIN: ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
   HR: ["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
   MARKETING_HEAD: ["PRE_SALES", "SALESPERSON"],
   PRE_SALES: [],

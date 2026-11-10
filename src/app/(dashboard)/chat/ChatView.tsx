@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { io, type Socket } from "socket.io-client";
+import Avatar from "@/components/ui/Avatar";
+import { FormattedText } from "@/components/ui/RichTextField";
+import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
+import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 
 type Message = {
   id: number;
@@ -39,7 +43,7 @@ type Conversation = {
   unread_count: number;
 };
 
-type RosterUser = { id: number; name: string; role: string };
+type RosterUser = { id: number; name: string; role: string; avatar_url: string | null };
 
 export default function ChatView({
   viewerId,
@@ -56,23 +60,21 @@ export default function ChatView({
   // resolved stays resolvable even after the search term changes again.
   const [roster, setRoster] = useState<RosterUser[]>([]);
   const [rosterSearch, setRosterSearch] = useState("");
+  const debouncedRosterSearch = useDebouncedValue(rosterSearch, 200);
   useEffect(() => {
     const params = new URLSearchParams();
-    if (rosterSearch.trim()) params.set("q", rosterSearch.trim());
-    const timer = setTimeout(() => {
-      fetch(`/api/users/roster?${params.toString()}`)
-        .then((r) => (r.ok ? r.json() : { users: [] }))
-        .then((body: { users?: RosterUser[] }) => {
-          setRoster((current) => {
-            const byId = new Map(current.map((u) => [u.id, u]));
-            for (const u of body.users ?? []) byId.set(u.id, u);
-            return [...byId.values()];
-          });
-        })
-        .catch(() => {});
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [rosterSearch]);
+    if (debouncedRosterSearch.trim()) params.set("q", debouncedRosterSearch.trim());
+    fetch(`/api/users/roster?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((body: { users?: RosterUser[] }) => {
+        setRoster((current) => {
+          const byId = new Map(current.map((u) => [u.id, u]));
+          for (const u of body.users ?? []) byId.set(u.id, u);
+          return [...byId.values()];
+        });
+      })
+      .catch(() => {});
+  }, [debouncedRosterSearch]);
   const rosterById = new Map(roster.map((u) => [u.id, u]));
 
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
@@ -94,6 +96,7 @@ export default function ChatView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
@@ -164,8 +167,7 @@ export default function ChatView({
     }
   }
 
-  function handleSend(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function sendDraft() {
     const body = draft.trim();
     if (!body || selectedId === null) return;
     setSendError(null);
@@ -180,6 +182,37 @@ export default function ChatView({
     setReplyingTo(null);
   }
 
+  function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    sendDraft();
+  }
+
+  // Enter sends, Shift+Enter inserts a newline — the usual chat-composer
+  // convention, since this is a <textarea> (for multi-line drafts) rather
+  // than an <input> that could only ever submit on Enter.
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendDraft();
+    }
+  }
+
+  // Wraps the current selection (or just inserts at the caret, if nothing's
+  // selected) in markdown markers, the same way a lightweight "B"/"I"
+  // toolbar button works in any plain-text composer.
+  function wrapSelection(marker: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const { selectionStart, selectionEnd, value } = el;
+    const selected = value.slice(selectionStart, selectionEnd);
+    const next = value.slice(0, selectionStart) + marker + selected + marker + value.slice(selectionEnd);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(selectionStart + marker.length, selectionStart + marker.length + selected.length);
+    });
+  }
+
   // The roster is capped/searched — but an existing conversation partner
   // must never disappear from the sidebar just because they're outside
   // that window, so union them in (falling back to `#id` if their name
@@ -187,13 +220,16 @@ export default function ChatView({
   const rosterWithConversationPartners = (() => {
     const byId = new Map(roster.map((u) => [u.id, u]));
     for (const c of conversations) {
-      if (!byId.has(c.counterpart_id)) byId.set(c.counterpart_id, { id: c.counterpart_id, name: `#${c.counterpart_id}`, role: "" });
+      if (!byId.has(c.counterpart_id))
+        byId.set(c.counterpart_id, { id: c.counterpart_id, name: `#${c.counterpart_id}`, role: "", avatar_url: null });
     }
     return [...byId.values()];
   })();
 
+  const activeSearch = rosterSearch.trim().toLowerCase();
   const contacts = rosterWithConversationPartners
     .filter((u) => u.id !== viewerId)
+    .filter((u) => !activeSearch || u.name.toLowerCase().includes(activeSearch))
     .slice()
     .sort((a, b) => {
       const ca = conversations.find((c) => c.counterpart_id === a.id);
@@ -209,13 +245,16 @@ export default function ChatView({
   return (
     <div className="flex h-[32rem] overflow-hidden rounded-lg border border-zinc-200 bg-white">
       <div className="flex w-64 shrink-0 flex-col border-r border-zinc-200">
+        <div className="border-b border-zinc-200 px-4 py-3">
+          <p className="text-sm font-semibold text-zinc-900">All chats</p>
+        </div>
         <div className="border-b border-zinc-200 p-2">
           <input
             type="text"
             value={rosterSearch}
             onChange={(event) => setRosterSearch(event.target.value)}
             placeholder="Search people..."
-            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -227,25 +266,34 @@ export default function ChatView({
               key={contact.id}
               type="button"
               onClick={() => selectContact(contact.id)}
-              className={`flex w-full flex-col gap-0.5 border-b border-zinc-100 px-4 py-3 text-left hover:bg-zinc-50 ${
-                selectedId === contact.id ? "bg-indigo-50" : ""
+              className={`flex w-full items-start gap-2.5 border-b border-zinc-100 px-3 py-3 text-left hover:bg-zinc-50 ${
+                selectedId === contact.id ? "bg-brand-50" : ""
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-zinc-900">{contact.name}</span>
-                {conversation && conversation.unread_count > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
-                    {conversation.unread_count}
-                  </span>
-                )}
+              <Avatar name={contact.name} imageUrl={contact.avatar_url} size="md" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-zinc-900">{contact.name}</span>
+                  {conversation && (
+                    <span className="shrink-0 text-[11px] text-zinc-400">{formatMessageTime(conversation.last_at)}</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  {conversation ? (
+                    <span className="truncate text-xs text-zinc-500">
+                      {conversation.last_sender_id === viewerId ? "You: " : ""}
+                      {conversation.last_message}
+                    </span>
+                  ) : (
+                    <span className="truncate text-xs text-zinc-400">{formatRoleLabel(contact.role)}</span>
+                  )}
+                  {conversation && conversation.unread_count > 0 && (
+                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold text-white">
+                      {conversation.unread_count}
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-zinc-400">{contact.role}</span>
-              {conversation && (
-                <span className="truncate text-xs text-zinc-500">
-                  {conversation.last_sender_id === viewerId ? "You: " : ""}
-                  {conversation.last_message}
-                </span>
-              )}
             </button>
           );
         })}
@@ -257,7 +305,8 @@ export default function ChatView({
           <p className="m-auto text-sm text-zinc-500">Select a contact to start chatting.</p>
         ) : (
           <>
-            <div className="border-b border-zinc-200 px-4 py-3">
+            <div className="flex items-center gap-2.5 border-b border-zinc-200 px-4 py-3">
+              <Avatar name={selectedUser?.name ?? `#${selectedId}`} imageUrl={selectedUser?.avatar_url} />
               <p className="text-sm font-medium text-zinc-900">{selectedUser?.name ?? `#${selectedId}`}</p>
             </div>
 
@@ -289,19 +338,19 @@ export default function ChatView({
                       <div className={`flex flex-col gap-1 ${isMine ? "items-end" : "items-start"}`}>
                         <div
                           className={`max-w-xs rounded-lg px-3 py-2 text-sm ${
-                            isMine ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-900"
+                            isMine ? "bg-brand-600 text-white" : "bg-zinc-100 text-zinc-900"
                           }`}
                         >
                           {message.reply_to_message_id && (
                             <div
                               className={`mb-1 rounded border-l-2 px-2 py-1 text-xs ${
-                                isMine ? "border-indigo-300 bg-indigo-500/40 text-indigo-50" : "border-zinc-300 bg-zinc-200/60 text-zinc-600"
+                                isMine ? "border-brand-300 bg-brand-500/40 text-brand-50" : "border-zinc-300 bg-zinc-200/60 text-zinc-600"
                               }`}
                             >
                               {quoted ? quoted.body : "Original message"}
                             </div>
                           )}
-                          <p>{message.body}</p>
+                          <FormattedText text={message.body} />
                         </div>
                         <p className="flex items-center gap-1 px-1 text-[10px] text-zinc-400">
                           {formatMessageTime(message.created_at)}
@@ -341,21 +390,63 @@ export default function ChatView({
               </div>
             )}
 
-            <form onSubmit={handleSend} className="flex gap-2 border-t border-zinc-200 p-3">
-              <input
-                type="text"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim()}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Send
-              </button>
+            <form onSubmit={handleSend} className="border-t border-zinc-200 p-3">
+              <div className="rounded-md border border-zinc-300 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder="Type a message..."
+                  className="max-h-32 min-h-[2.5rem] w-full resize-none px-3 py-2 text-sm text-zinc-900 focus:outline-none"
+                />
+                <div className="flex items-center justify-between gap-2 border-t border-zinc-100 px-2 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("**")}
+                      title="Bold"
+                      className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                    >
+                      <i className="ri-bold" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("*")}
+                      title="Italic"
+                      className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                    >
+                      <i className="ri-italic" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("`")}
+                      title="Code"
+                      className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                    >
+                      <i className="ri-code-line" aria-hidden="true" />
+                    </button>
+                    <span className="mx-1 h-4 w-px bg-zinc-200" aria-hidden="true" />
+                    <button
+                      type="button"
+                      disabled
+                      title="File attachments are coming soon"
+                      className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded text-zinc-300"
+                    >
+                      <i className="ri-attachment-2" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!draft.trim()}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Send
+                    <i className="ri-send-plane-fill text-sm" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
             </form>
             {sendError && (
               <p role="alert" className="px-3 pb-2 text-sm text-red-600">

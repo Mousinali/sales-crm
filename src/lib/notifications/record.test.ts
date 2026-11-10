@@ -5,7 +5,7 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
-import { recordNotification, listNotifications, markNotificationRead, deleteNotification } from "./record";
+import { recordNotification, listNotifications, listNotificationsPage, markNotificationRead, deleteNotification } from "./record";
 
 const adminEmail = `notif-admin-${Date.now()}@example.com`;
 let preSalesId: number;
@@ -86,5 +86,22 @@ describe("notifications", () => {
     });
     const [notification] = await listNotifications(pool, otherUserId);
     expect(notification).toMatchObject({ type: "CHAT_MESSAGE", related_user_id: salespersonId });
+  });
+
+  it("paginates and filters by type and message search", async () => {
+    await recordNotification(pool, { recipientUserId: otherUserId, type: "CALENDAR_EVENT", message: "Meeting with the Notif Co team" });
+
+    const byType = await listNotificationsPage(pool, otherUserId, { type: "CALENDAR_EVENT" }, { page: 1, pageSize: 20 });
+    expect(byType.items.every((n) => n.type === "CALENDAR_EVENT")).toBe(true);
+    expect(byType.items.some((n) => n.message === "Meeting with the Notif Co team")).toBe(true);
+
+    const bySearch = await listNotificationsPage(pool, otherUserId, { q: "Notif Co team" }, { page: 1, pageSize: 20 });
+    expect(bySearch.items.some((n) => n.message === "Meeting with the Notif Co team")).toBe(true);
+    expect(bySearch.items.every((n) => n.message.includes("Notif Co team"))).toBe(true);
+
+    const firstPage = await listNotificationsPage(pool, otherUserId, {}, { page: 1, pageSize: 1 });
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.total).toBeGreaterThanOrEqual(2);
+    expect(firstPage.totalPages).toBeGreaterThanOrEqual(2);
   });
 });

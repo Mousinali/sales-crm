@@ -83,9 +83,11 @@ describe("POST /api/leads", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects a Salesperson", async () => {
-    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, salespersonCookie);
-    expect(res.status).toBe(403);
+  it("lets an authenticated Salesperson create a lead", async () => {
+    const res = await postLeads({ companyName: "SP Route Co", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, salespersonCookie);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.salesperson_owner_id).toBe(body.created_by);
   });
 
   it("accepts the extended contact-detail fields and defaults country to India", async () => {

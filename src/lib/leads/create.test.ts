@@ -35,10 +35,11 @@ afterAll(async () => {
 });
 
 describe("createLead", () => {
-  it("rejects a Salesperson creating a lead", async () => {
-    await expect(
-      createLead(pool, { creatorId: salespersonId, creatorRole: "SALESPERSON", companyName: "X", phone: "1", serviceRequirements: "y", leadSource: "OTHER" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+  it("defaults a Salesperson-created lead's salesperson owner to its creator", async () => {
+    const lead = await createLead(pool, { creatorId: salespersonId, creatorRole: "SALESPERSON", companyName: "SP Lead Co", phone: "1", serviceRequirements: "y", leadSource: "OTHER" });
+    leadIds.push(lead.id);
+    expect(lead.salesperson_owner_id).toBe(salespersonId);
+    expect(lead.pre_sales_owner_id).toBeNull();
   });
 
   it("rejects HR creating a lead", async () => {
@@ -109,5 +110,12 @@ describe("createLead", () => {
     leadIds.push(leadA.id, leadB.id);
     expect(leadA.email).toBe(sharedEmail);
     expect(leadB.email).toBe(sharedEmail);
+  });
+
+  it("accepts a budget type alongside the estimated budget", async () => {
+    const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Budget Type Co", phone: "6", serviceRequirements: "z", leadSource: "OTHER", estimatedBudget: 25000, budgetType: "MONTHLY" });
+    leadIds.push(lead.id);
+    expect(lead.estimated_budget).toBe("25000");
+    expect(lead.budget_type).toBe("MONTHLY");
   });
 });

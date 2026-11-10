@@ -14,9 +14,12 @@ export default async function LeadsPage() {
   const result = await listLeadsPage(pool, user, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 
   return (
-    <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Leads</h1>
-      <LeadsView initialLeads={result.items} initialTotal={result.total} initialTotalPages={result.totalPages} viewerRole={user.role} />
-    </div>
+    <LeadsView
+      initialLeads={result.items}
+      initialTotal={result.total}
+      initialTotalPages={result.totalPages}
+      viewerRole={user.role}
+      viewerId={user.id}
+    />
   );
 }

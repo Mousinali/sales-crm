@@ -3,7 +3,15 @@ import { redirect } from "next/navigation";
 import { getSessionUser, sessionTokenFromCookieHeader, SESSION_COOKIE_NAME } from "./session";
 import type { Role } from "./roles";
 
-export type AuthUser = { id: number; role: Role; name: string; email: string; mustChangePassword: boolean };
+export type AuthUser = {
+  id: number;
+  role: Role;
+  name: string;
+  email: string;
+  mustChangePassword: boolean;
+  avatarUrl: string | null;
+  designation: string | null;
+};
 
 /**
  * Resolves the currently signed-in user from the session cookie, or `null`
@@ -18,7 +26,15 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const user = await getSessionUser(token);
   if (!user) return null;
 
-  return { id: user.id, role: user.role, name: user.name, email: user.email, mustChangePassword: user.must_change_password };
+  return {
+    id: user.id,
+    role: user.role,
+    name: user.name,
+    email: user.email,
+    mustChangePassword: user.must_change_password,
+    avatarUrl: user.avatar_url,
+    designation: user.designation,
+  };
 }
 
 /**
@@ -79,5 +95,13 @@ export async function getCurrentUserFromRequest(request: Request): Promise<AuthU
   const user = await getSessionUser(token);
   if (!user) return null;
 
-  return { id: user.id, role: user.role, name: user.name, email: user.email, mustChangePassword: user.must_change_password };
+  return {
+    id: user.id,
+    role: user.role,
+    name: user.name,
+    email: user.email,
+    mustChangePassword: user.must_change_password,
+    avatarUrl: user.avatar_url,
+    designation: user.designation,
+  };
 }

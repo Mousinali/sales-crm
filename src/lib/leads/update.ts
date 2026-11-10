@@ -4,7 +4,7 @@ import { assertLeadVisible } from "./guard";
 import { LeadActionNotAllowedError } from "./errors";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
 import { setLeadServices } from "./services";
-import type { LeadPriority } from "./types";
+import type { LeadPriority, LeadBudgetType } from "./types";
 
 export async function updateLead(
   pool: Pool,
@@ -29,11 +29,16 @@ export async function updateLead(
       serviceRequirements: string;
       serviceIds: number[];
       estimatedBudget: number;
+      budgetType: LeadBudgetType;
       priority: LeadPriority;
       nextFollowUpAt: Date;
       notes: string;
       whatsappNumber: string;
       remarks: string;
+      youtubeUrl: string;
+      facebookUrl: string;
+      instagramUrl: string;
+      linkedinUrl: string;
       // One-way: setting true archives the lead. There is no false/unset
       // path to unarchive — req.md §5.2 names only "archive," not
       // "unarchive" (see this plan's Global Constraints).
@@ -80,11 +85,16 @@ export async function updateLead(
   if (fields.country !== undefined) set("country", fields.country);
   if (fields.serviceRequirements !== undefined) set("service_requirements", fields.serviceRequirements);
   if (fields.estimatedBudget !== undefined) set("estimated_budget", fields.estimatedBudget);
+  if (fields.budgetType !== undefined) set("budget_type", fields.budgetType);
   if (fields.priority !== undefined) set("priority", fields.priority);
   if (fields.nextFollowUpAt !== undefined) set("next_follow_up_at", fields.nextFollowUpAt);
   if (fields.notes !== undefined) set("notes", fields.notes);
   if (fields.whatsappNumber !== undefined) set("whatsapp_number", fields.whatsappNumber);
   if (fields.remarks !== undefined) set("remarks", fields.remarks);
+  if (fields.youtubeUrl !== undefined) set("youtube_url", fields.youtubeUrl);
+  if (fields.facebookUrl !== undefined) set("facebook_url", fields.facebookUrl);
+  if (fields.instagramUrl !== undefined) set("instagram_url", fields.instagramUrl);
+  if (fields.linkedinUrl !== undefined) set("linkedin_url", fields.linkedinUrl);
   if (fields.archived) set("archived_at", new Date());
 
   if (columns.length > 0) {

@@ -13,11 +13,17 @@ export async function getPreSalesDashboard(pool: Pool, userId: number) {
   const leadsAwaitingReview = leads.filter((l) => l.status === "PENDING_REVIEW" || l.status === "MORE_INFO_REQUIRED");
   const recentlyUpdatedLeads = [...leads].sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime()).slice(0, 10);
 
+  const leadsByStatus: Record<string, number> = {};
+  for (const lead of leads) {
+    leadsByStatus[lead.status] = (leadsByStatus[lead.status] ?? 0) + 1;
+  }
+
   return {
     leadsCreated,
     leadsAwaitingReview,
     followUpsDueToday,
     upcomingTasks,
     recentlyUpdatedLeads,
+    leadsByStatus,
   };
 }

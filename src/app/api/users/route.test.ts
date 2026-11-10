@@ -22,7 +22,10 @@ afterAll(async () => {
   // Route-created audit log rows reference superAdminId as actor_user_id
   // (FK, no cascade), so they must go before the users themselves.
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [superAdminId]);
-  await pool.query("DELETE FROM sessions WHERE user_id = $1", [superAdminId]);
+  await pool.query(
+    "DELETE FROM sessions WHERE user_id = $1 OR user_id IN (SELECT id FROM users WHERE email = ANY($2))",
+    [superAdminId, createdEmails],
+  );
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, superAdminEmail]]);
 });
 
@@ -57,9 +60,20 @@ describe("POST /api/users", () => {
   });
 
   it("returns 403 (not 500) when the role can't be created by this actor", async () => {
-    const res = await postUsers(
-      { role: "PRE_SALES", name: "Should Fail", email: `route-fail-${Date.now()}@example.com` },
+    const mhEmail = `route-mh-actor-${Date.now()}@example.com`;
+    createdEmails.push(mhEmail);
+    const mhCreateRes = await postUsers(
+      { role: "MARKETING_HEAD", name: "MH Actor", email: mhEmail },
       `${SESSION_COOKIE_NAME}=${superAdminToken}`,
+    );
+    const mh = await mhCreateRes.json();
+    const mhToken = (await createSession(mh.id)).token;
+    await pool.query("UPDATE users SET must_change_password = false WHERE id = $1", [mh.id]);
+
+    // A Marketing Head can create Pre-sales/Salesperson, but not HR.
+    const res = await postUsers(
+      { role: "HR", name: "Should Fail", email: `route-fail-${Date.now()}@example.com` },
+      `${SESSION_COOKIE_NAME}=${mhToken}`,
     );
     expect(res.status).toBe(403);
   });

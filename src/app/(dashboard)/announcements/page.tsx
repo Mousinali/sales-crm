@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { listAnnouncements } from "@/lib/email/announce";
+import PageHeading from "@/components/ui/PageHeading";
 import AnnouncementsView from "./AnnouncementsView";
 
 export default async function AnnouncementsPage() {
@@ -9,7 +10,7 @@ export default async function AnnouncementsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Announcements</h1>
+      <PageHeading title="Announcements" count={announcements.length} crumbs={[{ label: "Announcements" }]} />
       <AnnouncementsView
         initialAnnouncements={announcements.map((a) => ({ ...a, created_at: a.created_at.toISOString() }))}
       />

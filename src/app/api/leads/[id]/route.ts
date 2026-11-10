@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
-import { LEAD_PRIORITIES } from "@/lib/leads/types";
+import { LEAD_PRIORITIES, LEAD_BUDGET_TYPES } from "@/lib/leads/types";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { updateLead } from "@/lib/leads/update";
 import { listLeadServices } from "@/lib/leads/services";
+import { getLatestSaleForLead } from "@/lib/sales/summary";
+import { getLeadOwnerNames } from "@/lib/leads/owners";
 import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 const updateLeadSchema = z
@@ -26,11 +28,16 @@ const updateLeadSchema = z
     serviceRequirements: z.string().trim().min(1).optional(),
     serviceIds: z.array(z.number().int()).min(1).optional(),
     estimatedBudget: z.number().optional(),
+    budgetType: z.enum(LEAD_BUDGET_TYPES).optional(),
     priority: z.enum(LEAD_PRIORITIES).optional(),
     nextFollowUpAt: z.coerce.date().optional(),
     notes: z.string().trim().min(1).optional(),
     whatsappNumber: z.string().trim().min(1).optional(),
     remarks: z.string().trim().min(1).optional(),
+    youtubeUrl: z.string().trim().url().optional(),
+    facebookUrl: z.string().trim().url().optional(),
+    instagramUrl: z.string().trim().url().optional(),
+    linkedinUrl: z.string().trim().url().optional(),
     archived: z.literal(true).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "No fields to update" });
@@ -56,7 +63,18 @@ export async function GET(
   try {
     const lead = await assertLeadVisible(pool, user, leadId);
     const services = await listLeadServices(pool, leadId);
-    return NextResponse.json({ ...lead, services });
+    const latestSale = await getLatestSaleForLead(pool, leadId);
+    const ownerNames = await getLeadOwnerNames(pool, lead);
+    return NextResponse.json({
+      ...lead,
+      services,
+      latest_sale_id: latestSale?.id ?? null,
+      latest_sale_budget_amount: latestSale?.budget_amount ?? null,
+      latest_sale_paid_amount: latestSale?.paid_amount ?? null,
+      pre_sales_owner_name: ownerNames.preSalesOwnerName,
+      salesperson_owner_name: ownerNames.salespersonOwnerName,
+      created_by_name: ownerNames.createdByName,
+    });
   } catch (error) {
     if (error instanceof LeadNotFoundError || error instanceof LeadNotAccessibleError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

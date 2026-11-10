@@ -10,17 +10,181 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
 
-  /* Sidebar navy surfaces — a deeper, bluer tone than Tailwind's slate-900,
-     with a lighter "elevated" surface for hover/active rows and a hairline
-     border tone for dividers, so these three never drift out of sync
-     across Sidebar/NavLinks/MobileNav/Brand. */
-  --color-sidebar: #161c33;
-  --color-sidebar-elevated: #242c4f;
-  --color-sidebar-border: #2a3156;
+  /* Sidebar: a plain white surface with a faint grey "elevated" tone for
+     hover rows and a hairline border for dividers, so these three never
+     drift out of sync across Sidebar/NavLinks/MobileNav/Brand. Active-row
+     color comes from the brand scale below, not from this group. */
+  --color-sidebar: #ffffff;
+  --color-sidebar-elevated: #f4f4f6;
+  --color-sidebar-border: #e8e8ec;
+
+  /* App background behind the white content cards — a soft blue-grey,
+     distinct from pure white so cards read as elevated. */
+  --color-page: #f4f5f9;
+
+  /* Brand accent: a coral-red used for primary actions, active nav/tab
+     state, and anything that should read as "the one color" in the UI.
+     Kept as its own scale (not Tailwind's red) so it can carry its own
+     tint/shade steps independent of any built-in palette. */
+  --color-brand-50: #fdf2f1;
+  --color-brand-100: #fce1df;
+  --color-brand-200: #f8c6c2;
+  --color-brand-300: #f29d96;
+  --color-brand-400: #ea6c62;
+  --color-brand-500: #e14b3f;
+  --color-brand-600: #cf362a;
+  --color-brand-700: #ad2a20;
+  --color-brand-800: #8c231c;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
+}
+
+/* Buttons set their focus ring with Tailwind's `focus:ring-*` utilities
+   (a box-shadow), so a keyboard tab-through user can see which one is
+   focused — but `:focus` also fires on a plain mouse click, which leaves
+   that ring sitting on the button like an unwanted border after every
+   click. Suppressing it only when focus-visible wouldn't have shown a ring
+   anyway (i.e. a mouse click, not keyboard navigation) keeps the
+   accessibility case intact everywhere without touching every button's
+   className individually. */
+button:focus:not(:focus-visible) {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Re-themes react-day-picker (used by DateRangeFilter) to the brand scale
+   above instead of its library-default blue. `!important` rather than a
+   higher-specificity selector: the library's own `.rdp-root` rule setting
+   these same variables ships in its own CSS chunk (a separate `<link>`
+   from this file's compiled output), and the two chunks' relative load
+   order isn't guaranteed — `!important` wins regardless of that order. */
+.brand-daypicker {
+  --rdp-accent-color: var(--color-brand-600) !important;
+  --rdp-accent-background-color: var(--color-brand-50) !important;
+  --rdp-today-color: var(--color-brand-600) !important;
+  font-family: inherit;
+}
+
+/* The mobile filter sheet's calendar (DateRangeFilter's `inline` mode) gets
+   the full width of its container instead of the library's default
+   content-sized table — react-day-picker fixes every day cell to
+   `--rdp-day-width` (44px) and caps `.rdp-month`/`.rdp-months` at
+   `max-width: fit-content`, which is exactly what leaves a gap on a wider
+   phone screen. `.brand-daypicker--full-width` opts into stretching. */
+.brand-daypicker--full-width,
+.brand-daypicker--full-width .rdp-months,
+.brand-daypicker--full-width .rdp-month {
+  width: 100%;
+  max-width: none;
+}
+.brand-daypicker--full-width .rdp-month_grid {
+  width: 100%;
+  table-layout: fixed;
+}
+.brand-daypicker--full-width .rdp-day_button {
+  width: 100%;
+}
+
+/* A plain opacity/slide-in for content that mounts on demand (the filter
+   sheet's calendar, revealed by tapping "Date range") — CSS keyframes play
+   automatically once the element enters the DOM, no JS orchestration
+   needed for a toggle this simple. */
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-slide-in {
+  animation: fade-slide-in 180ms ease-out;
+}
+
+/* Every <select> in the app shares the "rounded-md" utility class, so it
+   doubles as a hook here: a custom chevron replaces the browser default
+   (which renders inconsistently across platforms) and gets real breathing
+   room on its left, instead of crowding the selected text against it.
+   `select.rounded-md` (element + class) outranks a plain utility class
+   like `px-3`, so this wins without needing `!important`. */
+select.rounded-md {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2371717a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem;
+}
+
+/* Hides the scrollbar on a horizontally swipeable row (e.g. the Super
+   Admin dashboard's stat tiles on mobile) without disabling scrolling —
+   the swipe gesture still works, there's just no track/thumb drawn. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tables collapse from a grid into a stack of labelled rows below the sm
+   breakpoint, instead of forcing horizontal scrolling on a phone. Each
+   <td> needs a `data-label` (its column's header text) to show; a cell
+   with no meaningful label (a checkbox, the "…" actions button) gets
+   `data-label=""`, which the final rule here hides. */
+@media (max-width: 639px) {
+  .table-responsive {
+    display: block;
+  }
+  .table-responsive thead {
+    display: none;
+  }
+  .table-responsive tbody,
+  .table-responsive tr {
+    display: block;
+    width: 100%;
+  }
+  .table-responsive tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #e4e4e7;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  .table-responsive tr:last-child {
+    margin-bottom: 0;
+  }
+  .table-responsive td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+  }
+  .table-responsive td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #71717a;
+  }
+  .table-responsive td[data-label=""] {
+    justify-content: flex-end;
+  }
+  .table-responsive td[data-label=""]::before {
+    content: none;
+  }
+  /* A cell whose content is too wide to sit beside its label (a row of
+     several buttons) stacks the label above it instead of squeezing both
+     onto one line. */
+  .table-responsive td[data-stack="true"] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
+  }
 }

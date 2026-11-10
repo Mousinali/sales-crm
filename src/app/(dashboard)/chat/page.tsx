@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { listConversations } from "@/lib/chat/crud";
+import PageHeading from "@/components/ui/PageHeading";
 import ChatView from "./ChatView";
 
 export default async function ChatPage({ searchParams }: { searchParams: Promise<{ with?: string }> }) {
@@ -11,7 +12,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Chat</h1>
+      <PageHeading title="Chat" crumbs={[{ label: "Chat" }]} />
       <ChatView
         viewerId={user.id}
         initialConversations={conversations.map((c) => ({ ...c, last_at: c.last_at.toISOString() }))}

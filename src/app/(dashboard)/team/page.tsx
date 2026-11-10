@@ -3,6 +3,7 @@ import { pool } from "@/lib/db";
 import { creatableRolesFor } from "@/lib/auth/roles";
 import { listUsersPage } from "@/lib/users/list";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import PageHeading from "@/components/ui/PageHeading";
 import TeamView from "./TeamView";
 
 export default async function TeamPage() {
@@ -11,7 +12,7 @@ export default async function TeamPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Team</h1>
+      <PageHeading title="Team" count={result.total} crumbs={[{ label: "Team" }]} />
       <TeamView
         initialUsers={result.items}
         initialTotal={result.total}

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/rbac";
-import DashboardShell, { type NavItem } from "./DashboardShell";
+import { pool } from "@/lib/db";
+import { getUnreadMessageCount } from "@/lib/chat/crud";
+import DashboardShell, { type NavSection } from "./DashboardShell";
+import pkg from "../../../package.json";
 
 export default async function DashboardLayout({
   children,
@@ -28,40 +31,94 @@ export default async function DashboardLayout({
     redirect("/change-password");
   }
 
-  const NAV_ITEMS: NavItem[] = [
+  const unreadMessages = await getUnreadMessageCount(pool, user.id);
+
+  const NAV_SECTIONS: NavSection[] = [
+    {
+      items: [
+        { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
+        { href: "/calendar", label: "Calendar", icon: "ri-calendar-line" },
+        { href: "/chat", label: "Chat", icon: "ri-chat-3-line", badge: unreadMessages },
+        { href: "/notifications", label: "Notifications", icon: "ri-notification-3-line" },
+      ],
+    },
+    {
+      label: "Records",
+      items: [
+        ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
+          ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
+          : []),
+        ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
+          ? [{ href: "/companies", label: "Companies", icon: "ri-building-line" }]
+          : []),
+        ...(user.role !== "HR"
+          ? [
+              {
+                href: "/leads",
+                label: "Leads",
+                icon: "ri-contacts-line",
+                children: [
+                  // Mirrors LeadsView's `canCreate` check (PRE_SALES/MARKETING_HEAD/
+                  // SALESPERSON only) — /leads/new redirects anyone else straight
+                  // back to /leads, so there's no point offering the link to them here.
+                  ...(user.role === "PRE_SALES" || user.role === "MARKETING_HEAD" || user.role === "SALESPERSON"
+                    ? [{ href: "/leads/new", label: "Add Lead", icon: "ri-add-line" }]
+                    : []),
+                  { href: "/leads", label: "Lead List", icon: "ri-list-check" },
+                ],
+              },
+            ]
+          : []),
+        ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON"
+          ? [
+              {
+                href: "/sales",
+                label: "Sales",
+                icon: "ri-money-dollar-circle-line",
+                children: [
+                  { href: "/sales/new", label: "Add Sale", icon: "ri-add-line" },
+                  { href: "/sales", label: "Sales List", icon: "ri-list-check" },
+                ],
+              },
+            ]
+          : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/services", label: "Services", icon: "ri-price-tag-3-line" }] : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/logs", label: "Logs", icon: "ri-history-line" }] : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/archive", label: "Archive", icon: "ri-archive-line" }] : []),
+      ],
+    },
+    {
+      label: "Workflow",
+      items: [
+        ...(user.role !== "HR" ? [{ href: "/tasks", label: "Tasks", icon: "ri-list-check-2" }] : []),
+        ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
+          ? [{ href: "/announcements", label: "Announcements", icon: "ri-mail-send-line" }]
+          : []),
+      ],
+    },
+    {
+      label: "General",
+      items: [{ href: "/settings", label: "Settings", icon: "ri-settings-3-line" }],
+    },
+  ].filter((section) => section.items.length > 0);
+
+  // The 3-4 routes someone reaches for constantly, for the mobile tab bar —
+  // everything else (Calendar, Chat, Settings, …) stays in the hamburger
+  // drawer via NAV_SECTIONS above. Falls back to Team once a role has no
+  // Sales of its own (SUPER_ADMIN, HR), so the bar is never just one tab.
+  const BOTTOM_NAV_ITEMS = [
     { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
-    { href: "/calendar", label: "Calendar", icon: "ri-calendar-line" },
-    { href: "/chat", label: "Chat", icon: "ri-chat-3-line" },
-    ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
-      ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
-      : []),
-    ...(user.role !== "HR"
-      ? [
-          {
-            href: "/leads",
-            label: "Leads",
-            icon: "ri-contacts-line",
-            children: [
-              // Mirrors LeadsView's `canCreate` check (PRE_SALES/MARKETING_HEAD
-              // only) — /leads/new redirects anyone else straight back to
-              // /leads, so there's no point offering the link to them here.
-              ...(user.role === "PRE_SALES" || user.role === "MARKETING_HEAD"
-                ? [{ href: "/leads/new", label: "Add Lead", icon: "ri-add-line" }]
-                : []),
-              { href: "/leads", label: "Lead List", icon: "ri-list-check" },
-            ],
-          },
-        ]
-      : []),
-    ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
-      ? [{ href: "/announcements", label: "Announcements", icon: "ri-mail-send-line" }]
-      : []),
-    ...(user.role !== "HR" ? [{ href: "/tasks", label: "Tasks", icon: "ri-list-check-2" }] : []),
-    ...(user.role === "SUPER_ADMIN" ? [{ href: "/services", label: "Services", icon: "ri-price-tag-3-line" }] : []),
+    ...(user.role !== "HR" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
+    ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON"
+      ? [{ href: "/sales", label: "Sales", icon: "ri-money-dollar-circle-line" }]
+      : user.role === "SUPER_ADMIN" || user.role === "HR"
+        ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
+        : []),
+    { href: "/settings", label: "Profile", icon: "ri-user-settings-line" },
   ];
 
   return (
-    <DashboardShell user={user} navItems={NAV_ITEMS}>
+    <DashboardShell user={user} navSections={NAV_SECTIONS} bottomNavItems={BOTTOM_NAV_ITEMS} version={pkg.version}>
       {children}
     </DashboardShell>
   );

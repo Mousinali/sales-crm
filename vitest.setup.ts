@@ -1,6 +1,19 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
+// Integration tests exercise real CRUD code against `pool` (see src/lib/db.ts),
+// which otherwise points at the same DATABASE_URL the dev server uses — every
+// test run was writing real rows (users, leads, etc.) straight into dev data.
+// Redirect to a sibling "_test" database instead, so test runs stay isolated.
+// `npm run migrate -- ` only targets DATABASE_URL as given, so keep that
+// database's schema in sync by rerunning migrations against it when needed
+// (see scripts/migrate.ts; point DATABASE_URL at the _test database to do so).
+if (process.env.DATABASE_URL) {
+  const url = new URL(process.env.DATABASE_URL);
+  url.pathname = `${url.pathname}_test`;
+  process.env.DATABASE_URL = url.toString();
+}
+
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";

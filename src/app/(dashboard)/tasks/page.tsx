@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { listTasksPage } from "@/lib/tasks/crud";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import PageHeading from "@/components/ui/PageHeading";
 import TasksView from "./TasksView";
 
 export default async function TasksPage() {
@@ -15,7 +16,7 @@ export default async function TasksPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Tasks</h1>
+      <PageHeading title="Tasks" count={result.total} crumbs={[{ label: "Tasks" }]} />
       <TasksView
         initialTasks={result.items.map((t) => ({ ...t, due_at: t.due_at.toISOString() }))}
         initialTotal={result.total}

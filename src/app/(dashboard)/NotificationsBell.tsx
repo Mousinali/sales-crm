@@ -4,6 +4,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "@/lib/toast";
+import { useMobileOverlay } from "./MobileOverlayContext";
 
 const MUTE_STORAGE_KEY = "notificationsMuted";
 
@@ -24,7 +25,11 @@ const LEAD_NOTIFICATION_TYPES = new Set([
   "VISIT_CANCELLED",
 ]);
 
-export default function NotificationsBell() {
+// `variant="mobile"` is the only thing MobileNav opts into — it swaps the
+// desktop dropdown for a right-side offcanvas panel (same data/handlers,
+// just a different shell). Every other caller passes nothing and keeps
+// the original dropdown exactly as it was.
+export default function NotificationsBell({ variant = "desktop" }: { variant?: "desktop" | "mobile" }) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -33,6 +38,7 @@ export default function NotificationsBell() {
   // server-side. Per-browser, not per-account, since it's "stop pinging me
   // on this device" rather than a account-wide preference.
   const [muted, setMuted] = useState(false);
+  const { setOverlayOpen } = useMobileOverlay();
 
   useEffect(() => {
     // Reads a client-only preference after mount (localStorage doesn't
@@ -81,6 +87,21 @@ export default function NotificationsBell() {
     };
   }, []);
 
+  // The mobile panel overlays the whole screen rather than replacing it
+  // (same as the hamburger drawer), so without this a touch-scroll still
+  // scrolls the page underneath it. The desktop dropdown is small enough
+  // that this was never needed there.
+  useEffect(() => {
+    if (variant !== "mobile") return;
+    setOverlayOpen("notifications-panel", open);
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [variant, open, setOverlayOpen]);
+
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
   async function markRead(id: number) {
@@ -120,60 +141,100 @@ export default function NotificationsBell() {
     }
   }
 
+  const muteToggle = (
+    <button
+      type="button"
+      onClick={toggleMuted}
+      title={muted ? "Unmute notifications" : "Mute notifications"}
+      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+    >
+      <i className={muted ? "ri-notification-off-line" : "ri-notification-3-line"} aria-hidden="true" />
+      {muted ? "Muted" : "Mute"}
+    </button>
+  );
+
+  const list =
+    notifications.length === 0 ? (
+      <p className="px-4 py-3 text-sm text-zinc-500">No notifications yet.</p>
+    ) : (
+      notifications.map((n) => (
+        <div key={n.id} className="group flex items-center hover:bg-zinc-50">
+          <button
+            type="button"
+            onClick={() => handleClick(n)}
+            className={`block flex-1 px-4 py-2 text-left text-sm ${n.read_at ? "text-zinc-400" : "font-medium text-zinc-900"}`}
+          >
+            {n.message}
+          </button>
+          <button
+            type="button"
+            onClick={(event) => handleDelete(event, n.id)}
+            aria-label="Delete notification"
+            title="Delete"
+            className="mr-2 shrink-0 rounded p-1.5 text-zinc-300 opacity-0 hover:bg-zinc-200 hover:text-zinc-600 group-hover:opacity-100"
+          >
+            <i className="ri-delete-bin-line text-sm" aria-hidden="true" />
+          </button>
+        </div>
+      ))
+    );
+
+  const bellButton = (
+    <button
+      type="button"
+      aria-label="Notifications"
+      onClick={() => setOpen((value) => !value)}
+      className="relative flex h-10 w-10 items-center justify-center rounded-full text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-400"
+    >
+      <i className="ri-notification-3-line text-lg" aria-hidden="true" />
+      {!muted && unreadCount > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold text-white">
+          {unreadCount}
+        </span>
+      )}
+    </button>
+  );
+
+  if (variant === "mobile") {
+    return (
+      <>
+        {bellButton}
+        {/* Stays mounted (not `{open && ...}`) so the slide transition has
+            something to animate between — mirrors MobileNav's own drawer. */}
+        <div className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
+          <button
+            type="button"
+            tabIndex={open ? 0 : -1}
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+            className={`absolute inset-0 bg-zinc-900/40 transition-opacity duration-200 ease-in-out ${open ? "opacity-100" : "opacity-0"}`}
+          />
+          <div
+            className={`absolute inset-y-0 right-0 flex h-full w-80 max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-200 ease-in-out ${
+              open ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-200 p-4">
+              <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+              {muteToggle}
+            </div>
+            <div className="flex-1 overflow-y-auto">{list}</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="relative">
-      <button
-        type="button"
-        aria-label="Notifications"
-        onClick={() => setOpen((value) => !value)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      >
-        <i className="ri-notification-3-line text-lg" aria-hidden="true" />
-        {!muted && unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
-            {unreadCount}
-          </span>
-        )}
-      </button>
-
+      {bellButton}
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-80 rounded-md border border-zinc-200 bg-white py-1 shadow-lg">
           <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Notifications</p>
-            <button
-              type="button"
-              onClick={toggleMuted}
-              title={muted ? "Unmute notifications" : "Mute notifications"}
-              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-            >
-              <i className={muted ? "ri-notification-off-line" : "ri-notification-3-line"} aria-hidden="true" />
-              {muted ? "Muted" : "Mute"}
-            </button>
+            {muteToggle}
           </div>
-          {notifications.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-zinc-500">No notifications yet.</p>
-          ) : (
-            notifications.map((n) => (
-              <div key={n.id} className="group flex items-center hover:bg-zinc-50">
-                <button
-                  type="button"
-                  onClick={() => handleClick(n)}
-                  className={`block flex-1 px-4 py-2 text-left text-sm ${n.read_at ? "text-zinc-400" : "font-medium text-zinc-900"}`}
-                >
-                  {n.message}
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => handleDelete(event, n.id)}
-                  aria-label="Delete notification"
-                  title="Delete"
-                  className="mr-2 shrink-0 rounded p-1.5 text-zinc-300 opacity-0 hover:bg-zinc-200 hover:text-zinc-600 group-hover:opacity-100"
-                >
-                  <i className="ri-delete-bin-line text-sm" aria-hidden="true" />
-                </button>
-              </div>
-            ))
-          )}
+          {list}
         </div>
       )}
     </div>

@@ -57,8 +57,8 @@ describe("GET /api/leads/duplicates", () => {
     expect((await getDuplicates("?companyName=Dup+Route+Co&phone=5551234567")).status).toBe(401);
   });
 
-  it("rejects a Salesperson (not a lead-creating role)", async () => {
-    expect((await getDuplicates("?companyName=Dup+Route+Co&phone=5551234567", salespersonCookie)).status).toBe(403);
+  it("lets a Salesperson check for duplicates (now a lead-creating role)", async () => {
+    expect((await getDuplicates("?companyName=Dup+Route+Co&phone=5551234567", salespersonCookie)).status).toBe(200);
   });
 
   it("rejects HR (no lead access at all)", async () => {

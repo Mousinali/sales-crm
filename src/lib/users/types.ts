@@ -6,6 +6,12 @@ export type UserRow = {
   name: string;
   email: string;
   status: "ACTIVE" | "INACTIVE";
+  employee_id: string | null;
+  phone: string | null;
+  whatsapp_number: string | null;
+  designation: string | null;
+  avatar_url: string | null;
+  archived_at: Date | null;
   created_by: number | null;
   created_at: Date;
   updated_at: Date;

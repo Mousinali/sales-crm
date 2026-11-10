@@ -18,9 +18,15 @@ export const ROLE_BADGE_CLASSES: Record<Role, string> = {
   SALESPERSON: "bg-rose-50 text-rose-700",
 };
 
-export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+// Falls back to a Title Case conversion (e.g. "BUSINESS_DEV_LEAD" ->
+// "Business Dev Lead") for any role not in the static map above — so a
+// raw DB role key never leaks into the UI as-is (e.g. in chat's roster).
+export function formatRoleLabel(role: string): string {
+  if (role in ROLE_LABELS) return ROLE_LABELS[role as Role];
+  return role
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

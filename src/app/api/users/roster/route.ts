@@ -31,8 +31,8 @@ export async function GET(request: Request): Promise<Response> {
   }
   params.push(ROSTER_LIMIT);
 
-  const { rows } = await pool.query<{ id: number; name: string; role: string }>(
-    `SELECT id, name, role FROM users WHERE ${conditions.join(" AND ")} ORDER BY name LIMIT $${params.length}`,
+  const { rows } = await pool.query<{ id: number; name: string; role: string; avatar_url: string | null }>(
+    `SELECT id, name, role, avatar_url FROM users WHERE ${conditions.join(" AND ")} ORDER BY name LIMIT $${params.length}`,
     params,
   );
   return NextResponse.json({ users: rows });

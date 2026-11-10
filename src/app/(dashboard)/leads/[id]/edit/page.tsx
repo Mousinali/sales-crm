@@ -5,6 +5,7 @@ import { assertLeadVisible } from "@/lib/leads/guard";
 import { listLeadServices } from "@/lib/leads/services";
 import { listServices } from "@/lib/services/list";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
+import PageHeading from "@/components/ui/PageHeading";
 import EditLeadForm from "./EditLeadForm";
 
 export default async function EditLeadPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,7 +40,14 @@ export default async function EditLeadPage({ params }: { params: Promise<{ id: s
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-zinc-900">Edit Lead</h1>
+      <PageHeading
+        title="Edit Lead"
+        crumbs={[
+          { label: "Leads", href: "/leads" },
+          { label: lead.company_name, href: `/leads/${lead.id}` },
+          { label: "Edit" },
+        ]}
+      />
       <EditLeadForm lead={lead} serviceOptions={serviceOptions} initialServiceIds={leadServices.map((s) => s.id)} />
     </div>
   );

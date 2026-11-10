@@ -1,0 +1,33 @@
+[  300170ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[  600195ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[  900176ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 1200196ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 1319194ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:720
+[ 1319719ms] [WARNING] WebSocket connection to 'ws://localhost:3000/socket.io/?EIO=4&transport=websocket&sid=MaUkgMM6y7cy3qVcAAHN' failed: WebSocket is closed before the connection is established. @ http://localhost:3000/_next/static/chunks/node_modules_1unm5t3q2mlbt._.js:1642
+[ 1500169ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 1800164ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 2100182ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 2400228ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 2700169ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 3000192ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 3300208ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 3600178ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 3900179ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 4200180ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 4500186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 4800207ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 5100228ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 5400195ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 5700197ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 6000197ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 6300224ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 6600206ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 6900203ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 7200207ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 7500213ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 7800212ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 8100229ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 8400216ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1:1
+[ 8595556ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=uNPrgAQG2PXfwKYpVnQae' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16226
+[ 8596559ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=uNPrgAQG2PXfwKYpVnQae' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16226
+[ 8597565ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=uNPrgAQG2PXfwKYpVnQae' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16226

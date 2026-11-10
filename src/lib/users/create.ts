@@ -8,7 +8,17 @@ const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 export async function createUser(
   pool: Pool,
-  input: { creatorId: number; creatorRole: Role; role: Role; name: string; email: string },
+  input: {
+    creatorId: number;
+    creatorRole: Role;
+    role: Role;
+    name: string;
+    email: string;
+    employeeId?: string;
+    phone?: string;
+    whatsappNumber?: string;
+    designation?: string;
+  },
 ): Promise<{ id: number; email: string; tempPassword: string }> {
   if (!canManage(input.creatorRole, input.role)) {
     throw new RoleNotManageableError(`${input.creatorRole} cannot create ${input.role} accounts`);
@@ -20,10 +30,10 @@ export async function createUser(
   let id: number;
   try {
     const { rows } = await pool.query<{ id: number }>(
-      `INSERT INTO users (role, name, email, password_hash, status, created_by, must_change_password)
-       VALUES ($1, $2, $3, $4, 'ACTIVE', $5, true)
+      `INSERT INTO users (role, name, email, password_hash, status, created_by, must_change_password, employee_id, phone, whatsapp_number, designation)
+       VALUES ($1, $2, $3, $4, 'ACTIVE', $5, true, $6, $7, $8, $9)
        RETURNING id`,
-      [input.role, input.name, input.email, passwordHash, input.creatorId],
+      [input.role, input.name, input.email, passwordHash, input.creatorId, input.employeeId ?? null, input.phone ?? null, input.whatsappNumber ?? null, input.designation ?? null],
     );
     id = rows[0].id;
   } catch (error) {

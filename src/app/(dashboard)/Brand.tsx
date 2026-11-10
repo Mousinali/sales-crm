@@ -1,10 +1,8 @@
 export default function Brand() {
   return (
-    <div className="flex items-center gap-2.5 px-2">
-      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500 text-xs font-semibold text-white">
-        S
-      </span>
-      <span className="text-base font-semibold tracking-tight text-white">Sales CRM</span>
+    <div className="flex items-center px-2">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a fixed local brand asset, not a user-uploaded or remote image next/image would optimize. */}
+      <img src="/logo/default-logo.svg" alt="Sales CRM" className="h-7 w-auto" />
     </div>
   );
 }

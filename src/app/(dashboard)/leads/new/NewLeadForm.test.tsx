@@ -35,7 +35,8 @@ describe("NewLeadForm", () => {
     fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Retail" } });
     fireEvent.change(screen.getByLabelText(/^company$/i), { target: { value: "New Co" } });
     fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "12 MG Road" } });
-    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Karnataka" } });
+    fireEvent.click(screen.getByLabelText(/^state$/i));
+    fireEvent.click(screen.getByRole("option", { name: "Karnataka" }));
     fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "560001" } });
     fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "123" } });
     fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });

@@ -5,7 +5,7 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { createUser } from "@/lib/users/create";
-import { PATCH } from "./route";
+import { PATCH, DELETE } from "./route";
 
 const superAdminEmail = `patch-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -44,6 +44,13 @@ function patchUser(id: number, body: unknown, cookie?: string) {
   );
 }
 
+function deleteUser(id: number, cookie?: string) {
+  return DELETE(
+    new Request(`http://localhost/api/users/${id}`, { method: "DELETE", headers: cookie ? { cookie } : {} }),
+    { params: Promise.resolve({ id: String(id) }) },
+  );
+}
+
 describe("PATCH /api/users/[id]", () => {
   it("rejects an unauthenticated request", async () => {
     const target = await makeMarketingHead();
@@ -62,5 +69,28 @@ describe("PATCH /api/users/[id]", () => {
   it("returns 404 for a nonexistent id", async () => {
     const res = await patchUser(999999999, { status: "INACTIVE" }, `${SESSION_COOKIE_NAME}=${superAdminToken}`);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /api/users/[id]", () => {
+  it("rejects an unauthenticated request", async () => {
+    const target = await makeMarketingHead();
+    expect((await deleteUser(target.id)).status).toBe(401);
+  });
+
+  it("refuses to delete a still-active account (409)", async () => {
+    const target = await makeMarketingHead();
+    expect((await deleteUser(target.id, `${SESSION_COOKIE_NAME}=${superAdminToken}`)).status).toBe(409);
+  });
+
+  it("deletes (archives) a deactivated account", async () => {
+    const target = await makeMarketingHead();
+    await patchUser(target.id, { status: "INACTIVE" }, `${SESSION_COOKIE_NAME}=${superAdminToken}`);
+
+    const res = await deleteUser(target.id, `${SESSION_COOKIE_NAME}=${superAdminToken}`);
+    expect(res.status).toBe(200);
+
+    const { rows } = await pool.query<{ archived_at: Date | null }>("SELECT archived_at FROM users WHERE id = $1", [target.id]);
+    expect(rows[0].archived_at).not.toBeNull();
   });
 });

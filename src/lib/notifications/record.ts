@@ -1,14 +1,17 @@
 import type { Pool } from "pg";
 import { getIO } from "@/lib/socket";
+import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
 
-export type NotificationType =
-  | "LEAD_ASSIGNED"
-  | "LEAD_TRANSFERRED"
-  | "VISIT_SCHEDULED"
-  | "VISIT_RESCHEDULED"
-  | "VISIT_CANCELLED"
-  | "CALENDAR_EVENT"
-  | "CHAT_MESSAGE";
+export const NOTIFICATION_TYPES = [
+  "LEAD_ASSIGNED",
+  "LEAD_TRANSFERRED",
+  "VISIT_SCHEDULED",
+  "VISIT_RESCHEDULED",
+  "VISIT_CANCELLED",
+  "CALENDAR_EVENT",
+  "CHAT_MESSAGE",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export type NotificationRow = {
   id: number;
@@ -45,6 +48,38 @@ export async function listNotifications(
     [viewerId],
   );
   return rows;
+}
+
+export async function listNotificationsPage(
+  pool: Pool,
+  viewerId: number,
+  filters: { type?: NotificationType; q?: string; read?: "UNREAD" | "READ" },
+  page: PageParams,
+): Promise<PagedResult<NotificationRow>> {
+  const conditions = ["recipient_user_id = $1"];
+  const params: unknown[] = [viewerId];
+
+  if (filters.type) {
+    params.push(filters.type);
+    conditions.push(`type = $${params.length}`);
+  }
+  if (filters.read === "UNREAD") {
+    conditions.push("read_at IS NULL");
+  } else if (filters.read === "READ") {
+    conditions.push("read_at IS NOT NULL");
+  }
+  if (filters.q) {
+    params.push(`%${filters.q}%`);
+    conditions.push(`message ILIKE $${params.length}`);
+  }
+
+  const { rows } = await pool.query<NotificationRow & { total_count: number }>(
+    `SELECT *, count(*) OVER() AS total_count FROM notifications WHERE ${conditions.join(" AND ")}
+     ORDER BY created_at DESC
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, page.pageSize, (page.page - 1) * page.pageSize],
+  );
+  return toPagedResult(rows, page);
 }
 
 export async function markNotificationRead(

@@ -80,18 +80,25 @@ export default function LoginForm() {
         <label htmlFor="email" className="text-sm font-medium text-zinc-700">
           Email
         </label>
-        <input
-          id="email"
-          name="email"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-base text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        />
+        <div className="relative">
+          <i
+            className="ri-mail-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            aria-hidden="true"
+          />
+          <input
+            id="email"
+            name="email"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="you@company.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="w-full rounded-xl border border-zinc-200 bg-white/90 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -99,20 +106,25 @@ export default function LoginForm() {
           Password
         </label>
         <div className="relative">
+          <i
+            className="ri-lock-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            aria-hidden="true"
+          />
           <input
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
+            placeholder="Enter your password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 pr-10 text-base text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-full rounded-xl border border-zinc-200 bg-white/90 py-2.5 pr-10 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
           />
           <button
             type="button"
             onClick={() => setShowPassword((value) => !value)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
           >
             <i className={showPassword ? "ri-eye-off-line" : "ri-eye-line"} aria-hidden="true" />
           </button>
@@ -128,10 +140,24 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={submitting || locked}
-        className="mt-2 inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {locked ? `Try again in ${formatCountdown(retrySecondsLeft)}` : "Sign in"}
+        {locked ? (
+          `Try again in ${formatCountdown(retrySecondsLeft)}`
+        ) : submitting ? (
+          <>
+            <i className="ri-loader-4-line animate-spin" aria-hidden="true" />
+            Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </button>
+
+      <p className="flex items-center justify-center gap-1.5 text-xs leading-relaxed text-zinc-500">
+        <i className="ri-information-line  shrink-0 text-sm text-brand-500" aria-hidden="true" />
+        <span>Forgot password? Contact your admin.</span>
+      </p>
     </form>
   );
 }

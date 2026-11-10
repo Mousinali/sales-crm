@@ -28,6 +28,7 @@ const lead: LeadRow = {
   country: "India",
   service_requirements: "CRM",
   estimated_budget: null,
+  budget_type: null,
   lead_source: "OTHER",
   priority: "MEDIUM",
   status: "PENDING_REVIEW",
@@ -38,6 +39,10 @@ const lead: LeadRow = {
   notes: null,
   whatsapp_number: null,
   remarks: null,
+  youtube_url: null,
+  facebook_url: null,
+  instagram_url: null,
+  linkedin_url: null,
   archived_at: null,
   created_by: 2,
   created_at: "2026-01-01T00:00:00Z" as unknown as Date,
@@ -59,7 +64,8 @@ describe("EditLeadForm", () => {
     fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
     fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Wholesale" } });
     fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "Plot 9" } });
-    fireEvent.change(screen.getByLabelText(/^state$/i), { target: { value: "Gujarat" } });
+    fireEvent.click(screen.getByLabelText(/^state$/i));
+    fireEvent.click(screen.getByRole("option", { name: "Gujarat" }));
     fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "380001" } });
     fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9000000000" } });
     fireEvent.change(screen.getByLabelText(/estimated budget/i), { target: { value: "50000" } });

@@ -4,8 +4,9 @@ import { pool } from "@/lib/db";
 import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "./create";
-import { updateUserProfile, setUserStatus } from "./update";
-import { RoleNotManageableError } from "./errors";
+import { updateUserProfile, setUserStatus, archiveUser } from "./update";
+import { RoleNotManageableError, UserActionNotAllowedError } from "./errors";
+import { listUsers } from "./list";
 import { createSession, getSessionUser } from "@/lib/auth/session";
 
 const superAdminEmail = `update-admin-${Date.now()}@example.com`;
@@ -96,5 +97,40 @@ describe("setUserStatus", () => {
     await expect(
       setUserStatus(pool, { actorId: superAdminId, actorRole: "PRE_SALES", targetId: target.id, status: "INACTIVE" }),
     ).rejects.toThrow(RoleNotManageableError);
+  });
+});
+
+describe("archiveUser", () => {
+  it("refuses to delete a still-active account", async () => {
+    const target = await makeMarketingHead();
+    await expect(archiveUser(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id })).rejects.toThrow(
+      UserActionNotAllowedError,
+    );
+  });
+
+  it("archives a deactivated account, revokes its sessions, records an audit log entry, and hides it from listUsers", async () => {
+    const target = await makeMarketingHead();
+    const { token } = await createSession(target.id);
+    await setUserStatus(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id, status: "INACTIVE" });
+
+    await archiveUser(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id });
+
+    const { rows } = await pool.query<{ archived_at: Date | null }>("SELECT archived_at FROM users WHERE id = $1", [target.id]);
+    expect(rows[0].archived_at).not.toBeNull();
+    expect(await getSessionUser(token)).toBeNull();
+
+    const { rows: logs } = await pool.query("SELECT action FROM audit_logs WHERE target_id = $1 AND action = 'user.archived'", [target.id]);
+    expect(logs).toHaveLength(1);
+
+    const visible = await listUsers(pool, "SUPER_ADMIN", {});
+    expect(visible.some((u) => u.id === target.id)).toBe(false);
+  });
+
+  it("rejects a Pre-sales user deleting any account", async () => {
+    const target = await makeMarketingHead();
+    await setUserStatus(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", targetId: target.id, status: "INACTIVE" });
+    await expect(archiveUser(pool, { actorId: superAdminId, actorRole: "PRE_SALES", targetId: target.id })).rejects.toThrow(
+      RoleNotManageableError,
+    );
   });
 });

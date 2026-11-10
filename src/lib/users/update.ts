@@ -3,13 +3,23 @@ import type { Role } from "@/lib/auth/roles";
 import { recordAuditLog } from "@/lib/audit/log";
 import { revokeAllSessions } from "@/lib/auth/session";
 import { assertManageable } from "./guard";
-import { EmailAlreadyExistsError } from "./errors";
+import { EmailAlreadyExistsError, UserActionNotAllowedError } from "./errors";
 
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 export async function updateUserProfile(
   pool: Pool,
-  input: { actorId: number; actorRole: Role; targetId: number; name?: string; email?: string },
+  input: {
+    actorId: number;
+    actorRole: Role;
+    targetId: number;
+    name?: string;
+    email?: string;
+    employeeId?: string;
+    phone?: string;
+    whatsappNumber?: string;
+    designation?: string;
+  },
 ): Promise<void> {
   await assertManageable(pool, input.actorRole, input.targetId);
 
@@ -22,6 +32,22 @@ export async function updateUserProfile(
   if (input.email !== undefined) {
     params.push(input.email);
     fields.push(`email = $${params.length}`);
+  }
+  if (input.employeeId !== undefined) {
+    params.push(input.employeeId || null);
+    fields.push(`employee_id = $${params.length}`);
+  }
+  if (input.phone !== undefined) {
+    params.push(input.phone || null);
+    fields.push(`phone = $${params.length}`);
+  }
+  if (input.whatsappNumber !== undefined) {
+    params.push(input.whatsappNumber || null);
+    fields.push(`whatsapp_number = $${params.length}`);
+  }
+  if (input.designation !== undefined) {
+    params.push(input.designation || null);
+    fields.push(`designation = $${params.length}`);
   }
   if (fields.length === 0) return;
 
@@ -44,6 +70,37 @@ export async function updateUserProfile(
   });
 }
 
+// Self-service only (no `assertManageable` check): a user sets their own
+// photo, never someone else's, so there's no role-hierarchy question here
+// the way there is for `updateUserProfile`.
+export async function updateOwnAvatar(pool: Pool, userId: number, avatarUrl: string | null): Promise<void> {
+  await pool.query(`UPDATE users SET avatar_url = $1, updated_at = now() WHERE id = $2`, [avatarUrl, userId]);
+}
+
+// Self-service only, same reasoning as `updateOwnAvatar` — and deliberately
+// narrower than `updateUserProfile`: a user can correct their own contact
+// number, but name/email/employee ID/designation stay admin-managed via Team.
+export async function updateOwnContactDetails(
+  pool: Pool,
+  userId: number,
+  input: { phone?: string; whatsappNumber?: string },
+): Promise<void> {
+  const fields: string[] = [];
+  const params: unknown[] = [];
+  if (input.phone !== undefined) {
+    params.push(input.phone || null);
+    fields.push(`phone = $${params.length}`);
+  }
+  if (input.whatsappNumber !== undefined) {
+    params.push(input.whatsappNumber || null);
+    fields.push(`whatsapp_number = $${params.length}`);
+  }
+  if (fields.length === 0) return;
+
+  params.push(userId);
+  await pool.query(`UPDATE users SET ${fields.join(", ")}, updated_at = now() WHERE id = $${params.length}`, params);
+}
+
 export async function setUserStatus(
   pool: Pool,
   input: { actorId: number; actorRole: Role; targetId: number; status: "ACTIVE" | "INACTIVE" },
@@ -61,6 +118,36 @@ export async function setUserStatus(
   await recordAuditLog(pool, {
     actorUserId: input.actorId,
     action: input.status === "ACTIVE" ? "user.activated" : "user.deactivated",
+    targetTable: "users",
+    targetId: input.targetId,
+  });
+}
+
+// "Deleting" a user is a soft, one-way archive (like a lead's — see
+// lib/leads/update.ts), not a hard DELETE: their history (audit logs,
+// authored leads/tasks/etc.) stays intact, they just stop showing up
+// anywhere a user is picked or listed. Requires the account to already be
+// INACTIVE, so "delete" is always a deliberate second step after
+// deactivating, never a one-click removal of someone still active.
+export async function archiveUser(pool: Pool, input: { actorId: number; actorRole: Role; targetId: number }): Promise<void> {
+  await assertManageable(pool, input.actorRole, input.targetId);
+
+  const { rows } = await pool.query<{ status: "ACTIVE" | "INACTIVE"; archived_at: Date | null }>(
+    "SELECT status, archived_at FROM users WHERE id = $1",
+    [input.targetId],
+  );
+  const target = rows[0];
+  if (!target || target.archived_at) return;
+  if (target.status !== "INACTIVE") {
+    throw new UserActionNotAllowedError("Deactivate the account before deleting it");
+  }
+
+  await pool.query("UPDATE users SET archived_at = now(), updated_at = now() WHERE id = $1", [input.targetId]);
+  await revokeAllSessions(input.targetId);
+
+  await recordAuditLog(pool, {
+    actorUserId: input.actorId,
+    action: "user.archived",
     targetTable: "users",
     targetId: input.targetId,
   });

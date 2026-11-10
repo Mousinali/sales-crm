@@ -1,0 +1,18 @@
+ALTER TABLE leads DROP CONSTRAINT leads_lead_source_check;
+ALTER TABLE leads ADD CONSTRAINT leads_lead_source_check CHECK (lead_source IN (
+  'WEBSITE_ENQUIRY',
+  'GOOGLE_SEARCH',
+  'GOOGLE_ADS',
+  'GOOGLE_MAPS',
+  'FACEBOOK',
+  'INSTAGRAM',
+  'LINKEDIN',
+  'YOUTUBE',
+  'SMS_CAMPAIGN',
+  'EMAIL_CAMPAIGN',
+  'REFERRAL',
+  'COLD_OUTREACH',
+  'WALK_IN',
+  'EXISTING_CLIENT',
+  'OTHER'
+));

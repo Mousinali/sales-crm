@@ -2,7 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 
-export default function ChangePasswordForm({ requireCurrentPassword }: { requireCurrentPassword: boolean }) {
+export default function ChangePasswordForm({
+  requireCurrentPassword,
+  onSuccess,
+}: {
+  requireCurrentPassword: boolean;
+  onSuccess?: () => void;
+}) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -45,7 +51,15 @@ export default function ChangePasswordForm({ requireCurrentPassword }: { require
         return;
       }
 
-      window.location.href = "/dashboard";
+      if (onSuccess) {
+        setSubmitting(false);
+        setCurrentPassword("");
+        setPassword("");
+        setConfirmPassword("");
+        onSuccess();
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch {
       setError("Something went wrong. Try again.");
       setSubmitting(false);
@@ -59,15 +73,22 @@ export default function ChangePasswordForm({ requireCurrentPassword }: { require
           <label htmlFor="currentPassword" className="text-sm font-medium text-zinc-700">
             Current password
           </label>
-          <input
-            id="currentPassword"
-            name="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
+          <div className="relative">
+            <i
+              className="ri-lock-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              aria-hidden="true"
+            />
+            <input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter your current password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white/90 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+            />
+          </div>
         </div>
       )}
 
@@ -75,30 +96,44 @@ export default function ChangePasswordForm({ requireCurrentPassword }: { require
         <label htmlFor="password" className="text-sm font-medium text-zinc-700">
           New password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        />
+        <div className="relative">
+          <i
+            className="ri-lock-password-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            aria-hidden="true"
+          />
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded-xl border border-zinc-200 bg-white/90 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-700">
           Confirm password
         </label>
-        <input
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        />
+        <div className="relative">
+          <i
+            className="ri-lock-password-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            aria-hidden="true"
+          />
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Re-enter your new password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            className="w-full rounded-xl border border-zinc-200 bg-white/90 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+          />
+        </div>
       </div>
 
       {error && (
@@ -110,9 +145,16 @@ export default function ChangePasswordForm({ requireCurrentPassword }: { require
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Set new password
+        {submitting ? (
+          <>
+            <i className="ri-loader-4-line animate-spin" aria-hidden="true" />
+            Saving…
+          </>
+        ) : (
+          "Set new password"
+        )}
       </button>
     </form>
   );

@@ -40,8 +40,6 @@ describe("getMarketingHeadDashboard", () => {
     const dashboard = await getMarketingHeadDashboard(pool);
     expect(dashboard.totalLeads).toEqual(expect.any(Number));
     expect(dashboard.pendingReviewLeads).toEqual(expect.any(Number));
-    expect(dashboard.leadsByStatus).toEqual(expect.any(Object));
-    expect(dashboard.leadsBySource).toEqual(expect.any(Object));
     expect(dashboard.leadsByPriority).toEqual(expect.any(Object));
     expect(dashboard.leadsByPreSalesOwner).toEqual(expect.any(Object));
     expect(dashboard.leadsBySalespersonOwner).toEqual(expect.any(Object));

@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "@/lib/toast";
-import RefreshButton from "@/app/(dashboard)/RefreshButton";
+import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import RefreshButton from "@/components/ui/RefreshButton";
+import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import type { Role } from "@/lib/auth/roles";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/tasks/types";
 import { LEAD_PRIORITIES, type LeadPriority } from "@/lib/leads/types";
-import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
-import Pagination from "@/app/(dashboard)/Pagination";
+import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES, LEAD_PRIORITY_ICONS } from "@/app/(dashboard)/leadDisplay";
+import Badge from "@/components/ui/Badge";
+import Pagination from "@/components/ui/Pagination";
+import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
+import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 
 type Task = {
   id: number;
@@ -33,16 +38,6 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
-async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body?.error === "string") return body.error;
-  } catch {
-    // fall through to fallback
-  }
-  return fallback;
-}
-
 export default function TasksView({
   initialTasks,
   initialTotal,
@@ -63,20 +58,26 @@ export default function TasksView({
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "">("");
   const [dueFilter, setDueFilter] = useState<"OVERDUE" | "TODAY" | "UPCOMING" | "">("");
   const [listError, setListError] = useState<string | null>(null);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const activeFilterCount = [statusFilter, dueFilter].filter(Boolean).length;
 
   const canAssignOthers = viewerRole === "MARKETING_HEAD" || viewerRole === "SUPER_ADMIN";
   const [assignableUsers, setAssignableUsers] = useState<{ id: number; name: string }[]>([]);
 
-  useEffect(() => {
-    if (!canAssignOthers) return;
+  // Only the create-task form's "Assign to" picker needs this roster —
+  // deferred to when that form actually opens, instead of fetching it for
+  // everyone on every page load.
+  const assignableRosterLoaded = useRef(false);
+  function loadAssignableRoster() {
+    if (assignableRosterLoaded.current || !canAssignOthers) return;
+    assignableRosterLoaded.current = true;
     Promise.all([
       fetch("/api/users?role=PRE_SALES&status=ACTIVE").then((r) => (r.ok ? r.json() : { users: [] })),
       fetch("/api/users?role=SALESPERSON&status=ACTIVE").then((r) => (r.ok ? r.json() : { users: [] })),
     ])
       .then(([ps, sp]) => setAssignableUsers([...(ps.users ?? []), ...(sp.users ?? [])]))
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAssignOthers]);
+  }
 
   async function refetch(status: TaskStatus | "", dueWithin: typeof dueFilter, targetPage: number) {
     const params = new URLSearchParams();
@@ -105,6 +106,10 @@ export default function TasksView({
     void refetch(statusFilter, dueFilter, 1);
   }
 
+  useAutoRefresh(() => {
+    void refetch(statusFilter, dueFilter, page);
+  });
+
   async function setStatus(taskId: number, status: TaskStatus) {
     const response = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
@@ -129,6 +134,7 @@ export default function TasksView({
   const [creating, setCreating] = useState(false);
 
   function openCreate() {
+    loadAssignableRoster();
     setTitle("");
     setDescription("");
     setDueAt("");
@@ -180,61 +186,107 @@ export default function TasksView({
     <div className="flex flex-col gap-6">
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 sm:flex-row sm:items-end sm:justify-between">
-          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="statusFilter" className="text-sm font-medium text-zinc-700">
-                Status
-              </label>
-              <select
-                id="statusFilter"
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as TaskStatus | "")}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                <option value="">All statuses</option>
-                {TASK_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="dueFilter" className="text-sm font-medium text-zinc-700">
-                Due
-              </label>
-              <select
-                id="dueFilter"
-                value={dueFilter}
-                onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                <option value="">Any time</option>
-                <option value="OVERDUE">Overdue</option>
-                <option value="TODAY">Due today</option>
-                <option value="UPCOMING">Upcoming</option>
-              </select>
-            </div>
+          <form onSubmit={handleFilterSubmit} className="hidden flex-wrap items-center gap-3 sm:flex">
+            <select
+              id="statusFilter"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as TaskStatus | "")}
+              aria-label="Filter by status"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="">All statuses</option>
+              {TASK_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              id="dueFilter"
+              value={dueFilter}
+              onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
+              aria-label="Filter by due date"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="">Any time</option>
+              <option value="OVERDUE">Overdue</option>
+              <option value="TODAY">Due today</option>
+              <option value="UPCOMING">Upcoming</option>
+            </select>
             <button
               type="submit"
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
             >
               Apply filters
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={() => setFilterSheetOpen(true)}
+            className="flex items-center gap-1.5 self-start rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 sm:hidden"
+          >
+            <i className="ri-filter-3-line text-brand-600" aria-hidden="true" />
+            Filter
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
           <div className="flex items-center gap-2">
             <RefreshButton onRefresh={() => refetch(statusFilter, dueFilter, page)} />
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-1 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
             >
               <i className="ri-add-line text-base" aria-hidden="true" />
               New task
             </button>
           </div>
         </div>
+
+        <FilterBottomSheet
+          open={filterSheetOpen}
+          onClose={() => setFilterSheetOpen(false)}
+          onApply={() => {
+            setFilterSheetOpen(false);
+            void refetch(statusFilter, dueFilter, 1);
+          }}
+        >
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-zinc-700">Status</p>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as TaskStatus | "")}
+              aria-label="Filter by status"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="">All statuses</option>
+              {TASK_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-zinc-700">Due</p>
+            <select
+              value={dueFilter}
+              onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
+              aria-label="Filter by due date"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="">Any time</option>
+              <option value="OVERDUE">Overdue</option>
+              <option value="TODAY">Due today</option>
+              <option value="UPCOMING">Upcoming</option>
+            </select>
+          </div>
+        </FilterBottomSheet>
 
         {listError && (
           <p role="alert" className="px-4 pt-4 text-sm text-red-600">
@@ -243,19 +295,19 @@ export default function TasksView({
         )}
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-zinc-200 text-sm">
-            <thead className="bg-zinc-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+          <table className="table-responsive min-w-full divide-y divide-zinc-200 text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
+                <th scope="col" className="px-4 py-3 text-left">
                   Title
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Due
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Priority
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Status
                 </th>
                 <th scope="col" className="px-4 py-3" />
@@ -270,27 +322,25 @@ export default function TasksView({
                 </tr>
               )}
               {tasks.map((task) => (
-                <tr key={task.id}>
-                  <td className="px-4 py-3">
+                <tr key={task.id} className="transition-colors hover:bg-zinc-50/80">
+                  <td data-label="Title" className="px-4 py-3">
                     <p className="font-medium text-zinc-900">{task.title}</p>
                     {task.description && <p className="text-xs text-zinc-500">{task.description}</p>}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600">{new Date(task.due_at).toLocaleString("en-US")}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAD_PRIORITY_BADGE_CLASSES[task.priority]}`}
-                    >
+                  <td data-label="Due" className="px-4 py-3 text-zinc-600">{new Date(task.due_at).toLocaleString("en-US")}</td>
+                  <td data-label="Priority" className="px-4 py-3">
+                    <Badge icon={LEAD_PRIORITY_ICONS[task.priority]} className={LEAD_PRIORITY_BADGE_CLASSES[task.priority]}>
                       {LEAD_PRIORITY_LABELS[task.priority]}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Status" className="px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[task.status]}`}
                     >
                       {STATUS_LABELS[task.status]}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="" className="px-4 py-3">
                     {(task.status === "PENDING" || task.status === "IN_PROGRESS") && task.assigned_user_id === viewerId && (
                       <div className="flex justify-end gap-2">
                         {task.status === "PENDING" && (
@@ -341,7 +391,7 @@ export default function TasksView({
                   type="text"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -352,7 +402,7 @@ export default function TasksView({
                   id="taskDescription"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -364,7 +414,7 @@ export default function TasksView({
                   type="datetime-local"
                   value={dueAt}
                   onChange={(event) => setDueAt(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -375,7 +425,7 @@ export default function TasksView({
                   id="taskPriority"
                   value={priority}
                   onChange={(event) => setPriority(event.target.value as LeadPriority)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 >
                   {LEAD_PRIORITIES.map((p) => (
                     <option key={p} value={p}>
@@ -389,19 +439,14 @@ export default function TasksView({
                   <label htmlFor="taskAssignedTo" className="text-sm font-medium text-zinc-700">
                     Assign to
                   </label>
-                  <select
+                  <MultiSelectSearch
                     id="taskAssignedTo"
-                    value={assignedUserId}
-                    onChange={(event) => setAssignedUserId(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  >
-                    <option value="">Myself</option>
-                    {assignableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
+                    multiple={false}
+                    options={[{ id: viewerId, name: "Myself" }, ...assignableUsers]}
+                    selectedIds={[assignedUserId ? Number(assignedUserId) : viewerId]}
+                    onChange={([id]) => setAssignedUserId(id === viewerId ? "" : String(id))}
+                    placeholder="Search people…"
+                  />
                 </div>
               )}
 
@@ -415,14 +460,14 @@ export default function TasksView({
                 <button
                   type="button"
                   onClick={() => setCreateOpen(false)}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Create
                 </button>

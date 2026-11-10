@@ -25,6 +25,7 @@ const pendingLead: LeadRow = {
   country: "India",
   service_requirements: "CRM",
   estimated_budget: null,
+  budget_type: null,
   lead_source: "OTHER",
   priority: "MEDIUM",
   status: "PENDING_REVIEW",
@@ -35,6 +36,10 @@ const pendingLead: LeadRow = {
   notes: null,
   whatsapp_number: null,
   remarks: null,
+  youtube_url: null,
+  facebook_url: null,
+  instagram_url: null,
+  linkedin_url: null,
   archived_at: null,
   created_by: 2,
   created_at: "2026-01-01T00:00:00Z" as unknown as Date,
@@ -95,15 +100,17 @@ describe("LeadDetailView", () => {
       .spyOn(globalThis, "fetch")
       .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] }))));
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    fireEvent.click(screen.getByRole("tab", { name: /assignment/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^assign$/i }));
     expect(screen.getByLabelText(/pre-sales owner/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("role=PRE_SALES"));
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=PRE_SALES.*status=ACTIVE|status=ACTIVE.*role=PRE_SALES/));
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=SALESPERSON.*status=ACTIVE|status=ACTIVE.*role=SALESPERSON/));
   });
 
-  it("hides the assignment panel for a non-Marketing-Head viewer", () => {
+  it("hides the assignment tab for a non-Marketing-Head viewer", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
-    expect(screen.queryByLabelText(/pre-sales owner/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /assignment/i })).not.toBeInTheDocument();
   });
 
   it("shows a Transfer button for Marketing Head and requires a reason", async () => {
@@ -126,6 +133,7 @@ describe("LeadDetailView", () => {
       return Promise.resolve(new Response(JSON.stringify({ users: [] })));
     });
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    fireEvent.click(screen.getByRole("tab", { name: /visits/i }));
     expect(await screen.findByText("Demo")).toBeInTheDocument();
   });
 
@@ -144,6 +152,8 @@ describe("LeadDetailView", () => {
       return Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] })));
     });
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
+    fireEvent.click(screen.getByRole("tab", { name: /visits/i }));
+    fireEvent.click(screen.getByRole("button", { name: /schedule visit/i }));
 
     const visitSalespersonSelect = screen.getByLabelText(/salesperson/i, { selector: "#visitSalesperson" });
     await waitFor(() => expect(screen.getByText("Sam Salesperson", { selector: "#visitSalesperson option" })).toBeInTheDocument());
@@ -151,7 +161,8 @@ describe("LeadDetailView", () => {
     fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: "2026-12-01" } });
     fireEvent.change(screen.getByLabelText(/^time$/i), { target: { value: "10:00" } });
     fireEvent.change(screen.getByLabelText(/objective/i), { target: { value: "Demo" } });
-    fireEvent.click(screen.getByRole("button", { name: /schedule visit/i }));
+    const scheduleButtons = screen.getAllByRole("button", { name: /^schedule visit$/i });
+    fireEvent.click(scheduleButtons[scheduleButtons.length - 1]);
 
     const scheduleAnyway = await screen.findByRole("button", { name: /schedule anyway/i });
     fireEvent.click(scheduleAnyway);
@@ -171,6 +182,7 @@ describe("LeadDetailView", () => {
       return Promise.resolve(new Response(JSON.stringify({ users: [] })));
     });
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="SALESPERSON" viewerId={salespersonId} />);
+    fireEvent.click(screen.getByRole("tab", { name: /visits/i }));
 
     fireEvent.click(await screen.findByRole("button", { name: /record outcome/i }));
     fireEvent.change(screen.getByLabelText(/outcome notes/i), { target: { value: "Went well" } });
@@ -192,5 +204,39 @@ describe("LeadDetailView", () => {
   it("hides the Edit link for a viewer who cannot edit the lead", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="SALESPERSON" viewerId={salespersonId} />);
     expect(screen.queryByRole("link", { name: /^edit$/i })).not.toBeInTheDocument();
+  });
+
+  it("shows who created the lead, and copies the email to the clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <LeadDetailView
+        lead={{ ...pendingLead, created_by_name: "Mimi Roy" }}
+        activities={[]}
+        services={[]}
+        viewerRole="MARKETING_HEAD"
+        viewerId={mhId}
+      />,
+    );
+
+    expect(screen.getByText("Created by")).toBeInTheDocument();
+    expect(screen.getByText("Mimi Roy")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /copy email/i }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(pendingLead.email));
+  });
+
+  it("links the WhatsApp number to a wa.me chat with digits only", () => {
+    render(
+      <LeadDetailView
+        lead={{ ...pendingLead, whatsapp_number: "+91 98765-43210" }}
+        activities={[]}
+        services={[]}
+        viewerRole="MARKETING_HEAD"
+        viewerId={mhId}
+      />,
+    );
+    expect(screen.getByRole("link", { name: /open in whatsapp/i })).toHaveAttribute("href", "https://wa.me/919876543210");
   });
 });

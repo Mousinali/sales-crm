@@ -2,7 +2,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "@/lib/toast";
-import RefreshButton from "@/app/(dashboard)/RefreshButton";
+import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import RefreshButton from "@/components/ui/RefreshButton";
+import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
+import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
 import { CALENDAR_EVENT_TYPES, type AttendeeStatus, type CalendarEventAttendee, type CalendarEventType } from "@/lib/calendar/types";
 
 type CalendarEvent = {
@@ -29,14 +33,32 @@ const TYPE_BADGE_CLASSES: Record<CalendarEventType, string> = {
   OTHER: "bg-zinc-100 text-zinc-600",
 };
 
-async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body?.error === "string") return body.error;
-  } catch {
-    // fall through to fallback
-  }
-  return fallback;
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function toLocalInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Always returns full weeks (a multiple of 7 days) spanning the month, so
+// the grid can be split into even rows without a ragged last week.
+function buildMonthCells(monthStart: Date): Date[] {
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+  return Array.from({ length: totalCells }, (_, i) => new Date(year, month, i - firstWeekday + 1));
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
+  return result;
 }
 
 export default function CalendarView({ initialEvents, viewerId }: { initialEvents: CalendarEvent[]; viewerId: number }) {
@@ -50,24 +72,32 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
   // resolvable even after the search term changes again.
   const [roster, setRoster] = useState<RosterUser[]>([]);
   const [rosterSearch, setRosterSearch] = useState("");
+  const debouncedRosterSearch = useDebouncedValue(rosterSearch, 300);
   useEffect(() => {
+    const trimmed = debouncedRosterSearch.trim();
+    // Below 3 characters, the client-side filter on the roster already
+    // fetched (below) is enough — querying the server on every keystroke
+    // from "a" onward would mostly just re-fetch the same broad result.
+    if (trimmed.length > 0 && trimmed.length < 3) return;
+
     const params = new URLSearchParams();
-    if (rosterSearch.trim()) params.set("q", rosterSearch.trim());
-    const timer = setTimeout(() => {
-      fetch(`/api/users/roster?${params.toString()}`)
-        .then((r) => (r.ok ? r.json() : { users: [] }))
-        .then((body: { users?: RosterUser[] }) => {
-          setRoster((current) => {
-            const byId = new Map(current.map((u) => [u.id, u]));
-            for (const u of body.users ?? []) byId.set(u.id, u);
-            return [...byId.values()];
-          });
-        })
-        .catch(() => {});
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [rosterSearch]);
+    if (trimmed) params.set("q", trimmed);
+    fetch(`/api/users/roster?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((body: { users?: RosterUser[] }) => {
+        setRoster((current) => {
+          const byId = new Map(current.map((u) => [u.id, u]));
+          for (const u of body.users ?? []) byId.set(u.id, u);
+          return [...byId.values()];
+        });
+      })
+      .catch(() => {});
+  }, [debouncedRosterSearch]);
   const rosterById = new Map(roster.map((u) => [u.id, u]));
+  const rosterSearchLower = rosterSearch.trim().toLowerCase();
+  const filteredRoster = roster.filter(
+    (u) => u.id !== viewerId && (!rosterSearchLower || u.name.toLowerCase().includes(rosterSearchLower)),
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -79,6 +109,19 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [responseDrafts, setResponseDrafts] = useState<Record<number, string>>({});
+
+  const [monthStart, setMonthStart] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const monthWeeks = chunk(buildMonthCells(monthStart), 7);
+  const eventsByDay = new Map<string, CalendarEvent[]>();
+  for (const event of events) {
+    const key = dateKey(new Date(event.starts_at));
+    const list = eventsByDay.get(key) ?? [];
+    list.push(event);
+    eventsByDay.set(key, list);
+  }
 
   function toggleAttendee(userId: number) {
     setAttendeeIds((current) => (current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]));
@@ -117,6 +160,13 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
     setRosterSearch("");
     setFormError(null);
     setFormOpen(true);
+  }
+
+  function openCreateForDate(date: Date) {
+    openCreate();
+    const prefilled = new Date(date);
+    prefilled.setHours(9, 0, 0, 0);
+    setStartsAt(toLocalInputValue(prefilled));
   }
 
   function openEdit(event: CalendarEvent) {
@@ -214,41 +264,137 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
     }
   }
 
+  useAutoRefresh(() => {
+    void refetchEvents();
+  });
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="flex items-center justify-end gap-2 border-b border-zinc-200 p-4">
-          <RefreshButton onRefresh={refetchEvents} />
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-          >
-            <i className="ri-add-line text-base" aria-hidden="true" />
-            New event
-          </button>
+      <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMonthStart((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              aria-label="Previous month"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <i className="ri-arrow-left-s-line text-lg" aria-hidden="true" />
+            </button>
+            <h2 className="text-base font-semibold text-zinc-900">
+              {monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setMonthStart((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              aria-label="Next month"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <i className="ri-arrow-right-s-line text-lg" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={refetchEvents} />
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-1 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
+            >
+              <i className="ri-add-line text-base" aria-hidden="true" />
+              New event
+            </button>
+          </div>
         </div>
 
         {listError && (
-          <p role="alert" className="px-4 pt-4 text-sm text-red-600">
+          <p role="alert" className="mb-4 text-sm text-red-600">
             {listError}
           </p>
         )}
 
+        <div className="overflow-hidden rounded-md border border-zinc-200">
+          <div className="grid grid-cols-7 border-b border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-500">
+            {WEEKDAY_LABELS.map((label) => (
+              <div key={label} className="px-2 py-2 text-center">
+                {label}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-px bg-zinc-200">
+            {monthWeeks.flat().map((date, i) => {
+              const inMonth = date.getMonth() === monthStart.getMonth();
+              const isToday = dateKey(date) === dateKey(new Date());
+              const dayEvents = eventsByDay.get(dateKey(date)) ?? [];
+              const visible = dayEvents.slice(0, 3);
+              const overflow = dayEvents.length - visible.length;
+              return (
+                <div
+                  key={i}
+                  role="button"
+                  tabIndex={0}
+                  data-testid={isToday ? "today-cell" : undefined}
+                  onClick={() => openCreateForDate(date)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") openCreateForDate(date);
+                  }}
+                  className={`flex min-h-24 flex-col gap-1 p-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-400 ${
+                    inMonth ? "bg-white hover:bg-zinc-50" : "bg-zinc-50/60 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
+                      isToday
+                        ? "bg-brand-500 font-semibold text-white"
+                        : inMonth
+                          ? "text-zinc-700"
+                          : "text-zinc-400"
+                    }`}
+                  >
+                    {date.getDate()}
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    {visible.map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(event);
+                        }}
+                        className={`truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium ${TYPE_BADGE_CLASSES[event.type]}`}
+                      >
+                        {event.title}
+                      </button>
+                    ))}
+                    {/* shortcut: "+N more" is static, not a day-detail popover; upgrade if days routinely exceed 3 events */}
+                    {overflow > 0 && <span className="px-1.5 text-[11px] text-zinc-400">+{overflow} more</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <div className="border-b border-zinc-200 p-4">
+          <h2 className="text-sm font-semibold text-zinc-900">All events</h2>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-zinc-200 text-sm">
-            <thead className="bg-zinc-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+          <table className="table-responsive min-w-full divide-y divide-zinc-200 text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
+                <th scope="col" className="px-4 py-3 text-left">
                   Title
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   When
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Type
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Invited
                 </th>
                 <th scope="col" className="px-4 py-3" />
@@ -263,20 +409,20 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                 </tr>
               )}
               {events.map((event) => (
-                <tr key={event.id}>
-                  <td className="px-4 py-3">
+                <tr key={event.id} className="transition-colors hover:bg-zinc-50/80">
+                  <td data-label="Title" className="px-4 py-3">
                     <p className="font-medium text-zinc-900">{event.title}</p>
                     {event.description && <p className="text-xs text-zinc-500">{event.description}</p>}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600">{new Date(event.starts_at).toLocaleString("en-US")}</td>
-                  <td className="px-4 py-3">
+                  <td data-label="When" className="px-4 py-3 text-zinc-600">{new Date(event.starts_at).toLocaleString("en-US")}</td>
+                  <td data-label="Type" className="px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_BADGE_CLASSES[event.type]}`}
                     >
                       {TYPE_LABELS[event.type]}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600">
+                  <td data-label="Invited" data-stack="true" className="px-4 py-3 text-zinc-600">
                     {event.attendees.length === 0 ? (
                       "—"
                     ) : (
@@ -311,13 +457,13 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                               placeholder="Your remark/concern..."
                               value={responseDrafts[event.id] ?? mine.remarks ?? ""}
                               onChange={(e) => setResponseDrafts((current) => ({ ...current, [event.id]: e.target.value }))}
-                              className="w-32 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-900 focus:border-indigo-500 focus:outline-none"
+                              className="w-32 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-900 focus:border-brand-500 focus:outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => respond(event.id, { remarks: (responseDrafts[event.id] ?? "").trim() })}
                               disabled={!(responseDrafts[event.id] ?? "").trim()}
-                              className="rounded px-1.5 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded px-1.5 py-0.5 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -326,12 +472,12 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                       );
                     })()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="" data-stack="true" className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => openEdit(event)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                        className="rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
                       >
                         Edit
                       </button>
@@ -355,10 +501,10 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h2 className="mb-4 text-base font-semibold text-zinc-900">{editingId ? "Edit event" : "New event"}</h2>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-              <div className="flex flex-col gap-1.5">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label htmlFor="eventTitle" className="text-sm font-medium text-zinc-700">
                   Title
                 </label>
@@ -367,10 +513,10 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   type="text"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label htmlFor="eventDescription" className="text-sm font-medium text-zinc-700">
                   Description
                 </label>
@@ -378,7 +524,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   id="eventDescription"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -390,7 +536,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   type="datetime-local"
                   value={startsAt}
                   onChange={(event) => setStartsAt(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -401,7 +547,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   id="eventType"
                   value={type}
                   onChange={(event) => setType(event.target.value as CalendarEventType)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 >
                   {CALENDAR_EVENT_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -410,7 +556,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label htmlFor="attendeeSearch" className="text-sm font-medium text-zinc-700">
                   Invite
                 </label>
@@ -420,41 +566,39 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                   value={rosterSearch}
                   onChange={(event) => setRosterSearch(event.target.value)}
                   placeholder="Search people by name..."
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
                 <div className="max-h-36 overflow-y-auto rounded-md border border-zinc-300 p-2">
-                  {roster.filter((u) => u.id !== viewerId).length === 0 && (
-                    <p className="px-1 py-1 text-sm text-zinc-500">No other users yet.</p>
+                  {filteredRoster.length === 0 && (
+                    <p className="px-1 py-1 text-sm text-zinc-500">No matching people.</p>
                   )}
-                  {roster
-                    .filter((u) => u.id !== viewerId)
-                    .map((u) => (
+                  {filteredRoster.map((u) => (
                     <label key={u.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm text-zinc-700 hover:bg-zinc-50">
                       <input type="checkbox" checked={attendeeIds.includes(u.id)} onChange={() => toggleAttendee(u.id)} />
-                      {u.name} <span className="text-xs text-zinc-400">({u.role})</span>
+                      {u.name} <span className="text-xs text-zinc-400">({formatRoleLabel(u.role)})</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               {formError && (
-                <p role="alert" className="text-sm text-red-600">
+                <p role="alert" className="text-sm text-red-600 sm:col-span-2">
                   {formError}
                 </p>
               )}
 
-              <div className="mt-2 flex justify-end gap-3">
+              <div className="mt-2 flex justify-end gap-3 sm:col-span-2">
                 <button
                   type="button"
                   onClick={() => setFormOpen(false)}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {editingId ? "Save" : "Create"}
                 </button>

@@ -43,10 +43,10 @@ afterAll(async () => {
 });
 
 describe("lead activities", () => {
-  it("records and lists activities for a visible lead, newest first", async () => {
+  it("records and lists activities for a visible lead, newest first, with the actor's name joined in", async () => {
     await recordLeadActivity(pool, { leadId: myLead.id, actorId: preSalesId, type: "CALL", notes: "Left voicemail" });
     const rows = await listLeadActivities(pool, { id: preSalesId, role: "PRE_SALES" }, myLead.id);
-    expect(rows[0]).toMatchObject({ type: "CALL", notes: "Left voicemail" });
+    expect(rows[0]).toMatchObject({ type: "CALL", notes: "Left voicemail", actor_name: "PS" });
   });
 
   it("rejects listing activities for a lead the viewer can't see", async () => {

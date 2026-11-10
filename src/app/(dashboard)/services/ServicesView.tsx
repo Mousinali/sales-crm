@@ -2,27 +2,29 @@
 
 import { useState, type FormEvent } from "react";
 import { toast } from "@/lib/toast";
-import RefreshButton from "@/app/(dashboard)/RefreshButton";
+import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import RefreshButton from "@/components/ui/RefreshButton";
+import Pagination from "@/components/ui/Pagination";
+import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import type { ServiceRow, ServiceStatus } from "@/lib/services/types";
 import { SERVICE_STATUSES } from "@/lib/services/types";
+
+// Services is reference/catalog data (every service, not a page of them,
+// since other forms need the full list for their "service interested"
+// picker) — so unlike the other tables, pagination here is a client-side
+// slice of the already-fetched array rather than a paginated query.
+const PAGE_SIZE = 20;
 
 const STATUS_BADGE_CLASSES: Record<ServiceStatus, string> = {
   ACTIVE: "bg-emerald-50 text-emerald-700",
   INACTIVE: "bg-zinc-100 text-zinc-600",
 };
 
-async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body?.error === "string") return body.error;
-  } catch {
-    // fall through to fallback
-  }
-  return fallback;
-}
-
 export default function ServicesView({ initialServices }: { initialServices: ServiceRow[] }) {
   const [services, setServices] = useState<ServiceRow[]>(initialServices);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE));
+  const pageServices = services.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function refetch() {
     const response = await fetch("/api/services");
@@ -33,6 +35,10 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
     const body = await response.json();
     setServices(body.services ?? []);
   }
+
+  useAutoRefresh(() => {
+    void refetch();
+  });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -142,7 +148,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-1 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
             >
               <i className="ri-add-line text-base" aria-hidden="true" />
               New service
@@ -151,16 +157,16 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-zinc-200 text-sm">
-            <thead className="bg-zinc-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+          <table className="table-responsive min-w-full divide-y divide-zinc-200 text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
+                <th scope="col" className="px-4 py-3 text-left">
                   Name
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Description
                 </th>
-                <th scope="col" className="px-4 py-3 text-left font-medium text-zinc-600">
+                <th scope="col" className="px-4 py-3 text-left">
                   Status
                 </th>
                 <th scope="col" className="px-4 py-3" />
@@ -174,22 +180,22 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   </td>
                 </tr>
               )}
-              {services.map((service) => (
-                <tr key={service.id}>
-                  <td className="px-4 py-3 font-medium text-zinc-900">{service.name}</td>
-                  <td className="px-4 py-3 text-zinc-600">{service.description ?? "—"}</td>
-                  <td className="px-4 py-3">
+              {pageServices.map((service) => (
+                <tr key={service.id} className="transition-colors hover:bg-zinc-50/80">
+                  <td data-label="Name" className="px-4 py-3 font-medium text-zinc-900">{service.name}</td>
+                  <td data-label="Description" className="px-4 py-3 text-zinc-600">{service.description ?? "—"}</td>
+                  <td data-label="Status" className="px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[service.status]}`}
                     >
                       {service.status === "ACTIVE" ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td data-label="" className="px-4 py-3 text-right">
                     <button
                       type="button"
                       onClick={() => openEdit(service)}
-                      className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-400"
                     >
                       Edit
                     </button>
@@ -199,6 +205,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} total={services.length} onChange={setPage} />
       </div>
 
       {createOpen && (
@@ -215,7 +222,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   type="text"
                   value={createName}
                   onChange={(event) => setCreateName(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -226,7 +233,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   id="createServiceDescription"
                   value={createDescription}
                   onChange={(event) => setCreateDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               {createError && (
@@ -238,14 +245,14 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                 <button
                   type="button"
                   onClick={() => setCreateOpen(false)}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Create
                 </button>
@@ -269,7 +276,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   type="text"
                   value={editName}
                   onChange={(event) => setEditName(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -280,7 +287,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   id="editServiceDescription"
                   value={editDescription}
                   onChange={(event) => setEditDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -291,7 +298,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                   id="editServiceStatus"
                   value={editStatus}
                   onChange={(event) => setEditStatus(event.target.value as ServiceStatus)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 >
                   {SERVICE_STATUSES.map((status) => (
                     <option key={status} value={status}>
@@ -309,14 +316,14 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                 <button
                   type="button"
                   onClick={() => setEditingService(null)}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editSaving}
-                  className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Save
                 </button>

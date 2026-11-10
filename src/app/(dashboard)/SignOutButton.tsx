@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function SignOutButton() {
+export default function SignOutButton({ className }: { className?: string }) {
   const [confirming, setConfirming] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -17,7 +17,10 @@ export default function SignOutButton() {
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+        className={
+          className ??
+          "inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
+        }
       >
         <i className="ri-logout-box-r-line" aria-hidden="true" />
         Sign out
@@ -37,7 +40,7 @@ export default function SignOutButton() {
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
               >
                 Cancel
               </button>
