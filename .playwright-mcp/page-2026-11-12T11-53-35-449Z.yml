@@ -1,0 +1,136 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - region "Notifications alt+T"
+    - text:                    
+    - complementary [ref=f5e3]:
+      - img "Sales CRM" [ref=f5e6]
+      - navigation "Primary" [ref=f5e7]:
+        - generic [ref=f5e8]:
+          - link [ref=f5e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f5e10]:
+              - generic [aria-hidden] [ref=f5e11]: 
+              - text: Dashboard
+          - link [ref=f5e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f5e13]:
+              - generic [aria-hidden] [ref=f5e14]: 
+              - text: Calendar
+          - link [ref=f5e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f5e16]:
+              - generic [aria-hidden] [ref=f5e17]: 
+              - text: Chat
+          - link [ref=f5e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f5e19]:
+              - generic [aria-hidden] [ref=f5e20]: 
+              - text: Notifications
+        - generic [ref=f5e21]:
+          - paragraph [ref=f5e22]: Records
+          - link [ref=f5e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f5e24]:
+              - generic [aria-hidden] [ref=f5e25]: 
+              - text: Team
+          - link [ref=f5e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f5e27]:
+              - generic [aria-hidden] [ref=f5e28]: 
+              - text: Companies
+          - generic [ref=f5e29]:
+            - button [ref=f5e30]:
+              - generic [ref=f5e31]:
+                - generic [aria-hidden] [ref=f5e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f5e34]: 
+            - link [ref=f5e35] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f5e36]:
+                - generic [aria-hidden] [ref=f5e37]: 
+                - text: Lead List
+          - link [ref=f5e38] [cursor=pointer]:
+            - /url: /payments
+            - generic [ref=f5e39]:
+              - generic [aria-hidden] [ref=f5e40]: 
+              - text: Payments
+          - link [ref=f5e41] [cursor=pointer]:
+            - /url: /services
+            - generic [ref=f5e42]:
+              - generic [aria-hidden] [ref=f5e43]: 
+              - text: Services
+          - link [ref=f5e44] [cursor=pointer]:
+            - /url: /logs
+            - generic [ref=f5e45]:
+              - generic [aria-hidden] [ref=f5e46]: 
+              - text: Logs
+          - link [ref=f5e47] [cursor=pointer]:
+            - /url: /archive
+            - generic [ref=f5e48]:
+              - generic [aria-hidden] [ref=f5e49]: 
+              - text: Archive
+        - generic [ref=f5e50]:
+          - paragraph [ref=f5e51]: Workflow
+          - link [ref=f5e52] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f5e53]:
+              - generic [aria-hidden] [ref=f5e54]: 
+              - text: Tasks
+          - link [ref=f5e55] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f5e56]:
+              - generic [aria-hidden] [ref=f5e57]: 
+              - text: Announcements
+        - generic [ref=f5e58]:
+          - paragraph [ref=f5e59]: General
+          - link [ref=f5e60] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f5e61]:
+              - generic [aria-hidden] [ref=f5e62]: 
+              - text: Settings
+      - generic [ref=f5e63]: Sales CRM v0.1.0
+    - generic [ref=f5e64]:
+      - banner [ref=f5e65]:
+        - heading "Dashboard" [level=1] [ref=f5e66]
+        - generic [ref=f5e67]:
+          - generic [ref=f5e68]:
+            - img "Mousin Ali" [ref=f5e69]
+            - generic [ref=f5e70]:
+              - paragraph [ref=f5e71]: Mousin Ali
+              - generic [ref=f5e72]: Super Admin
+          - button "Notifications" [ref=f5e74]:
+            - generic [aria-hidden] [ref=f5e75]: 
+          - button "Sign out" [ref=f5e77]:
+            - generic [aria-hidden] [ref=f5e78]: 
+            - text: Sign out
+      - main [ref=f5e79]:
+        - generic [ref=f5e81]:
+          - generic [ref=f5e83]:
+            - heading "Archive" [level=1] [ref=f5e85]
+            - navigation "Breadcrumb" [ref=f5e86]:
+              - link "Home" [ref=f5e87] [cursor=pointer]:
+                - /url: /dashboard
+              - generic [ref=f5e88]:
+                - generic [aria-hidden] [ref=f5e89]: 
+                - generic [ref=f5e90]: Archive
+          - generic [ref=f5e91]:
+            - generic [ref=f5e92]:
+              - generic [ref=f5e93]:
+                - button "Leads (0)" [ref=f5e94]
+                - button "Companies (0)" [ref=f5e95]
+                - button "Users (0)" [ref=f5e96]
+              - textbox "Search archived leads" [ref=f5e98]:
+                - /placeholder: Search archived leads…
+            - table [ref=f5e100]:
+              - rowgroup [ref=f5e101]:
+                - row [ref=f5e102]:
+                  - columnheader "Company" [ref=f5e103]
+                  - columnheader "Contact" [ref=f5e104]
+                  - columnheader "Status" [ref=f5e105]
+                  - columnheader "Archived" [ref=f5e106]
+                  - columnheader [ref=f5e107]
+              - rowgroup [ref=f5e108]:
+                - row [ref=f5e109]:
+                  - cell "No archived leads." [ref=f5e110]
+    - text:    
+  - button "Open Next.js Dev Tools" [ref=f5e116] [cursor=pointer]

@@ -4,6 +4,7 @@ import { assertLeadVisible } from "./guard";
 import { LeadActionNotAllowedError } from "./errors";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
 import { setLeadServices } from "./services";
+import { recordAuditLog } from "@/lib/audit/log";
 import type { LeadPriority, LeadBudgetType } from "./types";
 
 export async function updateLead(
@@ -26,6 +27,7 @@ export async function updateLead(
       state: string;
       pincode: string;
       country: string;
+      gstNumber: string;
       serviceRequirements: string;
       serviceIds: number[];
       estimatedBudget: number;
@@ -39,10 +41,8 @@ export async function updateLead(
       facebookUrl: string;
       instagramUrl: string;
       linkedinUrl: string;
-      // One-way: setting true archives the lead. There is no false/unset
-      // path to unarchive — req.md §5.2 names only "archive," not
-      // "unarchive" (see this plan's Global Constraints).
-      archived: true;
+      // true archives the lead, false restores it.
+      archived: boolean;
     }>;
   },
 ): Promise<void> {
@@ -50,7 +50,7 @@ export async function updateLead(
     throw new LeadActionNotAllowedError(`${input.actorRole} cannot edit lead fields`);
   }
 
-  await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
+  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
 
   const fields = input.fields;
   const columns: string[] = [];
@@ -83,6 +83,7 @@ export async function updateLead(
   if (fields.state !== undefined) set("state", fields.state);
   if (fields.pincode !== undefined) set("pincode", fields.pincode);
   if (fields.country !== undefined) set("country", fields.country);
+  if (fields.gstNumber !== undefined) set("gst_number", fields.gstNumber);
   if (fields.serviceRequirements !== undefined) set("service_requirements", fields.serviceRequirements);
   if (fields.estimatedBudget !== undefined) set("estimated_budget", fields.estimatedBudget);
   if (fields.budgetType !== undefined) set("budget_type", fields.budgetType);
@@ -95,7 +96,7 @@ export async function updateLead(
   if (fields.facebookUrl !== undefined) set("facebook_url", fields.facebookUrl);
   if (fields.instagramUrl !== undefined) set("instagram_url", fields.instagramUrl);
   if (fields.linkedinUrl !== undefined) set("linkedin_url", fields.linkedinUrl);
-  if (fields.archived) set("archived_at", new Date());
+  if (fields.archived !== undefined) set("archived_at", fields.archived ? new Date() : null);
 
   if (columns.length > 0) {
     params.push(input.leadId);
@@ -104,5 +105,15 @@ export async function updateLead(
 
   if (fields.serviceIds !== undefined) {
     await setLeadServices(pool, { leadId: input.leadId, serviceIds: fields.serviceIds });
+  }
+
+  if (fields.archived !== undefined) {
+    await recordAuditLog(pool, {
+      actorUserId: input.actorId,
+      action: fields.archived ? "lead.archived" : "lead.restored",
+      targetTable: "leads",
+      targetId: input.leadId,
+      details: { name: lead.company_name },
+    });
   }
 }

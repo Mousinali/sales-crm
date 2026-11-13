@@ -5,6 +5,7 @@ import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
+import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import type { Role } from "@/lib/auth/roles";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/tasks/types";
 import { LEAD_PRIORITIES, type LeadPriority } from "@/lib/leads/types";
@@ -325,7 +326,7 @@ export default function TasksView({
                 <tr key={task.id} className="transition-colors hover:bg-zinc-50/80">
                   <td data-label="Title" className="px-4 py-3">
                     <p className="font-medium text-zinc-900">{task.title}</p>
-                    {task.description && <p className="text-xs text-zinc-500">{task.description}</p>}
+                    {task.description && <FormattedText text={task.description} className="text-xs text-zinc-500" />}
                   </td>
                   <td data-label="Due" className="px-4 py-3 text-zinc-600">{new Date(task.due_at).toLocaleString("en-US")}</td>
                   <td data-label="Priority" className="px-4 py-3">
@@ -398,12 +399,7 @@ export default function TasksView({
                 <label htmlFor="taskDescription" className="text-sm font-medium text-zinc-700">
                   Description
                 </label>
-                <textarea
-                  id="taskDescription"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="taskDescription" value={description} onChange={setDescription} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="taskDueAt" className="text-sm font-medium text-zinc-700">

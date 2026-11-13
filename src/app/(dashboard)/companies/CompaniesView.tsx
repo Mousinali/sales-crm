@@ -57,12 +57,10 @@ export default function CompaniesView({
   // user hit Enter — the initial mount's "pause" is skipped so it doesn't
   // immediately re-fetch the page the server already rendered.
   const debouncedSearch = useDebouncedValue(search, 350);
-  const skippedFirstSearch = useRef(false);
+  const lastSearch = useRef(debouncedSearch);
   useEffect(() => {
-    if (!skippedFirstSearch.current) {
-      skippedFirstSearch.current = true;
-      return;
-    }
+    if (lastSearch.current === debouncedSearch) return;
+    lastSearch.current = debouncedSearch;
     void refetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);

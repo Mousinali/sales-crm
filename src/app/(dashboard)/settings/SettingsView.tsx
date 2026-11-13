@@ -238,9 +238,7 @@ export default function SettingsView({
         </SettingsCard>
 
         <SettingsCard title="Change password" description="Forgot your current password? Contact your admin to reset it.">
-          <div className="max-w-sm">
-            <ChangePasswordForm requireCurrentPassword onSuccess={() => toast.success("Password updated")} />
-          </div>
+          <ChangePasswordForm requireCurrentPassword onSuccess={() => toast.success("Password updated")} />
         </SettingsCard>
       </div>
     </div>

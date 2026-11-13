@@ -10,7 +10,7 @@ import Tabs from "@/components/ui/Tabs";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import { InfoRow, InfoTile } from "@/components/ui/InfoCard";
-import { FormattedText } from "@/components/ui/RichTextField";
+import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import type { LeadRow } from "@/lib/leads/types";
 import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
@@ -768,6 +768,11 @@ export default function LeadDetailView({
               <InfoRow icon="ri-map-pin-line" iconClass="bg-violet-100 text-violet-600" label="Address">
                 {[lead.address, lead.state, lead.pincode, lead.country].filter(Boolean).join(", ") || "—"}
               </InfoRow>
+              {lead.gst_number && (
+                <InfoRow icon="ri-bill-line" iconClass="bg-amber-100 text-amber-600" label="GST Number">
+                  {lead.gst_number}
+                </InfoRow>
+              )}
               <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on">
                 {new Date(lead.created_at).toLocaleString()}
               </InfoRow>
@@ -851,7 +856,9 @@ export default function LeadDetailView({
                 {lead.notes && (
                   <div>
                     <dt className="text-zinc-500">Notes</dt>
-                    <dd className="text-zinc-900">{lead.notes}</dd>
+                    <dd className="text-zinc-900">
+                      <FormattedText text={lead.notes} />
+                    </dd>
                   </div>
                 )}
                 {lead.status_reason && (
@@ -875,19 +882,19 @@ export default function LeadDetailView({
                     target="_blank"
                     rel="noopener noreferrer"
                     title={platform.label}
-                    className="flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-transparent transition hover:ring-brand-400"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 p-2 transition hover:border-brand-300 hover:bg-brand-50 hover:shadow-sm"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- a fixed local icon, not a user-uploaded or remote image next/image would optimize. */}
-                    <img src={platform.icon} alt={platform.label} className="h-9 w-9 rounded-full object-contain" />
+                    <img src={platform.icon} alt={platform.label} className="h-full w-full object-contain" />
                   </a>
                 ) : (
                   <span
                     key={platform.key}
                     title={`No ${platform.label} link added`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full opacity-30"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-2 opacity-40"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- a fixed local icon, not a user-uploaded or remote image next/image would optimize. */}
-                    <img src={platform.icon} alt={platform.label} className="h-9 w-9 rounded-full object-contain grayscale" />
+                    <img src={platform.icon} alt={platform.label} className="h-full w-full object-contain grayscale" />
                   </span>
                 );
               })}
@@ -1378,12 +1385,7 @@ export default function LeadDetailView({
                 <label htmlFor="transferReason" className="text-sm font-medium text-zinc-700">
                   Reason
                 </label>
-                <textarea
-                  id="transferReason"
-                  value={transferReason}
-                  onChange={(event) => setTransferReason(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="transferReason" value={transferReason} onChange={setTransferReason} />
               </div>
 
               {transferError && (
@@ -1417,12 +1419,9 @@ export default function LeadDetailView({
             <label htmlFor="reviewReason" className="mb-1.5 block text-sm font-medium text-zinc-700">
               Reason
             </label>
-            <textarea
-              id="reviewReason"
-              value={reviewReason}
-              onChange={(event) => setReviewReason(event.target.value)}
-              className="mb-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            />
+            <div className="mb-3">
+              <RichTextField id="reviewReason" value={reviewReason} onChange={setReviewReason} />
+            </div>
             {reviewError && (
               <p role="alert" className="mb-3 text-sm text-red-600">
                 {reviewError}

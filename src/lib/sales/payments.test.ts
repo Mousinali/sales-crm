@@ -5,7 +5,7 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createSale } from "./create";
-import { recordSalePayment, listSalePayments } from "./payments";
+import { recordSalePayment, listSalePayments, listPaymentsPage } from "./payments";
 import { SaleNotAccessibleError } from "./errors";
 
 const adminEmail = `sale-payments-admin-${Date.now()}@example.com`;
@@ -59,5 +59,73 @@ describe("recordSalePayment / listSalePayments", () => {
       recordSalePayment(pool, { actorId: otherPreSalesId, actorRole: "PRE_SALES", saleId, amount: 500, paymentMethod: "CASH" }),
     ).rejects.toThrow(SaleNotAccessibleError);
     await expect(listSalePayments(pool, { id: otherPreSalesId, role: "PRE_SALES" }, saleId)).rejects.toThrow(SaleNotAccessibleError);
+  });
+
+  it("assigns each payment a unique, sequential PY-prefixed payment number", async () => {
+    const a = await recordSalePayment(pool, { actorId: preSalesId, actorRole: "PRE_SALES", saleId, amount: 10, paymentMethod: "CASH" });
+    const b = await recordSalePayment(pool, { actorId: preSalesId, actorRole: "PRE_SALES", saleId, amount: 10, paymentMethod: "CASH" });
+    expect(a.payment_number).toMatch(/^PY\d{6,}$/);
+    expect(b.payment_number).not.toBe(a.payment_number);
+  });
+
+  it("records a receipt number and an account number for bank-tied methods", async () => {
+    const payment = await recordSalePayment(pool, {
+      actorId: preSalesId,
+      actorRole: "PRE_SALES",
+      saleId,
+      amount: 250,
+      paymentMethod: "BANK_TRANSFER",
+      receiptNumber: "RCPT-001",
+      accountNumber: "1234567890",
+    });
+    expect(payment.receipt_number).toBe("RCPT-001");
+    expect(payment.account_number).toBe("1234567890");
+  });
+
+  it("lists payments across sales, scoped the same way listSalesPage scopes sales", async () => {
+    const otherSale = await createSale(pool, { creatorId: otherPreSalesId, creatorRole: "PRE_SALES", companyName: "Other Payments Co", budgetAmount: 500, budgetType: "ONE_TIME" });
+    saleIds.push(otherSale.id);
+    await recordSalePayment(pool, { actorId: otherPreSalesId, actorRole: "PRE_SALES", saleId: otherSale.id, amount: 100, paymentMethod: "CASH" });
+
+    const mine = await listPaymentsPage(pool, { id: preSalesId, role: "PRE_SALES" }, {}, { page: 1, pageSize: 50 });
+    expect(mine.items.every((p) => p.sale_id === saleId)).toBe(true);
+
+    const all = await listPaymentsPage(pool, { id: marketingHeadId, role: "MARKETING_HEAD" }, {}, { page: 1, pageSize: 50 });
+    expect(all.items.some((p) => p.sale_id === otherSale.id)).toBe(true);
+  });
+
+  it("filters the payments list by method, date range, and receipt/payment number", async () => {
+    const filterSale = await createSale(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Filterable Co", budgetAmount: 9000, budgetType: "PART_PAYMENT" });
+    saleIds.push(filterSale.id);
+
+    const upi = await recordSalePayment(pool, {
+      actorId: preSalesId, actorRole: "PRE_SALES", saleId: filterSale.id,
+      amount: 100, paymentMethod: "UPI", paymentDate: "2024-03-10", receiptNumber: "RCPT-FILTER-UPI",
+    });
+    await recordSalePayment(pool, {
+      actorId: preSalesId, actorRole: "PRE_SALES", saleId: filterSale.id,
+      amount: 200, paymentMethod: "CHEQUE", paymentDate: "2024-06-20", receiptNumber: "RCPT-FILTER-CHQ",
+    });
+
+    const viewer = { id: marketingHeadId, role: "MARKETING_HEAD" as const };
+    const pageParams = { page: 1, pageSize: 50 };
+    const idsOf = (result: { items: { id: number }[] }) => result.items.map((p) => p.id);
+
+    const byMethod = await listPaymentsPage(pool, viewer, { method: "UPI" }, pageParams);
+    expect(byMethod.items.every((p) => p.payment_method === "UPI")).toBe(true);
+    expect(idsOf(byMethod)).toContain(upi.id);
+
+    // Window deliberately excludes the June cheque, so an over-broad range fails here.
+    const byDate = await listPaymentsPage(pool, viewer, { dateFrom: new Date("2024-03-01"), dateTo: new Date("2024-03-31") }, pageParams);
+    expect(idsOf(byDate)).toContain(upi.id);
+    expect(byDate.items.every((p) => p.payment_date >= "2024-03-01" && p.payment_date <= "2024-03-31")).toBe(true);
+
+    // Receipt and payment numbers are searchable, not just the company name.
+    expect(idsOf(await listPaymentsPage(pool, viewer, { q: "RCPT-FILTER-UPI" }, pageParams))).toEqual([upi.id]);
+    expect(idsOf(await listPaymentsPage(pool, viewer, { q: upi.payment_number }, pageParams))).toEqual([upi.id]);
+
+    // Filters combine rather than override one another.
+    const combined = await listPaymentsPage(pool, viewer, { method: "CHEQUE", dateFrom: new Date("2024-03-01"), dateTo: new Date("2024-03-31") }, pageParams);
+    expect(idsOf(combined)).not.toContain(upi.id);
   });
 });

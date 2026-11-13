@@ -6,11 +6,15 @@ import { useSuperAdminPeriod } from "@/components/ui/SuperAdminPeriodContext";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 
 // Scoped to the period picked in SuperAdminPeriodDropdown (shared via
-// SuperAdminPeriodProvider); team members is a current headcount, not a
-// time-series value, so it stays fixed regardless of the period.
-export default function SuperAdminSummaryTiles({ totalTeamMembers }: { totalTeamMembers: number }) {
+// SuperAdminPeriodProvider).
+export default function SuperAdminSummaryTiles() {
   const { period } = useSuperAdminPeriod();
-  const [summary, setSummary] = useState<{ totalSales: number; totalLeads: number; totalCompanies: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    totalSales: number;
+    totalLeads: number;
+    totalCompanies: number;
+    totalPaymentsReceived: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +53,12 @@ export default function SuperAdminSummaryTiles({ totalTeamMembers }: { totalTeam
         <StatTile label="Total companies" value={summary?.totalCompanies ?? 0} icon="ri-building-line" tone="sky" />
       </div>
       <div className="min-w-[160px] shrink-0 sm:min-w-0 sm:shrink">
-        <StatTile label="Total team members" value={totalTeamMembers} icon="ri-team-line" tone="violet" />
+        <StatTile
+          label="Total payment received"
+          value={`₹${(summary?.totalPaymentsReceived ?? 0).toLocaleString("en-IN")}`}
+          icon="ri-hand-coin-line"
+          tone="violet"
+        />
       </div>
     </div>
   );

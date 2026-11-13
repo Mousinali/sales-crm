@@ -122,6 +122,21 @@ select.rounded-md {
   padding-right: 2.25rem;
 }
 
+/* Budget fields (sale amount, lead's estimated budget) are plain
+   numbers, not something a user spins up/down one unit at a time, so the
+   native step arrows just add visual noise. */
+#budgetAmount::-webkit-inner-spin-button,
+#budgetAmount::-webkit-outer-spin-button,
+#estimatedBudget::-webkit-inner-spin-button,
+#estimatedBudget::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+#budgetAmount,
+#estimatedBudget {
+  appearance: textfield;
+}
+
 /* Hides the scrollbar on a horizontally swipeable row (e.g. the Super
    Admin dashboard's stat tiles on mobile) without disabling scrolling —
    the swipe gesture still works, there's just no track/thumb drawn. */

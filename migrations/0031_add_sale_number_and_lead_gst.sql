@@ -1,0 +1,3 @@
+ALTER TABLE sales ADD COLUMN sale_number TEXT UNIQUE;
+
+ALTER TABLE leads ADD COLUMN gst_number TEXT;

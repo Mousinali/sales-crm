@@ -6,7 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
-import { GET, DELETE } from "./route";
+import { GET, DELETE, PATCH } from "./route";
 
 const adminEmail = `company-name-route-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -66,6 +66,13 @@ function deleteCompany(name: string, cookie?: string) {
   );
 }
 
+function restoreCompanyRequest(name: string, cookie?: string) {
+  return PATCH(
+    new Request(`http://localhost/api/companies/${name}`, { method: "PATCH", headers: cookie ? { cookie } : {} }),
+    { params: Promise.resolve({ name }) },
+  );
+}
+
 describe("DELETE /api/companies/[name]", () => {
   it("rejects an unauthenticated request", async () => {
     expect((await deleteCompany("nope")).status).toBe(401);
@@ -100,5 +107,32 @@ describe("DELETE /api/companies/[name]", () => {
       { params: Promise.resolve({ name }) },
     );
     expect(getResponse.status).toBe(200);
+  });
+});
+
+describe("PATCH /api/companies/[name]", () => {
+  it("restores every archived lead under the company, and logs it", async () => {
+    const name = await makeCompanyWithTwoLeads(`Restore Co ${Date.now()}`);
+    expect((await deleteCompany(name, superAdminCookie)).status).toBe(200);
+
+    const response = await restoreCompanyRequest(name, superAdminCookie);
+    expect(response.status).toBe(200);
+
+    const { rows } = await pool.query<{ archived_at: Date | null }>(
+      "SELECT archived_at FROM leads WHERE company_name_normalized = $1",
+      [name],
+    );
+    expect(rows.every((r) => r.archived_at === null)).toBe(true);
+
+    const { rows: auditRows } = await pool.query<{ action: string }>(
+      "SELECT action FROM audit_logs WHERE actor_user_id = $1 AND action = 'company.restored' ORDER BY created_at DESC LIMIT 1",
+      [superAdminId],
+    );
+    expect(auditRows).toHaveLength(1);
+  });
+
+  it("rejects a Pre-sales user", async () => {
+    const name = await makeCompanyWithTwoLeads(`Restore Co PS ${Date.now()}`);
+    expect((await restoreCompanyRequest(name, preSalesCookie)).status).toBe(403);
   });
 });

@@ -21,6 +21,7 @@ function makeLead(overrides: Partial<LeadExportRow>): LeadExportRow {
     state: null,
     pincode: null,
     country: "India",
+    gst_number: null,
     service_requirements: "x",
     estimated_budget: null,
     budget_type: null,

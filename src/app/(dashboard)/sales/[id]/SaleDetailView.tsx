@@ -7,6 +7,7 @@ import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
 import Timeline, { type TimelineEntry } from "@/components/ui/Timeline";
 import Modal from "@/components/ui/Modal";
+import { FormattedText } from "@/components/ui/RichTextField";
 import { SALE_PAYMENT_METHODS, type SaleRow, type SalePaymentRow, type SaleBudgetType, type SalePaymentMethod } from "@/lib/sales/types";
 import type { ServiceRow } from "@/lib/services/types";
 
@@ -34,13 +35,18 @@ const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
   OTHER: "Other",
 };
 
+// Only these methods are tied to a bank account, so only they prompt for one.
+const METHODS_WITH_ACCOUNT_NUMBER: SalePaymentMethod[] = ["BANK_TRANSFER", "CHEQUE"];
+
 function paymentsToTimeline(payments: SalePaymentRow[]): TimelineEntry[] {
   return payments.map((p) => ({
     id: p.id,
     icon: PAYMENT_METHOD_DISPLAY[p.payment_method].icon,
     iconClass: "bg-emerald-50 text-emerald-600",
     title: `${formatCurrency(Number(p.amount))} · ${PAYMENT_METHOD_DISPLAY[p.payment_method].label}`,
-    description: p.notes,
+    description: [p.payment_number, p.account_number && `A/C ${p.account_number}`, p.receipt_number && `Receipt ${p.receipt_number}`, p.notes]
+      .filter(Boolean)
+      .join(" · "),
     meta: p.recorded_by_name ? `Recorded by ${p.recorded_by_name}` : undefined,
     timestamp: p.payment_date,
     dateOnly: true,
@@ -71,6 +77,8 @@ export default function SaleDetailView({
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>("CASH");
   const [paymentDate, setPaymentDate] = useState(todayDateInput());
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,6 +87,8 @@ export default function SaleDetailView({
     setAmount("");
     setPaymentMethod("CASH");
     setPaymentDate(todayDateInput());
+    setReceiptNumber("");
+    setAccountNumber("");
     setNotes("");
     setFormError(null);
     setPaymentModalOpen(true);
@@ -115,7 +125,14 @@ export default function SaleDetailView({
       const response = await fetch(`/api/sales/${sale.id}/payments`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ amount: value, paymentMethod, paymentDate: paymentDate || undefined, notes: notes.trim() || undefined }),
+        body: JSON.stringify({
+          amount: value,
+          paymentMethod,
+          paymentDate: paymentDate || undefined,
+          receiptNumber: receiptNumber.trim() || undefined,
+          accountNumber: METHODS_WITH_ACCOUNT_NUMBER.includes(paymentMethod) ? accountNumber.trim() || undefined : undefined,
+          notes: notes.trim() || undefined,
+        }),
       });
       if (!response.ok) {
         const message = await parseErrorMessage(response, "Could not record the payment.", {
@@ -129,6 +146,8 @@ export default function SaleDetailView({
       const created = await response.json();
       setPayments((current) => [created, ...current]);
       setAmount("");
+      setReceiptNumber("");
+      setAccountNumber("");
       setNotes("");
       toast.success("Payment recorded", formatCurrency(value));
       setSubmitting(false);
@@ -145,6 +164,7 @@ export default function SaleDetailView({
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
+            <p className="text-xs font-medium text-zinc-400">{sale.sale_number}</p>
             <h1 className="text-lg font-semibold text-zinc-900">
               {sale.lead_id ? (
                 <Link href={`/leads/${sale.lead_id}`} className="text-indigo-700 hover:underline">
@@ -197,7 +217,9 @@ export default function SaleDetailView({
         {sale.notes && (
           <div className="mt-4">
             <dt className="text-xs font-medium uppercase text-zinc-500">Notes</dt>
-            <dd className="mt-1 text-sm text-zinc-700">{sale.notes}</dd>
+            <dd className="mt-1 text-sm text-zinc-700">
+              <FormattedText text={sale.notes} />
+            </dd>
           </div>
         )}
       </div>
@@ -274,6 +296,34 @@ export default function SaleDetailView({
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="paymentReceiptNumber" className="text-sm font-medium text-zinc-700">
+                  Receipt No.
+                </label>
+                <input
+                  id="paymentReceiptNumber"
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(event) => setReceiptNumber(event.target.value)}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              {METHODS_WITH_ACCOUNT_NUMBER.includes(paymentMethod) && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="paymentAccountNumber" className="text-sm font-medium text-zinc-700">
+                    Account number
+                  </label>
+                  <input
+                    id="paymentAccountNumber"
+                    type="text"
+                    value={accountNumber}
+                    onChange={(event) => setAccountNumber(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="paymentNotes" className="text-sm font-medium text-zinc-700">

@@ -69,7 +69,7 @@ export default function NotificationsView({
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const activeFilterCount = [typeFilter, readFilter].filter(Boolean).length;
   const debouncedSearch = useDebouncedValue(search, 350);
-  const skippedFirstSearch = useRef(false);
+  const lastSearch = useRef(debouncedSearch);
 
   async function refetch(targetPage: number) {
     const params = new URLSearchParams({ page: String(targetPage) });
@@ -92,10 +92,8 @@ export default function NotificationsView({
   }
 
   useEffect(() => {
-    if (!skippedFirstSearch.current) {
-      skippedFirstSearch.current = true;
-      return;
-    }
+    if (lastSearch.current === debouncedSearch) return;
+    lastSearch.current = debouncedSearch;
     void refetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);

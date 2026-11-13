@@ -92,9 +92,7 @@ export default async function DashboardPage() {
       <SuperAdminPeriodProvider>
         <div className="flex flex-col gap-6">
           <WelcomeCard name={user.name} role={user.role} designation={user.designation} extra={<SuperAdminPeriodDropdown />} />
-          <SuperAdminSummaryTiles
-            totalTeamMembers={Object.values(d.activeUsersByRole).reduce((sum, count) => sum + count, 0)}
-          />
+          <SuperAdminSummaryTiles />
           <EntriesChartCard />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <PieCard title="Active users by role" data={roleBarData(d.activeUsersByRole)} stacked />

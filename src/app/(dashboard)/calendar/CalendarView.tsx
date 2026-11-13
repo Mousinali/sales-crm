@@ -3,7 +3,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import Modal from "@/components/ui/Modal";
+import Pagination from "@/components/ui/Pagination";
 import RefreshButton from "@/components/ui/RefreshButton";
+import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
@@ -34,6 +37,11 @@ const TYPE_BADGE_CLASSES: Record<CalendarEventType, string> = {
 };
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// The events list is fetched in full (it also drives the month grid above),
+// so the "All events" table filters and paginates client-side rather than
+// adding a paginated query this view would be the only caller of.
+const EVENTS_PAGE_SIZE = 10;
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -109,6 +117,18 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [responseDrafts, setResponseDrafts] = useState<Record<number, string>>({});
+  const [descriptionEvent, setDescriptionEvent] = useState<CalendarEvent | null>(null);
+
+  const [eventsSearch, setEventsSearch] = useState("");
+  const [eventsTypeFilter, setEventsTypeFilter] = useState<CalendarEventType | "ALL">("ALL");
+  const [eventsPage, setEventsPage] = useState(1);
+  const filteredEvents = events.filter(
+    (event) =>
+      event.title.toLowerCase().includes(eventsSearch.trim().toLowerCase()) &&
+      (eventsTypeFilter === "ALL" || event.type === eventsTypeFilter),
+  );
+  const eventsTotalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PAGE_SIZE));
+  const pageEvents = filteredEvents.slice((eventsPage - 1) * EVENTS_PAGE_SIZE, eventsPage * EVENTS_PAGE_SIZE);
 
   const [monthStart, setMonthStart] = useState(() => {
     const now = new Date();
@@ -377,8 +397,40 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
       </div>
 
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 p-4">
           <h2 className="text-sm font-semibold text-zinc-900">All events</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+              <input
+                type="text"
+                value={eventsSearch}
+                onChange={(event) => {
+                  setEventsSearch(event.target.value);
+                  setEventsPage(1);
+                }}
+                placeholder="Search by title…"
+                aria-label="Search events by title"
+                className="rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              />
+            </div>
+            <select
+              value={eventsTypeFilter}
+              onChange={(event) => {
+                setEventsTypeFilter(event.target.value as CalendarEventType | "ALL");
+                setEventsPage(1);
+              }}
+              aria-label="Filter by type"
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="ALL">All types</option>
+              {CALENDAR_EVENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -401,18 +453,29 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {events.length === 0 && (
+              {filteredEvents.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
-                    No events found.
+                    {events.length === 0 ? "No events found." : "No events match your search."}
                   </td>
                 </tr>
               )}
-              {events.map((event) => (
+              {pageEvents.map((event) => (
                 <tr key={event.id} className="transition-colors hover:bg-zinc-50/80">
                   <td data-label="Title" className="px-4 py-3">
-                    <p className="font-medium text-zinc-900">{event.title}</p>
-                    {event.description && <p className="text-xs text-zinc-500">{event.description}</p>}
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-zinc-900">{event.title}</p>
+                      {event.description && (
+                        <button
+                          type="button"
+                          onClick={() => setDescriptionEvent(event)}
+                          aria-label="View description"
+                          className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                        >
+                          <i className="ri-information-line text-sm" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td data-label="When" className="px-4 py-3 text-zinc-600">{new Date(event.starts_at).toLocaleString("en-US")}</td>
                   <td data-label="Type" className="px-4 py-3">
@@ -497,7 +560,14 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
             </tbody>
           </table>
         </div>
+        <Pagination page={eventsPage} totalPages={eventsTotalPages} total={filteredEvents.length} onChange={setEventsPage} />
       </div>
+
+      {descriptionEvent && (
+        <Modal title={descriptionEvent.title} onClose={() => setDescriptionEvent(null)}>
+          <FormattedText text={descriptionEvent.description ?? ""} className="text-sm text-zinc-600" />
+        </Modal>
+      )}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
@@ -520,12 +590,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                 <label htmlFor="eventDescription" className="text-sm font-medium text-zinc-700">
                   Description
                 </label>
-                <textarea
-                  id="eventDescription"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="eventDescription" value={description} onChange={setDescription} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="eventStartsAt" className="text-sm font-medium text-zinc-700">

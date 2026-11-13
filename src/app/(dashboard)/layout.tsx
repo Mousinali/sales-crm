@@ -43,7 +43,7 @@ export default async function DashboardLayout({
       ],
     },
     {
-      label: "Records",
+      label: "Organization",
       items: [
         ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
           ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
@@ -69,6 +69,12 @@ export default async function DashboardLayout({
               },
             ]
           : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/services", label: "Services", icon: "ri-price-tag-3-line" }] : []),
+      ],
+    },
+    {
+      label: "Revenue",
+      items: [
         ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON"
           ? [
               {
@@ -80,11 +86,21 @@ export default async function DashboardLayout({
                   { href: "/sales", label: "Sales List", icon: "ri-list-check" },
                 ],
               },
+              {
+                href: "/payments",
+                label: "Payments",
+                icon: "ri-bill-line",
+                children: [
+                  { href: "/payments/new", label: "New Payment", icon: "ri-add-line" },
+                  { href: "/payments", label: "Payment List", icon: "ri-list-check" },
+                ],
+              },
             ]
           : []),
-        ...(user.role === "SUPER_ADMIN" ? [{ href: "/services", label: "Services", icon: "ri-price-tag-3-line" }] : []),
-        ...(user.role === "SUPER_ADMIN" ? [{ href: "/logs", label: "Logs", icon: "ri-history-line" }] : []),
-        ...(user.role === "SUPER_ADMIN" ? [{ href: "/archive", label: "Archive", icon: "ri-archive-line" }] : []),
+        // Super Admin gets read-only access to the sales/payment lists, not
+        // the add-sale/new-payment forms those roles also get above.
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/sales", label: "Sales", icon: "ri-money-dollar-circle-line" }] : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/payments", label: "Payments", icon: "ri-bill-line" }] : []),
       ],
     },
     {
@@ -98,7 +114,11 @@ export default async function DashboardLayout({
     },
     {
       label: "General",
-      items: [{ href: "/settings", label: "Settings", icon: "ri-settings-3-line" }],
+      items: [
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/logs", label: "Logs", icon: "ri-history-line" }] : []),
+        ...(user.role === "SUPER_ADMIN" ? [{ href: "/archive", label: "Archive", icon: "ri-archive-line" }] : []),
+        { href: "/settings", label: "Settings", icon: "ri-settings-3-line" },
+      ],
     },
   ].filter((section) => section.items.length > 0);
 

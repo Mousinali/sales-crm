@@ -23,6 +23,7 @@ const pendingLead: LeadRow = {
   state: null,
   pincode: null,
   country: "India",
+  gst_number: null,
   service_requirements: "CRM",
   estimated_budget: null,
   budget_type: null,

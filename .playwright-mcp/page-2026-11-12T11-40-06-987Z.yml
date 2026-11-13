@@ -1,0 +1,227 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - region "Notifications alt+T"
+    - text:                    
+    - complementary [ref=f3e3]:
+      - img "Sales CRM" [ref=f3e6]
+      - navigation "Primary" [ref=f3e7]:
+        - generic [ref=f3e8]:
+          - link [ref=f3e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f3e10]:
+              - generic [aria-hidden] [ref=f3e11]: 
+              - text: Dashboard
+          - link [ref=f3e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f3e13]:
+              - generic [aria-hidden] [ref=f3e14]: 
+              - text: Calendar
+          - link [ref=f3e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f3e16]:
+              - generic [aria-hidden] [ref=f3e17]: 
+              - text: Chat
+          - link [ref=f3e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f3e19]:
+              - generic [aria-hidden] [ref=f3e20]: 
+              - text: Notifications
+        - generic [ref=f3e21]:
+          - paragraph [ref=f3e22]: Records
+          - link [ref=f3e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f3e24]:
+              - generic [aria-hidden] [ref=f3e25]: 
+              - text: Team
+          - link [ref=f3e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f3e27]:
+              - generic [aria-hidden] [ref=f3e28]: 
+              - text: Companies
+          - generic [ref=f3e29]:
+            - button [expanded] [ref=f3e30]:
+              - generic [ref=f3e31]:
+                - generic [aria-hidden] [ref=f3e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f3e34]: 
+            - link [ref=f3e37] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f3e38]:
+                - generic [aria-hidden] [ref=f3e39]: 
+                - text: Lead List
+          - link [ref=f3e40] [cursor=pointer]:
+            - /url: /payments
+            - generic [ref=f3e41]:
+              - generic [aria-hidden] [ref=f3e42]: 
+              - text: Payments
+          - link [ref=f3e43] [cursor=pointer]:
+            - /url: /services
+            - generic [ref=f3e44]:
+              - generic [aria-hidden] [ref=f3e45]: 
+              - text: Services
+          - link [ref=f3e46] [cursor=pointer]:
+            - /url: /logs
+            - generic [ref=f3e47]:
+              - generic [aria-hidden] [ref=f3e48]: 
+              - text: Logs
+          - link [ref=f3e49] [cursor=pointer]:
+            - /url: /archive
+            - generic [ref=f3e50]:
+              - generic [aria-hidden] [ref=f3e51]: 
+              - text: Archive
+        - generic [ref=f3e52]:
+          - paragraph [ref=f3e53]: Workflow
+          - link [ref=f3e54] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f3e55]:
+              - generic [aria-hidden] [ref=f3e56]: 
+              - text: Tasks
+          - link [ref=f3e57] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f3e58]:
+              - generic [aria-hidden] [ref=f3e59]: 
+              - text: Announcements
+        - generic [ref=f3e60]:
+          - paragraph [ref=f3e61]: General
+          - link [ref=f3e62] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f3e63]:
+              - generic [aria-hidden] [ref=f3e64]: 
+              - text: Settings
+      - generic [ref=f3e65]: Sales CRM v0.1.0
+    - generic [ref=f3e66]:
+      - banner [ref=f3e67]:
+        - heading "Leads" [level=1] [ref=f3e68]
+        - generic [ref=f3e69]:
+          - generic [ref=f3e70]:
+            - img "Mousin Ali" [ref=f3e71]
+            - generic [ref=f3e72]:
+              - paragraph [ref=f3e73]: Mousin Ali
+              - generic [ref=f3e74]: Super Admin
+          - button "Notifications" [ref=f3e76]:
+            - generic [aria-hidden] [ref=f3e77]: 
+          - button "Sign out" [ref=f3e79]:
+            - generic [aria-hidden] [ref=f3e80]: 
+            - text: Sign out
+      - main [ref=f3e81]:
+        - generic [ref=f3e83]:
+          - generic [ref=f3e84]:
+            - generic [ref=f3e85]:
+              - generic [ref=f3e86]:
+                - heading "Leads" [level=1] [ref=f3e87]
+                - generic [ref=f3e88]: "2"
+              - navigation "Breadcrumb" [ref=f3e89]:
+                - link "Home" [ref=f3e90] [cursor=pointer]:
+                  - /url: /dashboard
+                - generic [ref=f3e91]:
+                  - generic [aria-hidden] [ref=f3e92]: 
+                  - generic [ref=f3e93]: Leads
+            - generic [ref=f3e94]:
+              - button "Refresh" [ref=f3e95] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f3e96]: 
+                - text: Refresh
+              - button "Export" [ref=f3e98]:
+                - generic [aria-hidden] [ref=f3e99]: 
+                - text: Export
+                - generic [aria-hidden] [ref=f3e100]: 
+          - generic [ref=f3e101]:
+            - generic [ref=f3e103]:
+              - generic [ref=f3e104]:
+                - generic [aria-hidden]: 
+                - textbox "Search leads" [ref=f3e105]:
+                  - /placeholder: Search by company, phone, or email…
+              - button "Filter by status" [ref=f3e107] [cursor=pointer]:
+                - generic [ref=f3e108]:
+                  - generic [aria-hidden] [ref=f3e109]: 
+                  - generic [ref=f3e110]: All statuses
+                - generic [aria-hidden] [ref=f3e111]: 
+              - button "Filter by source" [ref=f3e113] [cursor=pointer]:
+                - generic [ref=f3e114]:
+                  - generic [aria-hidden] [ref=f3e115]: 
+                  - generic [ref=f3e116]: All sources
+                - generic [aria-hidden] [ref=f3e117]: 
+              - button "Filter by priority" [ref=f3e119] [cursor=pointer]:
+                - generic [ref=f3e120]:
+                  - generic [aria-hidden] [ref=f3e121]: 
+                  - generic [ref=f3e122]: All priorities
+                - generic [aria-hidden] [ref=f3e123]: 
+              - button "From – To" [ref=f3e125]:
+                - generic [aria-hidden] [ref=f3e126]: 
+              - button "Apply filters" [ref=f3e128]
+            - table [ref=f3e130]:
+              - rowgroup [ref=f3e131]:
+                - row [ref=f3e132]:
+                  - columnheader "Select all leads" [ref=f3e133]:
+                    - checkbox "Select all leads" [ref=f3e134]
+                  - columnheader "Company" [ref=f3e135]:
+                    - button "Company" [ref=f3e136]:
+                      - text: Company
+                      - generic [aria-hidden] [ref=f3e137]: 
+                  - columnheader "Status" [ref=f3e138]
+                  - columnheader "Outcome" [ref=f3e139]
+                  - columnheader "Priority" [ref=f3e140]
+                  - columnheader "Owner" [ref=f3e141]
+                  - columnheader "Created at" [ref=f3e142]:
+                    - button "Created at" [ref=f3e143]:
+                      - text: Created at
+                      - generic [aria-hidden] [ref=f3e144]: 
+                  - columnheader "Actions" [ref=f3e145]
+              - rowgroup [ref=f3e146]:
+                - row [ref=f3e147]:
+                  - cell [ref=f3e148]:
+                    - checkbox "Select Ryan 360" [ref=f3e149]
+                  - cell [ref=f3e150]:
+                    - link "Ryan 360" [ref=f3e151] [cursor=pointer]:
+                      - /url: /leads/2549
+                    - paragraph [ref=f3e152]:
+                      - generic [aria-hidden] [ref=f3e153]: 
+                      - text: "7003353696"
+                  - cell [ref=f3e154]:
+                    - generic [ref=f3e155]:
+                      - generic [aria-hidden] [ref=f3e156]: 
+                      - text: Closed — won
+                  - cell [ref=f3e157]:
+                    - paragraph [ref=f3e158]: Converted to sale
+                    - paragraph [ref=f3e159]: ₹2,000 / ₹20,000 paid
+                  - cell [ref=f3e160]:
+                    - generic [ref=f3e161]:
+                      - generic [aria-hidden] [ref=f3e162]: 
+                      - text: High
+                  - cell [ref=f3e163]:
+                    - generic [ref=f3e164]:
+                      - generic [aria-hidden] [ref=f3e165]: 
+                      - text: Shantanu
+                  - cell [ref=f3e166]:
+                    - paragraph [ref=f3e167]: 12 Nov 2026
+                    - paragraph [ref=f3e168]: 12:43 PM
+                  - cell [ref=f3e169]:
+                    - button "Actions for Ryan 360" [ref=f3e170]:
+                      - generic [aria-hidden] [ref=f3e171]: 
+                - row [ref=f3e172]:
+                  - cell [ref=f3e173]:
+                    - checkbox "Select Turain Software Private Limited" [ref=f3e174]
+                  - cell [ref=f3e175]:
+                    - link "Turain Software Private Limited" [ref=f3e176] [cursor=pointer]:
+                      - /url: /leads/2548
+                    - paragraph [ref=f3e177]:
+                      - generic [aria-hidden] [ref=f3e178]: 
+                      - text: "6290397299"
+                  - cell [ref=f3e179]:
+                    - generic [ref=f3e180]:
+                      - generic [aria-hidden] [ref=f3e181]: 
+                      - text: Pending review
+                  - cell "—" [ref=f3e182]
+                  - cell [ref=f3e183]:
+                    - generic [ref=f3e184]:
+                      - generic [aria-hidden] [ref=f3e185]: 
+                      - text: Medium
+                  - cell "Unassigned" [ref=f3e186]
+                  - cell [ref=f3e187]:
+                    - paragraph [ref=f3e188]: 09 Nov 2026
+                    - paragraph [ref=f3e189]: 02:58 PM
+                  - cell [ref=f3e190]:
+                    - button "Actions for Turain Software Private Limited" [ref=f3e191]:
+                      - generic [aria-hidden] [ref=f3e192]: 
+          - text:                         
+    - text:    
+  - button "Open Next.js Dev Tools" [ref=f3e198] [cursor=pointer]

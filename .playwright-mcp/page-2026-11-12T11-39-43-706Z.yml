@@ -1,0 +1,160 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - region "Notifications alt+T"
+    - text:                    
+    - complementary [ref=f2e3]:
+      - img "Sales CRM" [ref=f2e6]
+      - navigation "Primary" [ref=f2e7]:
+        - generic [ref=f2e8]:
+          - link [ref=f2e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f2e10]:
+              - generic [aria-hidden] [ref=f2e11]: 
+              - text: Dashboard
+          - link [ref=f2e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f2e13]:
+              - generic [aria-hidden] [ref=f2e14]: 
+              - text: Calendar
+          - link [ref=f2e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f2e16]:
+              - generic [aria-hidden] [ref=f2e17]: 
+              - text: Chat
+          - link [ref=f2e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f2e19]:
+              - generic [aria-hidden] [ref=f2e20]: 
+              - text: Notifications
+        - generic [ref=f2e21]:
+          - paragraph [ref=f2e22]: Records
+          - link [ref=f2e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f2e24]:
+              - generic [aria-hidden] [ref=f2e25]: 
+              - text: Team
+          - link [ref=f2e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f2e27]:
+              - generic [aria-hidden] [ref=f2e28]: 
+              - text: Companies
+          - generic [ref=f2e29]:
+            - button [ref=f2e30]:
+              - generic [ref=f2e31]:
+                - generic [aria-hidden] [ref=f2e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f2e34]: 
+            - link [ref=f2e35] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f2e36]:
+                - generic [aria-hidden] [ref=f2e37]: 
+                - text: Lead List
+          - link [ref=f2e38] [cursor=pointer]:
+            - /url: /payments
+            - generic [ref=f2e39]:
+              - generic [aria-hidden] [ref=f2e40]: 
+              - text: Payments
+          - link [ref=f2e41] [cursor=pointer]:
+            - /url: /services
+            - generic [ref=f2e42]:
+              - generic [aria-hidden] [ref=f2e43]: 
+              - text: Services
+          - link [ref=f2e44] [cursor=pointer]:
+            - /url: /logs
+            - generic [ref=f2e45]:
+              - generic [aria-hidden] [ref=f2e46]: 
+              - text: Logs
+          - link [ref=f2e47] [cursor=pointer]:
+            - /url: /archive
+            - generic [ref=f2e48]:
+              - generic [aria-hidden] [ref=f2e49]: 
+              - text: Archive
+        - generic [ref=f2e50]:
+          - paragraph [ref=f2e51]: Workflow
+          - link [ref=f2e52] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f2e53]:
+              - generic [aria-hidden] [ref=f2e54]: 
+              - text: Tasks
+          - link [ref=f2e55] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f2e56]:
+              - generic [aria-hidden] [ref=f2e57]: 
+              - text: Announcements
+        - generic [ref=f2e58]:
+          - paragraph [ref=f2e59]: General
+          - link [ref=f2e60] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f2e61]:
+              - generic [aria-hidden] [ref=f2e62]: 
+              - text: Settings
+      - generic [ref=f2e63]: Sales CRM v0.1.0
+    - generic [ref=f2e64]:
+      - banner [ref=f2e65]:
+        - heading "Dashboard" [level=1] [ref=f2e66]
+        - generic [ref=f2e67]:
+          - generic [ref=f2e68]:
+            - img "Mousin Ali" [ref=f2e69]
+            - generic [ref=f2e70]:
+              - paragraph [ref=f2e71]: Mousin Ali
+              - generic [ref=f2e72]: Super Admin
+          - button "Notifications" [ref=f2e74]:
+            - generic [aria-hidden] [ref=f2e75]: 
+          - button "Sign out" [ref=f2e77]:
+            - generic [aria-hidden] [ref=f2e78]: 
+            - text: Sign out
+      - main [ref=f2e79]:
+        - generic [ref=f2e81]:
+          - generic [ref=f2e83]:
+            - generic [ref=f2e84]:
+              - heading "Companies" [level=1] [ref=f2e85]
+              - generic [ref=f2e86]: "2"
+            - navigation "Breadcrumb" [ref=f2e87]:
+              - link "Home" [ref=f2e88] [cursor=pointer]:
+                - /url: /dashboard
+              - generic [ref=f2e89]:
+                - generic [aria-hidden] [ref=f2e90]: 
+                - generic [ref=f2e91]: Companies
+          - generic [ref=f2e92]:
+            - generic [ref=f2e93]:
+              - generic [ref=f2e94]: 2 companies
+              - generic [ref=f2e95]:
+                - textbox "Search companies" [ref=f2e96]:
+                  - /placeholder: Search companies…
+                - button "Search" [ref=f2e97]
+            - table [ref=f2e99]:
+              - rowgroup [ref=f2e100]:
+                - row [ref=f2e101]:
+                  - columnheader "Company" [ref=f2e102]
+                  - columnheader "Industry" [ref=f2e103]
+                  - columnheader "Location" [ref=f2e104]
+                  - columnheader "Contact" [ref=f2e105]
+                  - columnheader "Leads" [ref=f2e106]
+                  - columnheader [ref=f2e107]
+              - rowgroup [ref=f2e108]:
+                - row [ref=f2e109]:
+                  - cell [ref=f2e110]:
+                    - link "Ryan 360" [ref=f2e111] [cursor=pointer]:
+                      - /url: /companies/ryan360
+                  - cell "Real Estate" [ref=f2e112]
+                  - cell "West Bengal" [ref=f2e113]
+                  - cell [ref=f2e114]:
+                    - paragraph [ref=f2e115]: "7003353696"
+                    - paragraph [ref=f2e116]: work.mousin@gmail.com
+                  - cell "1" [ref=f2e117]
+                  - cell [ref=f2e118]:
+                    - button "Delete" [ref=f2e119]
+                - row [ref=f2e120]:
+                  - cell [ref=f2e121]:
+                    - link "Turain Software Private Limited" [ref=f2e122] [cursor=pointer]:
+                      - /url: /companies/turainsoftwareprivatelimited
+                  - cell "IT & Technology" [ref=f2e123]
+                  - cell "West Bengal" [ref=f2e124]
+                  - cell [ref=f2e125]:
+                    - paragraph [ref=f2e126]: "6290397299"
+                    - paragraph [ref=f2e127]: work.mousin@gmail.com
+                  - cell "1" [ref=f2e128]
+                  - cell [ref=f2e129]:
+                    - button "Delete" [ref=f2e130]
+    - text:    
+  - button "Open Next.js Dev Tools" [ref=f2e136] [cursor=pointer]

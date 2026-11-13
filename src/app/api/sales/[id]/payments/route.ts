@@ -10,6 +10,8 @@ const createPaymentSchema = z.object({
   amount: z.number().positive(),
   paymentMethod: z.enum(SALE_PAYMENT_METHODS),
   paymentDate: z.string().trim().min(1).optional(),
+  receiptNumber: z.string().trim().min(1).optional(),
+  accountNumber: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional(),
 });
 

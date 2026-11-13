@@ -49,6 +49,7 @@ export type LeadRow = {
   state: string | null;
   pincode: string | null;
   country: string;
+  gst_number: string | null;
   service_requirements: string;
   estimated_budget: string | null;
   budget_type: LeadBudgetType | null;

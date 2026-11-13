@@ -118,12 +118,22 @@ describe("updateLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("archives a lead by setting archived_at, one-way", async () => {
+  it("archives a lead by setting archived_at, and restores it by clearing it again", async () => {
     const toArchive = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Archive Me Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(toArchive.id);
 
     await updateLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: toArchive.id, fields: { archived: true } });
-    const { rows } = await pool.query("SELECT archived_at FROM leads WHERE id = $1", [toArchive.id]);
-    expect(rows[0].archived_at).not.toBeNull();
+    const archived = await pool.query("SELECT archived_at FROM leads WHERE id = $1", [toArchive.id]);
+    expect(archived.rows[0].archived_at).not.toBeNull();
+
+    await updateLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: toArchive.id, fields: { archived: false } });
+    const restored = await pool.query("SELECT archived_at FROM leads WHERE id = $1", [toArchive.id]);
+    expect(restored.rows[0].archived_at).toBeNull();
+
+    const { rows: auditRows } = await pool.query<{ action: string }>(
+      "SELECT action FROM audit_logs WHERE target_table = 'leads' AND target_id = $1 ORDER BY created_at",
+      [toArchive.id],
+    );
+    expect(auditRows.map((r) => r.action)).toEqual(["lead.archived", "lead.restored"]);
   });
 });

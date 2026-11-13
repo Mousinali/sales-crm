@@ -1,0 +1,185 @@
+- generic [active] [ref=f6e1]:
+  - generic [ref=f6e2]:
+    - region "Notifications alt+T"
+    - text:                    
+    - complementary [ref=f6e3]:
+      - img "Sales CRM" [ref=f6e6]
+      - navigation "Primary" [ref=f6e7]:
+        - generic [ref=f6e8]:
+          - link [ref=f6e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f6e10]:
+              - generic [aria-hidden] [ref=f6e11]: 
+              - text: Dashboard
+          - link [ref=f6e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f6e13]:
+              - generic [aria-hidden] [ref=f6e14]: 
+              - text: Calendar
+          - link [ref=f6e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f6e16]:
+              - generic [aria-hidden] [ref=f6e17]: 
+              - text: Chat
+          - link [ref=f6e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f6e19]:
+              - generic [aria-hidden] [ref=f6e20]: 
+              - text: Notifications
+        - generic [ref=f6e21]:
+          - paragraph [ref=f6e22]: Organization
+          - link [ref=f6e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f6e24]:
+              - generic [aria-hidden] [ref=f6e25]: 
+              - text: Team
+          - link [ref=f6e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f6e27]:
+              - generic [aria-hidden] [ref=f6e28]: 
+              - text: Companies
+          - generic [ref=f6e29]:
+            - button [ref=f6e30]:
+              - generic [ref=f6e31]:
+                - generic [aria-hidden] [ref=f6e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f6e34]: 
+            - link [ref=f6e35] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f6e36]:
+                - generic [aria-hidden] [ref=f6e37]: 
+                - text: Lead List
+          - link [ref=f6e38] [cursor=pointer]:
+            - /url: /services
+            - generic [ref=f6e39]:
+              - generic [aria-hidden] [ref=f6e40]: 
+              - text: Services
+        - generic [ref=f6e41]:
+          - paragraph [ref=f6e42]: Revenue
+          - link [ref=f6e43] [cursor=pointer]:
+            - /url: /payments
+            - generic [ref=f6e44]:
+              - generic [aria-hidden] [ref=f6e45]: 
+              - text: Payments
+        - generic [ref=f6e46]:
+          - paragraph [ref=f6e47]: Workflow
+          - link [ref=f6e48] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f6e49]:
+              - generic [aria-hidden] [ref=f6e50]: 
+              - text: Tasks
+          - link [ref=f6e51] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f6e52]:
+              - generic [aria-hidden] [ref=f6e53]: 
+              - text: Announcements
+        - generic [ref=f6e54]:
+          - paragraph [ref=f6e55]: General
+          - link [ref=f6e56] [cursor=pointer]:
+            - /url: /logs
+            - generic [ref=f6e57]:
+              - generic [aria-hidden] [ref=f6e58]: 
+              - text: Logs
+          - link [ref=f6e59] [cursor=pointer]:
+            - /url: /archive
+            - generic [ref=f6e60]:
+              - generic [aria-hidden] [ref=f6e61]: 
+              - text: Archive
+          - link [ref=f6e62] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f6e63]:
+              - generic [aria-hidden] [ref=f6e64]: 
+              - text: Settings
+      - generic [ref=f6e65]: Sales CRM v0.1.0
+    - generic [ref=f6e66]:
+      - banner [ref=f6e67]:
+        - heading "Dashboard" [level=1] [ref=f6e68]
+        - generic [ref=f6e69]:
+          - generic [ref=f6e70]:
+            - img "Mousin Ali" [ref=f6e71]
+            - generic [ref=f6e72]:
+              - paragraph [ref=f6e73]: Mousin Ali
+              - generic [ref=f6e74]: Super Admin
+          - button "Notifications" [ref=f6e76]:
+            - generic [aria-hidden] [ref=f6e77]: 
+          - button "Sign out" [ref=f6e79]:
+            - generic [aria-hidden] [ref=f6e80]: 
+            - text: Sign out
+      - main [ref=f6e81]:
+        - generic [ref=f6e83]:
+          - generic [ref=f6e84]:
+            - generic [ref=f6e85]:
+              - generic [ref=f6e86]: MA
+              - generic [ref=f6e87]:
+                - paragraph [ref=f6e88]: Welcome back, Mousin Ali
+                - generic [ref=f6e89]: Super Admin
+            - generic [ref=f6e90]:
+              - button "Today, 12 Nov 2026" [ref=f6e92] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f6e93]: 
+                - generic [aria-hidden] [ref=f6e95]: 
+              - button "Refresh" [ref=f6e96] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f6e97]: 
+          - generic [ref=f6e99]:
+            - generic [ref=f6e101]:
+              - generic [ref=f6e102]:
+                - generic [aria-hidden] [ref=f6e104]: 
+                - paragraph [ref=f6e105]: Total sales
+              - paragraph [ref=f6e106]: ₹0
+            - generic [ref=f6e108]:
+              - generic [ref=f6e109]:
+                - generic [aria-hidden] [ref=f6e111]: 
+                - paragraph [ref=f6e112]: Total leads
+              - paragraph [ref=f6e113]: "0"
+            - generic [ref=f6e115]:
+              - generic [ref=f6e116]:
+                - generic [aria-hidden] [ref=f6e118]: 
+                - paragraph [ref=f6e119]: Total companies
+              - paragraph [ref=f6e120]: "0"
+            - generic [ref=f6e122]:
+              - generic [ref=f6e123]:
+                - generic [aria-hidden] [ref=f6e125]: 
+                - paragraph [ref=f6e126]: Total payment received
+              - paragraph [ref=f6e127]: ₹0
+          - generic [ref=f6e128]:
+            - generic [ref=f6e129]:
+              - generic [ref=f6e130]:
+                - paragraph [ref=f6e131]: Leads entries
+                - paragraph [ref=f6e132]: 0 in the selected period
+              - generic [ref=f6e133]:
+                - generic [ref=f6e134]:
+                  - button "Leads" [ref=f6e135] [cursor=pointer]
+                  - button "Sales" [ref=f6e136] [cursor=pointer]
+                - generic [ref=f6e137]:
+                  - button "Today" [ref=f6e138] [cursor=pointer]
+                  - button "Week" [ref=f6e139] [cursor=pointer]
+                  - button "Month" [ref=f6e140] [cursor=pointer]
+            - paragraph [ref=f6e142]: Loading…
+          - generic [ref=f6e143]:
+            - generic [ref=f6e144]:
+              - paragraph [ref=f6e145]: Active users by role
+              - generic [ref=f6e147]:
+                - figure "chart, 1 series":
+                  - generic [ref=f6e148]:
+                    - img "interactive chart"
+                  - list "Legend" [ref=f6e149]:
+                    - listitem:
+                      - switch "Marketing Head, Legend item 1 of 3" [checked] [ref=f6e150] [cursor=pointer]
+                    - listitem:
+                      - switch "Salesperson, Legend item 2 of 3" [checked] [ref=f6e151] [cursor=pointer]
+                    - listitem:
+                      - switch "Super Admin, Legend item 3 of 3" [checked] [ref=f6e152] [cursor=pointer]
+                - status [aria-hidden]
+            - generic [ref=f6e153]:
+              - paragraph [ref=f6e154]: Leads by priority
+              - generic [ref=f6e156]:
+                - figure "chart, 1 series":
+                  - generic [ref=f6e157]:
+                    - img "interactive chart"
+                  - list "Legend" [ref=f6e158]:
+                    - listitem:
+                      - switch "High, Legend item 1 of 2" [checked] [ref=f6e159] [cursor=pointer]
+                    - listitem:
+                      - switch "Medium, Legend item 2 of 2" [checked] [ref=f6e160] [cursor=pointer]
+                - status [aria-hidden]
+    - text:    
+  - button "Open Next.js Dev Tools" [ref=f6e166] [cursor=pointer]

@@ -31,6 +31,7 @@ const listQuerySchema = z.object({
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
   q: z.string().trim().min(1).optional(),
+  budgetType: z.enum(SALE_BUDGET_TYPES).optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -83,6 +84,7 @@ export async function GET(request: Request): Promise<Response> {
     dateFrom: url.searchParams.get("dateFrom") ?? undefined,
     dateTo: url.searchParams.get("dateTo") ?? undefined,
     q: url.searchParams.get("q") ?? undefined,
+    budgetType: url.searchParams.get("budgetType") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });

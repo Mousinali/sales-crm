@@ -33,8 +33,10 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
   const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements);
   const [recipientOptions, setRecipientOptions] = useState<{ id: number; name: string }[]>([]);
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(announcements.length / PAGE_SIZE));
-  const pageAnnouncements = announcements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [search, setSearch] = useState("");
+  const filteredAnnouncements = announcements.filter((a) => a.subject.toLowerCase().includes(search.trim().toLowerCase()));
+  const totalPages = Math.max(1, Math.ceil(filteredAnnouncements.length / PAGE_SIZE));
+  const pageAnnouncements = filteredAnnouncements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Only the "Choose specific users" picker inside the New Announcement
   // modal needs this roster — deferred to when that modal actually opens,
@@ -145,8 +147,22 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
   return (
     <div className="flex flex-col gap-6">
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 p-4">
           <h2 className="text-sm font-semibold text-zinc-900">Sent announcements</h2>
+          <div className="relative w-full max-w-xs sm:w-auto">
+            <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search announcements…"
+              aria-label="Search announcements"
+              className="w-full rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <RefreshButton onRefresh={refetchAnnouncements} />
             <button
@@ -177,10 +193,10 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {announcements.length === 0 && (
+              {filteredAnnouncements.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
-                    No announcements sent yet.
+                    {announcements.length === 0 ? "No announcements sent yet." : "No announcements match your search."}
                   </td>
                 </tr>
               )}
@@ -211,7 +227,7 @@ export default function AnnouncementsView({ initialAnnouncements }: { initialAnn
             </tbody>
           </table>
         </div>
-        <Pagination page={page} totalPages={totalPages} total={announcements.length} onChange={setPage} />
+        <Pagination page={page} totalPages={totalPages} total={filteredAnnouncements.length} onChange={setPage} />
       </div>
 
       {createOpen && (

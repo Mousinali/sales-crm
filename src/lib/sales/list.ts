@@ -1,12 +1,13 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
-import type { SaleRow } from "./types";
+import type { SaleRow, SaleBudgetType } from "./types";
 
-type SaleFilters = {
+export type SaleFilters = {
   dateFrom?: Date;
   dateTo?: Date;
   q?: string;
+  budgetType?: SaleBudgetType;
 };
 
 // Mirrors leads/list.ts's buildLeadsWhere: Marketing Head (and above) sees
@@ -33,8 +34,16 @@ function buildSalesWhere(viewer: { id: number; role: Role }, filters: SaleFilter
     conditions.push(`sales.sale_date <= $${params.length}`);
   }
   if (filters.q) {
+    // Company name alone missed the identifiers people search by on this
+    // screen, so the sale number and contact person match the same box.
     params.push(`%${filters.q}%`);
-    conditions.push(`sales.company_name ILIKE $${params.length}`);
+    conditions.push(
+      `(sales.company_name ILIKE $${params.length} OR sales.sale_number ILIKE $${params.length} OR sales.contact_person ILIKE $${params.length})`,
+    );
+  }
+  if (filters.budgetType) {
+    params.push(filters.budgetType);
+    conditions.push(`sales.budget_type = $${params.length}`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -42,7 +51,8 @@ function buildSalesWhere(viewer: { id: number; role: Role }, filters: SaleFilter
 }
 
 const SOLD_BY_DISPLAY_NAME_SELECT = `
-  CASE sales.sold_by_type WHEN 'CUSTOM' THEN sales.sold_by_custom_name ELSE sold_by_user.name END AS sold_by_display_name
+  CASE sales.sold_by_type WHEN 'CUSTOM' THEN sales.sold_by_custom_name ELSE sold_by_user.name END AS sold_by_display_name,
+  CASE sales.sold_by_type WHEN 'CUSTOM' THEN NULL ELSE sold_by_user.avatar_url END AS sold_by_avatar_url
 `;
 const SOLD_BY_USER_JOIN = `LEFT JOIN users sold_by_user ON sold_by_user.id = sales.sold_by_user_id`;
 const PAID_AMOUNT_SELECT = `COALESCE(paid.total, 0) AS paid_amount`;

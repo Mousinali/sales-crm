@@ -5,6 +5,7 @@ import { recordLeadActivity } from "@/lib/leads/activities";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 import { setSaleServices } from "./services";
 import { insertSalePayment } from "./payments";
+import { nextSaleNumber, financialYearCode } from "./saleNumber";
 import { SaleActionNotAllowedError, SaleNotFoundError, SaleNotAccessibleError } from "./errors";
 import type { SaleRow, SaleBudgetType, SaleSoldByType, SalePaymentMethod } from "./types";
 
@@ -35,8 +36,9 @@ export async function createSale(pool: Pool, input: {
   }
 
   // Company details either come from an existing lead (chosen from the lead
-  // list) or are typed fresh — never both, so the sale always has one clear
-  // source of truth for who the client is.
+  // list) or are typed fresh. When a lead is chosen, its stored details are
+  // the default, but any field the caller explicitly provides overrides
+  // that default for this sale only (the lead record itself is untouched).
   let companyName = input.companyName;
   let contactPerson = input.contactPerson ?? null;
   let phone = input.phone ?? null;
@@ -52,26 +54,27 @@ export async function createSale(pool: Pool, input: {
     if (lead.status === "REJECTED" || lead.status === "CLOSED_LOST") {
       throw new SaleActionNotAllowedError(`Lead ${input.leadId} is ${lead.status} and cannot be recorded as a sale`);
     }
-    companyName = lead.company_name;
-    contactPerson = lead.contact_person;
-    phone = lead.phone;
-    email = lead.email;
-    address = lead.address;
+    companyName = input.companyName ?? lead.company_name;
+    contactPerson = input.contactPerson ?? lead.contact_person;
+    phone = input.phone ?? lead.phone;
+    email = input.email ?? lead.email;
+    address = input.address ?? lead.address;
   }
   if (!companyName?.trim()) {
     throw new SaleActionNotAllowedError("A company name or an existing lead is required");
   }
 
-  // Only a Marketing Head can credit a sale to someone else; a Pre-sales or
-  // Salesperson recording their own sale is always the one who sold it.
+  // "Sold by" defaults to the person recording the sale, attributed under
+  // their own role; any of the sale-creating roles can override it instead
+  // (a custom name, or another active Pre-sales/Salesperson user).
   let soldByType: SaleSoldByType;
   let soldByUserId: number | null = null;
   let soldByCustomName: string | null = null;
 
-  if (input.creatorRole === "MARKETING_HEAD") {
-    if (!input.soldByType) {
-      throw new SaleActionNotAllowedError("soldByType is required");
-    }
+  if (input.soldByType === undefined) {
+    soldByType = input.creatorRole === "MARKETING_HEAD" ? "SELF" : input.creatorRole;
+    soldByUserId = input.creatorId;
+  } else {
     soldByType = input.soldByType;
     if (soldByType === "SELF") {
       soldByUserId = input.creatorId;
@@ -94,36 +97,52 @@ export async function createSale(pool: Pool, input: {
       }
       soldByUserId = input.soldByUserId;
     }
-  } else {
-    soldByType = input.creatorRole;
-    soldByUserId = input.creatorId;
   }
 
-  const { rows } = await pool.query<SaleRow>(
-    `INSERT INTO sales (
-       lead_id, company_name, contact_person, phone, email, address,
-       budget_amount, budget_type, sale_date,
-       sold_by_type, sold_by_user_id, sold_by_custom_name, notes, created_by
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, CURRENT_DATE), $10, $11, $12, $13, $14)
-     RETURNING *`,
-    [
-      input.leadId ?? null,
-      companyName,
-      contactPerson,
-      phone,
-      email,
-      address,
-      input.budgetAmount,
-      input.budgetType,
-      input.saleDate ?? null,
-      soldByType,
-      soldByUserId,
-      soldByCustomName,
-      input.notes ?? null,
-      input.creatorId,
-    ],
-  );
-  const sale = rows[0];
+  // The sale number's sequence (per financial year) is read-then-written,
+  // so it's generated and inserted inside one locked transaction to avoid
+  // two concurrent sales landing on the same number.
+  const saleDate = input.saleDate ? new Date(input.saleDate) : new Date();
+  const client = await pool.connect();
+  let sale: SaleRow;
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`sale-number:${financialYearCode(saleDate)}`]);
+    const saleNumber = await nextSaleNumber(client, saleDate);
+
+    const { rows } = await client.query<SaleRow>(
+      `INSERT INTO sales (
+         sale_number, lead_id, company_name, contact_person, phone, email, address,
+         budget_amount, budget_type, sale_date,
+         sold_by_type, sold_by_user_id, sold_by_custom_name, notes, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, CURRENT_DATE), $11, $12, $13, $14, $15)
+       RETURNING *`,
+      [
+        saleNumber,
+        input.leadId ?? null,
+        companyName,
+        contactPerson,
+        phone,
+        email,
+        address,
+        input.budgetAmount,
+        input.budgetType,
+        input.saleDate ?? null,
+        soldByType,
+        soldByUserId,
+        soldByCustomName,
+        input.notes ?? null,
+        input.creatorId,
+      ],
+    );
+    sale = rows[0];
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 
   if (input.serviceIds && input.serviceIds.length > 0) {
     await setSaleServices(pool, { saleId: sale.id, serviceIds: input.serviceIds });

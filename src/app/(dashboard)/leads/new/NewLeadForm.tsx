@@ -25,6 +25,7 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
   const [leadState, setLeadState] = useState("West Bengal");
   const [pincode, setPincode] = useState("");
   const [country, setCountry] = useState("India");
+  const [gstNumber, setGstNumber] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [designation, setDesignation] = useState("");
   const [phone, setPhone] = useState("");
@@ -33,12 +34,12 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
 
   function toggleSameAsWhatsapp(checked: boolean) {
     setPhoneSameAsWhatsapp(checked);
-    if (checked) setPhone(whatsappNumber);
+    if (checked) setWhatsappNumber(phone);
   }
 
-  function handleWhatsappChange(value: string) {
-    setWhatsappNumber(value);
-    if (phoneSameAsWhatsapp) setPhone(value);
+  function handlePhoneChange(value: string) {
+    setPhone(value);
+    if (phoneSameAsWhatsapp) setWhatsappNumber(value);
   }
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
@@ -104,6 +105,7 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
           state: leadState.trim() || undefined,
           pincode: pincode.trim() || undefined,
           country: country.trim() || undefined,
+          gstNumber: gstNumber.trim() || undefined,
           contactPerson: contactPerson.trim() || undefined,
           designation: designation.trim() || undefined,
           phone: phone.trim(),
@@ -237,6 +239,19 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
           />
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="gstNumber" className="text-sm font-medium text-zinc-700">
+            GST Number
+          </label>
+          <input
+            id="gstNumber"
+            type="text"
+            value={gstNumber}
+            onChange={(event) => setGstNumber(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+          />
+        </div>
+
         {duplicates.length > 0 && (
           <div role="alert" className="col-span-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             <p className="font-medium">This looks like it might already be a similar lead:</p>
@@ -293,10 +308,9 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
             id="phone"
             type="text"
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            onChange={(event) => handlePhoneChange(event.target.value)}
             onBlur={checkDuplicates}
-            disabled={phoneSameAsWhatsapp}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:bg-zinc-50 disabled:text-zinc-500"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
@@ -308,8 +322,9 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
             id="whatsappNumber"
             type="text"
             value={whatsappNumber}
-            onChange={(event) => handleWhatsappChange(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            onChange={(event) => setWhatsappNumber(event.target.value)}
+            disabled={phoneSameAsWhatsapp}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:bg-zinc-50 disabled:text-zinc-500"
           />
         </div>
 

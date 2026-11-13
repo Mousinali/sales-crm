@@ -5,6 +5,7 @@ import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
 import Pagination from "@/components/ui/Pagination";
+import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import type { ServiceRow, ServiceStatus } from "@/lib/services/types";
 import { SERVICE_STATUSES } from "@/lib/services/types";
@@ -23,8 +24,10 @@ const STATUS_BADGE_CLASSES: Record<ServiceStatus, string> = {
 export default function ServicesView({ initialServices }: { initialServices: ServiceRow[] }) {
   const [services, setServices] = useState<ServiceRow[]>(initialServices);
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE));
-  const pageServices = services.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [search, setSearch] = useState("");
+  const filteredServices = services.filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
+  const pageServices = filteredServices.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function refetch() {
     const response = await fetch("/api/services");
@@ -138,11 +141,25 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
   return (
     <div className="flex flex-col gap-6">
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 p-4">
           <p className="text-sm text-zinc-500">
             The services leads can select as &ldquo;Service interested&rdquo;. Deactivating one hides it from new
             selections without affecting leads that already have it.
           </p>
+          <div className="relative w-full max-w-xs sm:w-auto">
+            <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search services…"
+              aria-label="Search services"
+              className="w-full rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            />
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <RefreshButton onRefresh={refetch} />
             <button
@@ -173,17 +190,19 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {services.length === 0 && (
+              {filteredServices.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
-                    No services yet.
+                    {services.length === 0 ? "No services yet." : "No services match your search."}
                   </td>
                 </tr>
               )}
               {pageServices.map((service) => (
                 <tr key={service.id} className="transition-colors hover:bg-zinc-50/80">
                   <td data-label="Name" className="px-4 py-3 font-medium text-zinc-900">{service.name}</td>
-                  <td data-label="Description" className="px-4 py-3 text-zinc-600">{service.description ?? "—"}</td>
+                  <td data-label="Description" className="px-4 py-3 text-zinc-600">
+                    {service.description ? <FormattedText text={service.description} /> : "—"}
+                  </td>
                   <td data-label="Status" className="px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[service.status]}`}
@@ -205,7 +224,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
             </tbody>
           </table>
         </div>
-        <Pagination page={page} totalPages={totalPages} total={services.length} onChange={setPage} />
+        <Pagination page={page} totalPages={totalPages} total={filteredServices.length} onChange={setPage} />
       </div>
 
       {createOpen && (
@@ -229,12 +248,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                 <label htmlFor="createServiceDescription" className="text-sm font-medium text-zinc-700">
                   Description
                 </label>
-                <textarea
-                  id="createServiceDescription"
-                  value={createDescription}
-                  onChange={(event) => setCreateDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="createServiceDescription" value={createDescription} onChange={setCreateDescription} />
               </div>
               {createError && (
                 <p role="alert" className="text-sm text-red-600">
@@ -283,12 +297,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                 <label htmlFor="editServiceDescription" className="text-sm font-medium text-zinc-700">
                   Description
                 </label>
-                <textarea
-                  id="editServiceDescription"
-                  value={editDescription}
-                  onChange={(event) => setEditDescription(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="editServiceDescription" value={editDescription} onChange={setEditDescription} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="editServiceStatus" className="text-sm font-medium text-zinc-700">

@@ -1,3 +1,5 @@
+import { FormattedText } from "./RichTextField";
+
 export type TimelineEntry = {
   id: number | string;
   icon: string;
@@ -62,7 +64,7 @@ export default function Timeline({ entries, emptyText }: { entries: TimelineEntr
               <p className="text-sm font-medium text-zinc-900">{entry.title}</p>
               <time className="text-xs text-zinc-400">{formatTimestamp(entry.timestamp, entry.dateOnly)}</time>
             </div>
-            {entry.description && <p className="text-sm text-zinc-600">{entry.description}</p>}
+            {entry.description && <FormattedText text={entry.description} className="text-sm text-zinc-600" />}
             {entry.meta && <p className="text-xs text-zinc-500">{entry.meta}</p>}
           </div>
         </li>

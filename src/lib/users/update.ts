@@ -123,7 +123,7 @@ export async function setUserStatus(
   });
 }
 
-// "Deleting" a user is a soft, one-way archive (like a lead's — see
+// "Deleting" a user is a soft archive (like a lead's — see
 // lib/leads/update.ts), not a hard DELETE: their history (audit logs,
 // authored leads/tasks/etc.) stays intact, they just stop showing up
 // anywhere a user is picked or listed. Requires the account to already be
@@ -132,8 +132,8 @@ export async function setUserStatus(
 export async function archiveUser(pool: Pool, input: { actorId: number; actorRole: Role; targetId: number }): Promise<void> {
   await assertManageable(pool, input.actorRole, input.targetId);
 
-  const { rows } = await pool.query<{ status: "ACTIVE" | "INACTIVE"; archived_at: Date | null }>(
-    "SELECT status, archived_at FROM users WHERE id = $1",
+  const { rows } = await pool.query<{ name: string; status: "ACTIVE" | "INACTIVE"; archived_at: Date | null }>(
+    "SELECT name, status, archived_at FROM users WHERE id = $1",
     [input.targetId],
   );
   const target = rows[0];
@@ -150,5 +150,28 @@ export async function archiveUser(pool: Pool, input: { actorId: number; actorRol
     action: "user.archived",
     targetTable: "users",
     targetId: input.targetId,
+    details: { name: target.name },
+  });
+}
+
+// Restores an archived user back into every list/picker — the mirror of
+// archiveUser above. Their status stays INACTIVE (restoring is just
+// "unhide," not "reactivate"); re-enabling login is still the separate
+// setUserStatus step.
+export async function restoreUser(pool: Pool, input: { actorId: number; actorRole: Role; targetId: number }): Promise<void> {
+  await assertManageable(pool, input.actorRole, input.targetId);
+
+  const { rows } = await pool.query<{ name: string; archived_at: Date | null }>("SELECT name, archived_at FROM users WHERE id = $1", [input.targetId]);
+  const target = rows[0];
+  if (!target || !target.archived_at) return;
+
+  await pool.query("UPDATE users SET archived_at = NULL, updated_at = now() WHERE id = $1", [input.targetId]);
+
+  await recordAuditLog(pool, {
+    actorUserId: input.actorId,
+    action: "user.restored",
+    targetTable: "users",
+    targetId: input.targetId,
+    details: { name: target.name },
   });
 }

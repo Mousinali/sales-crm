@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Pagination from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
+import { toast } from "@/lib/toast";
+import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
 import type { LeadStatus } from "@/lib/leads/types";
@@ -134,6 +136,81 @@ export default function ArchiveView({
     }
   }
 
+  const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
+
+  async function restoreLead(leadId: number) {
+    const key = `lead:${leadId}`;
+    setRestoringIds((current) => new Set(current).add(key));
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+      if (!response.ok) {
+        toast.error("Could not restore lead", await parseErrorMessage(response, "Could not restore lead."));
+        return;
+      }
+      setLeads((current) => current.filter((l) => l.id !== leadId));
+      setLeadsTotal((current) => Math.max(current - 1, 0));
+      toast.success("Lead restored");
+    } catch {
+      toast.error("Could not restore lead");
+    } finally {
+      setRestoringIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  async function restoreCompanyRow(companyNameNormalized: string) {
+    const key = `company:${companyNameNormalized}`;
+    setRestoringIds((current) => new Set(current).add(key));
+    try {
+      const response = await fetch(`/api/companies/${encodeURIComponent(companyNameNormalized)}`, { method: "PATCH" });
+      if (!response.ok) {
+        toast.error("Could not restore company", await parseErrorMessage(response, "Could not restore company."));
+        return;
+      }
+      setCompanies((current) => current.filter((c) => c.company_name_normalized !== companyNameNormalized));
+      setCompaniesTotal((current) => Math.max(current - 1, 0));
+      toast.success("Company restored");
+    } catch {
+      toast.error("Could not restore company");
+    } finally {
+      setRestoringIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  async function restoreUserRow(userId: number) {
+    const key = `user:${userId}`;
+    setRestoringIds((current) => new Set(current).add(key));
+    try {
+      const response = await fetch(`/api/users/${userId}/restore`, { method: "POST" });
+      if (!response.ok) {
+        toast.error("Could not restore user", await parseErrorMessage(response, "Could not restore user."));
+        return;
+      }
+      setUsers((current) => current.filter((u) => u.id !== userId));
+      setUsersTotal((current) => Math.max(current - 1, 0));
+      toast.success("User restored");
+    } catch {
+      toast.error("Could not restore user");
+    } finally {
+      setRestoringIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
   function openTab(next: Tab) {
     setTab(next);
     if (next === "companies" && !companiesLoaded.current) {
@@ -149,13 +226,14 @@ export default function ArchiveView({
   // Each tab's search is debounced independently, and only re-fetches
   // while that tab is the one actually open — switching tabs never fires
   // a request for a view you can't currently see.
+  // Compared against the mount-time value (not a ran-once flag) so React
+  // Strict Mode's double effect-invocation in dev can't trip these into
+  // firing on mount anyway.
   const debouncedLeadsSearch = useDebouncedValue(leadsSearch, 350);
-  const skipLeadsSearch = useRef(true);
+  const lastLeadsSearch = useRef(debouncedLeadsSearch);
   useEffect(() => {
-    if (skipLeadsSearch.current) {
-      skipLeadsSearch.current = false;
-      return;
-    }
+    if (lastLeadsSearch.current === debouncedLeadsSearch) return;
+    lastLeadsSearch.current = debouncedLeadsSearch;
     if (tab !== "leads") return;
     // Same debounced-refetch-on-search shape as Team/Companies' own list
     // views; react-hooks v7's set-state-in-effect rule only misfires here
@@ -167,24 +245,20 @@ export default function ArchiveView({
   }, [debouncedLeadsSearch]);
 
   const debouncedCompaniesSearch = useDebouncedValue(companiesSearch, 350);
-  const skipCompaniesSearch = useRef(true);
+  const lastCompaniesSearch = useRef(debouncedCompaniesSearch);
   useEffect(() => {
-    if (skipCompaniesSearch.current) {
-      skipCompaniesSearch.current = false;
-      return;
-    }
+    if (lastCompaniesSearch.current === debouncedCompaniesSearch) return;
+    lastCompaniesSearch.current = debouncedCompaniesSearch;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === "companies") void fetchCompanies(1, debouncedCompaniesSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCompaniesSearch]);
 
   const debouncedUsersSearch = useDebouncedValue(usersSearch, 350);
-  const skipUsersSearch = useRef(true);
+  const lastUsersSearch = useRef(debouncedUsersSearch);
   useEffect(() => {
-    if (skipUsersSearch.current) {
-      skipUsersSearch.current = false;
-      return;
-    }
+    if (lastUsersSearch.current === debouncedUsersSearch) return;
+    lastUsersSearch.current = debouncedUsersSearch;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === "users") void fetchUsers(1, debouncedUsersSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,12 +325,13 @@ export default function ArchiveView({
                   <th scope="col" className="px-4 py-3 text-left">Contact</th>
                   <th scope="col" className="px-4 py-3 text-left">Status</th>
                   <th scope="col" className="px-4 py-3 text-left">Archived</th>
+                  <th scope="col" className="px-4 py-3 text-left"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {leads.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">No archived leads.</td>
+                    <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">No archived leads.</td>
                   </tr>
                 )}
                 {leads.map((lead) => (
@@ -273,6 +348,16 @@ export default function ArchiveView({
                       </span>
                     </td>
                     <td data-label="Archived" className="px-4 py-3 text-zinc-500">{formatDate(lead.archived_at)}</td>
+                    <td data-label="" className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => restoreLead(lead.id)}
+                        disabled={restoringIds.has(`lead:${lead.id}`)}
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Restore
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -296,12 +381,13 @@ export default function ArchiveView({
                   <th scope="col" className="px-4 py-3 text-left">Company</th>
                   <th scope="col" className="px-4 py-3 text-left">Leads</th>
                   <th scope="col" className="px-4 py-3 text-left">Last activity</th>
+                  <th scope="col" className="px-4 py-3 text-left"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {companies.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-zinc-500">No archived companies.</td>
+                    <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">No archived companies.</td>
                   </tr>
                 )}
                 {companies.map((company) => (
@@ -313,6 +399,16 @@ export default function ArchiveView({
                     </td>
                     <td data-label="Leads" className="px-4 py-3 text-zinc-700">{company.lead_count}</td>
                     <td data-label="Last activity" className="px-4 py-3 text-zinc-500">{formatDate(company.latest_lead_at)}</td>
+                    <td data-label="" className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => restoreCompanyRow(company.company_name_normalized)}
+                        disabled={restoringIds.has(`company:${company.company_name_normalized}`)}
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Restore
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -337,12 +433,13 @@ export default function ArchiveView({
                   <th scope="col" className="px-4 py-3 text-left">Role</th>
                   <th scope="col" className="px-4 py-3 text-left">Email</th>
                   <th scope="col" className="px-4 py-3 text-left">Archived</th>
+                  <th scope="col" className="px-4 py-3 text-left"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">No archived users.</td>
+                    <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">No archived users.</td>
                   </tr>
                 )}
                 {users.map((u) => (
@@ -355,6 +452,16 @@ export default function ArchiveView({
                     </td>
                     <td data-label="Email" className="px-4 py-3 text-zinc-700">{u.email}</td>
                     <td data-label="Archived" className="px-4 py-3 text-zinc-500">{formatDate(u.archived_at)}</td>
+                    <td data-label="" className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => restoreUserRow(u.id)}
+                        disabled={restoringIds.has(`user:${u.id}`)}
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Restore
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

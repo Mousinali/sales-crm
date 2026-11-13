@@ -70,7 +70,15 @@ describe("createSale", () => {
     expect(sale.sale_date).toBe(new Date().toISOString().slice(0, 10));
   });
 
-  it("ignores a Salesperson's own soldByType choice and credits them anyway", async () => {
+  it("assigns each sale a unique, sequential TS-prefixed sale number", async () => {
+    const a = await createSale(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Seq Co A", budgetAmount: 1, budgetType: "ONE_TIME" });
+    const b = await createSale(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Seq Co B", budgetAmount: 1, budgetType: "ONE_TIME" });
+    saleIds.push(a.id, b.id);
+    expect(a.sale_number).toMatch(/^TS\d{6,}$/);
+    expect(b.sale_number).not.toBe(a.sale_number);
+  });
+
+  it("lets a Salesperson credit the sale to a custom name instead of themself", async () => {
     const sale = await createSale(pool, {
       creatorId: salespersonId,
       creatorRole: "SALESPERSON",
@@ -81,9 +89,9 @@ describe("createSale", () => {
       soldByCustomName: "Someone Else",
     });
     saleIds.push(sale.id);
-    expect(sale.sold_by_type).toBe("SALESPERSON");
-    expect(sale.sold_by_user_id).toBe(salespersonId);
-    expect(sale.sold_by_custom_name).toBeNull();
+    expect(sale.sold_by_type).toBe("CUSTOM");
+    expect(sale.sold_by_user_id).toBeNull();
+    expect(sale.sold_by_custom_name).toBe("Someone Else");
   });
 
   it("lets a Marketing Head credit a sale to themself, a custom name, or a specific Pre-sales/Salesperson user", async () => {

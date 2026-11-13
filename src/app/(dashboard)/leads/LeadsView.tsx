@@ -14,6 +14,7 @@ import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import RichTextField from "@/components/ui/RichTextField";
 import {
   LEAD_SOURCES,
   LEAD_PRIORITIES,
@@ -184,15 +185,14 @@ export default function LeadsView({
   }
 
   // Re-searches automatically once typing pauses, instead of making the
-  // user click Apply filters — the initial mount's "pause" is skipped so
-  // it doesn't immediately re-fetch the page the server already rendered.
+  // user click Apply filters — compared against the mount-time value
+  // (not a ran-once flag) so React Strict Mode's double effect-invocation
+  // in dev can't trip this into firing on mount anyway.
   const debouncedSearch = useDebouncedValue(search, 350);
-  const skippedFirstSearch = useRef(false);
+  const lastSearch = useRef(debouncedSearch);
   useEffect(() => {
-    if (!skippedFirstSearch.current) {
-      skippedFirstSearch.current = true;
-      return;
-    }
+    if (lastSearch.current === debouncedSearch) return;
+    lastSearch.current = debouncedSearch;
     void refetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
@@ -1202,14 +1202,7 @@ export default function LeadsView({
                 >
                   Reason
                 </label>
-                <textarea
-                  id="bulkTransferReason"
-                  value={bulkTransferReason}
-                  onChange={(event) =>
-                    setBulkTransferReason(event.target.value)
-                  }
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <RichTextField id="bulkTransferReason" value={bulkTransferReason} onChange={setBulkTransferReason} />
               </div>
 
               {bulkTransferError && (

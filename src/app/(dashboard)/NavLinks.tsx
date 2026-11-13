@@ -129,7 +129,7 @@ function NavGroup({
       >
         <span className="flex items-center gap-3">
           <i
-            className={`${item.icon} ${ICON_BOX} text-lg transition-colors duration-150 ${
+            className={`${item.icon} ${ICON_BOX} text-lg font-normal transition-colors duration-150 ${
               childActive ? "text-brand-600" : "text-zinc-400 group-hover:text-zinc-600"
             }`}
             aria-hidden="true"
@@ -160,9 +160,6 @@ function NavGroup({
         aria-hidden={!open}
       >
         <div className="relative flex flex-col gap-1 overflow-hidden">
-          {/* A thin guide line under the indented children ties them back
-              to their parent row instead of just floating at an indent. */}
-          <div className="absolute top-0 bottom-2 left-[1.15rem] w-px bg-sidebar-border" aria-hidden="true" />
           {children.map((child) => (
             <Link
               key={child.href}

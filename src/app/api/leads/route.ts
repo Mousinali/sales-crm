@@ -23,6 +23,7 @@ const createLeadSchema = z.object({
   state: z.string().trim().min(1).optional(),
   pincode: z.string().trim().min(1).optional(),
   country: z.string().trim().min(1).optional(),
+  gstNumber: z.string().trim().min(1).optional(),
   serviceRequirements: z.string().trim().min(1).optional(),
   serviceIds: z.array(z.number().int()).min(1),
   estimatedBudget: z.number().optional(),

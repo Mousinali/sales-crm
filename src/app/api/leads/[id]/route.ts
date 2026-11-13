@@ -25,6 +25,7 @@ const updateLeadSchema = z
     state: z.string().trim().min(1).optional(),
     pincode: z.string().trim().min(1).optional(),
     country: z.string().trim().min(1).optional(),
+    gstNumber: z.string().trim().min(1).optional(),
     serviceRequirements: z.string().trim().min(1).optional(),
     serviceIds: z.array(z.number().int()).min(1).optional(),
     estimatedBudget: z.number().optional(),
@@ -38,7 +39,7 @@ const updateLeadSchema = z
     facebookUrl: z.string().trim().url().optional(),
     instagramUrl: z.string().trim().url().optional(),
     linkedinUrl: z.string().trim().url().optional(),
-    archived: z.literal(true).optional(),
+    archived: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "No fields to update" });
 

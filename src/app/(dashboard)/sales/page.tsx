@@ -6,14 +6,14 @@ import PageHeading from "@/components/ui/PageHeading";
 import SalesView from "./SalesView";
 
 export default async function SalesPage() {
-  const user = await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
 
   const result = await listSalesPage(pool, user, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 
   return (
     <div>
       <PageHeading title="Sales" count={result.total} crumbs={[{ label: "Sales" }]} />
-      <SalesView initialSales={result.items} initialTotal={result.total} initialTotalPages={result.totalPages} />
+      <SalesView initialSales={result.items} initialTotal={result.total} initialTotalPages={result.totalPages} viewerRole={user.role} />
     </div>
   );
 }

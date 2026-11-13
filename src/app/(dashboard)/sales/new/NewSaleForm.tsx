@@ -4,9 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
-import { SALE_BUDGET_TYPES, SALE_PAYMENT_METHODS, type SaleBudgetType, type SaleSoldByType, type SalePaymentMethod } from "@/lib/sales/types";
-import type { Role } from "@/lib/auth/roles";
+import { SALE_BUDGET_TYPES, type SaleBudgetType, type SaleSoldByType } from "@/lib/sales/types";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
+import RichTextField from "@/components/ui/RichTextField";
 import type { ServiceRow } from "@/lib/services/types";
 
 const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
@@ -16,15 +16,6 @@ const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
   ADVANCE: "Advance",
 };
 
-const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
-  CASH: "Cash",
-  CHEQUE: "Cheque",
-  UPI: "UPI",
-  BANK_TRANSFER: "Bank transfer",
-  CARD: "Card",
-  OTHER: "Other",
-};
-
 type SimpleLead = { id: number; company_name: string };
 type SimpleUser = { id: number; name: string };
 
@@ -32,11 +23,11 @@ function todayDateInput(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole: Role; serviceOptions: ServiceRow[] }) {
+export default function NewSaleForm({ serviceOptions }: { serviceOptions: ServiceRow[] }) {
   const router = useRouter();
-  const isMarketingHead = viewerRole === "MARKETING_HEAD";
 
-  // Company: either chosen from the lead list, or typed fresh.
+  // Company: either chosen from the lead list (which fills the fields below
+  // from that lead, still editable for this sale) or typed fresh.
   const [leadOptions, setLeadOptions] = useState<SimpleLead[]>([]);
   const [leadId, setLeadId] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -51,15 +42,8 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
   const [saleDate, setSaleDate] = useState(todayDateInput());
   const [notes, setNotes] = useState("");
 
-  // An advance/first payment can be recorded right away — optional, since
-  // not every sale is paid anything up front.
-  const [initialPaymentAmount, setInitialPaymentAmount] = useState("");
-  const [initialPaymentMethod, setInitialPaymentMethod] = useState<SalePaymentMethod>("CASH");
-
-  // "Sold by" attribution is only a Marketing Head's choice (req: "if
-  // marketing can add sales also can mention the sales by..."); a Pre-sales
-  // or Salesperson recording their own sale is always the one who sold it,
-  // enforced server-side regardless of what this form sends.
+  // "Sold by" defaults to self but anyone recording a sale can credit it
+  // to someone else instead.
   const [soldByType, setSoldByType] = useState<SaleSoldByType>("SELF");
   const [soldByUserId, setSoldByUserId] = useState("");
   const [soldByCustomName, setSoldByCustomName] = useState("");
@@ -79,7 +63,6 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
   }, []);
 
   useEffect(() => {
-    if (!isMarketingHead) return;
     fetch("/api/users?role=PRE_SALES&status=ACTIVE")
       .then((res) => (res.ok ? res.json() : { users: [] }))
       .then((body) => setPreSalesOptions(body.users ?? []))
@@ -88,7 +71,41 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
       .then((res) => (res.ok ? res.json() : { users: [] }))
       .then((body) => setSalespersonOptions(body.users ?? []))
       .catch(() => {});
-  }, [isMarketingHead]);
+  }, []);
+
+  // Picking a lead fills the company fields, its estimated budget, and its
+  // interested services from that lead's record — still editable here, and
+  // more services can be added on top, without changing the lead itself.
+  useEffect(() => {
+    if (!leadId) return;
+    fetch(`/api/leads/${leadId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (
+          lead: {
+            company_name: string;
+            contact_person: string | null;
+            phone: string | null;
+            email: string | null;
+            address: string | null;
+            estimated_budget: string | null;
+            budget_type: SaleBudgetType | null;
+            services?: ServiceRow[];
+          } | null,
+        ) => {
+          if (!lead) return;
+          setCompanyName(lead.company_name ?? "");
+          setContactPerson(lead.contact_person ?? "");
+          setPhone(lead.phone ?? "");
+          setEmail(lead.email ?? "");
+          setAddress(lead.address ?? "");
+          if (lead.estimated_budget != null) setBudgetAmount(lead.estimated_budget);
+          if (lead.budget_type) setBudgetType(lead.budget_type);
+          setSelectedServiceIds(lead.services ? lead.services.map((s) => s.id) : []);
+        },
+      )
+      .catch(() => {});
+  }, [leadId]);
 
   async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,15 +119,13 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
       setCreateError("Enter a budget amount greater than 0.");
       return;
     }
-    if (isMarketingHead) {
-      if (soldByType === "CUSTOM" && !soldByCustomName.trim()) {
-        setCreateError("Enter a name for who sold this.");
-        return;
-      }
-      if ((soldByType === "PRE_SALES" || soldByType === "SALESPERSON") && !soldByUserId) {
-        setCreateError(`Choose a ${soldByType === "PRE_SALES" ? "Pre-sales" : "Salesperson"} user.`);
-        return;
-      }
+    if (soldByType === "CUSTOM" && !soldByCustomName.trim()) {
+      setCreateError("Enter a name for who sold this.");
+      return;
+    }
+    if ((soldByType === "PRE_SALES" || soldByType === "SALESPERSON") && !soldByUserId) {
+      setCreateError(`Choose a ${soldByType === "PRE_SALES" ? "Pre-sales" : "Salesperson"} user.`);
+      return;
     }
 
     setCreateError(null);
@@ -122,25 +137,19 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           leadId: leadId ? Number(leadId) : undefined,
-          companyName: leadId ? undefined : companyName.trim(),
-          contactPerson: leadId ? undefined : contactPerson.trim() || undefined,
-          phone: leadId ? undefined : phone.trim() || undefined,
-          email: leadId ? undefined : email.trim() || undefined,
-          address: leadId ? undefined : address.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          contactPerson: contactPerson.trim() || undefined,
+          phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
+          address: address.trim() || undefined,
           serviceIds: selectedServiceIds.length > 0 ? selectedServiceIds : undefined,
           budgetAmount: amount,
           budgetType,
           saleDate: saleDate || undefined,
           notes: notes.trim() || undefined,
-          initialPaymentAmount: initialPaymentAmount.trim() ? Number(initialPaymentAmount) : undefined,
-          initialPaymentMethod: initialPaymentAmount.trim() ? initialPaymentMethod : undefined,
-          ...(isMarketingHead
-            ? {
-                soldByType,
-                soldByUserId: soldByUserId ? Number(soldByUserId) : undefined,
-                soldByCustomName: soldByType === "CUSTOM" ? soldByCustomName.trim() : undefined,
-              }
-            : {}),
+          soldByType,
+          soldByUserId: soldByUserId ? Number(soldByUserId) : undefined,
+          soldByCustomName: soldByType === "CUSTOM" ? soldByCustomName.trim() : undefined,
         }),
       });
 
@@ -186,74 +195,70 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
           </select>
         </div>
 
-        {!leadId && (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="companyName" className="text-sm font-medium text-zinc-700">
-                Company name
-              </label>
-              <input
-                id="companyName"
-                type="text"
-                value={companyName}
-                onChange={(event) => setCompanyName(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="companyName" className="text-sm font-medium text-zinc-700">
+            Company name
+          </label>
+          <input
+            id="companyName"
+            type="text"
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="contactPerson" className="text-sm font-medium text-zinc-700">
-                Contact person
-              </label>
-              <input
-                id="contactPerson"
-                type="text"
-                value={contactPerson}
-                onChange={(event) => setContactPerson(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="contactPerson" className="text-sm font-medium text-zinc-700">
+            Contact person
+          </label>
+          <input
+            id="contactPerson"
+            type="text"
+            value={contactPerson}
+            onChange={(event) => setContactPerson(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="phone" className="text-sm font-medium text-zinc-700">
-                Phone
-              </label>
-              <input
-                id="phone"
-                type="text"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="phone" className="text-sm font-medium text-zinc-700">
+            Phone
+          </label>
+          <input
+            id="phone"
+            type="text"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="email" className="text-sm font-medium text-zinc-700">
-                Email
-              </label>
-              <input
-                id="email"
-                type="text"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="email" className="text-sm font-medium text-zinc-700">
+            Email
+          </label>
+          <input
+            id="email"
+            type="text"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="address" className="text-sm font-medium text-zinc-700">
-                Address
-              </label>
-              <input
-                id="address"
-                type="text"
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
-          </>
-        )}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="address" className="text-sm font-medium text-zinc-700">
+            Address
+          </label>
+          <input
+            id="address"
+            type="text"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
 
         <div className="col-span-3 flex flex-col gap-1.5">
           <label htmlFor="serviceInterested" className="text-sm font-medium text-zinc-700">
@@ -314,113 +319,68 @@ export default function NewSaleForm({ viewerRole, serviceOptions }: { viewerRole
           />
         </div>
 
-        <div className="col-span-3 grid grid-cols-3 gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <p className="col-span-3 text-xs font-medium text-zinc-500">Record a payment now (optional — e.g. an advance)</p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="soldByType" className="text-sm font-medium text-zinc-700">
+            Sold by
+          </label>
+          <select
+            id="soldByType"
+            value={soldByType}
+            onChange={(event) => {
+              setSoldByType(event.target.value as SaleSoldByType);
+              setSoldByUserId("");
+              setSoldByCustomName("");
+            }}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          >
+            <option value="SELF">Myself</option>
+            <option value="CUSTOM">Custom name</option>
+            <option value="PRE_SALES">Pre-sales user</option>
+            <option value="SALESPERSON">Salesperson</option>
+          </select>
+        </div>
+
+        {soldByType === "CUSTOM" && (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="initialPaymentAmount" className="text-sm font-medium text-zinc-700">
-              Amount
+            <label htmlFor="soldByCustomName" className="text-sm font-medium text-zinc-700">
+              Name
             </label>
             <input
-              id="initialPaymentAmount"
-              type="number"
-              min="0"
-              step="any"
-              value={initialPaymentAmount}
-              onChange={(event) => setInitialPaymentAmount(event.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              id="soldByCustomName"
+              type="text"
+              value={soldByCustomName}
+              onChange={(event) => setSoldByCustomName(event.target.value)}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
+        )}
+
+        {(soldByType === "PRE_SALES" || soldByType === "SALESPERSON") && (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="initialPaymentMethod" className="text-sm font-medium text-zinc-700">
-              Payment method
+            <label htmlFor="soldByUserId" className="text-sm font-medium text-zinc-700">
+              {soldByType === "PRE_SALES" ? "Pre-sales user" : "Salesperson"}
             </label>
             <select
-              id="initialPaymentMethod"
-              value={initialPaymentMethod}
-              onChange={(event) => setInitialPaymentMethod(event.target.value as SalePaymentMethod)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              id="soldByUserId"
+              value={soldByUserId}
+              onChange={(event) => setSoldByUserId(event.target.value)}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             >
-              {SALE_PAYMENT_METHODS.map((method) => (
-                <option key={method} value={method}>
-                  {PAYMENT_METHOD_LABELS[method]}
+              <option value="">Select…</option>
+              {(soldByType === "PRE_SALES" ? preSalesOptions : salespersonOptions).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
                 </option>
               ))}
             </select>
           </div>
-        </div>
-
-        {isMarketingHead && (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="soldByType" className="text-sm font-medium text-zinc-700">
-                Sold by
-              </label>
-              <select
-                id="soldByType"
-                value={soldByType}
-                onChange={(event) => {
-                  setSoldByType(event.target.value as SaleSoldByType);
-                  setSoldByUserId("");
-                  setSoldByCustomName("");
-                }}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                <option value="SELF">Myself</option>
-                <option value="CUSTOM">Custom name</option>
-                <option value="PRE_SALES">Pre-sales user</option>
-                <option value="SALESPERSON">Salesperson</option>
-              </select>
-            </div>
-
-            {soldByType === "CUSTOM" && (
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="soldByCustomName" className="text-sm font-medium text-zinc-700">
-                  Name
-                </label>
-                <input
-                  id="soldByCustomName"
-                  type="text"
-                  value={soldByCustomName}
-                  onChange={(event) => setSoldByCustomName(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-            )}
-
-            {(soldByType === "PRE_SALES" || soldByType === "SALESPERSON") && (
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="soldByUserId" className="text-sm font-medium text-zinc-700">
-                  {soldByType === "PRE_SALES" ? "Pre-sales user" : "Salesperson"}
-                </label>
-                <select
-                  id="soldByUserId"
-                  value={soldByUserId}
-                  onChange={(event) => setSoldByUserId(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                >
-                  <option value="">Select…</option>
-                  {(soldByType === "PRE_SALES" ? preSalesOptions : salespersonOptions).map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </>
         )}
 
         <div className="col-span-3 flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-medium text-zinc-700">
             Notes
           </label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={3}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
+          <RichTextField id="notes" value={notes} onChange={setNotes} rows={3} />
         </div>
 
         {createError && (

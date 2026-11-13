@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "migrate": "tsx scripts/migrate.ts",
-    "seed:admin": "tsx scripts/seed-super-admin.ts"
+    "seed:admin": "tsx scripts/seed-super-admin.ts",
+    "seed:demo": "tsx scripts/seed-demo-data.ts"
   },
   "dependencies": {
     "ag-charts-community": "^14.3.0",
