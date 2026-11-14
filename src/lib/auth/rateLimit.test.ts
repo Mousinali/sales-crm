@@ -108,4 +108,17 @@ describe("getRetryAfterSeconds", () => {
     vi.setSystemTime(windowMs + 1);
     expect(getRetryAfterSeconds("email:limited", windowMs)).toBe(0);
   });
+
+  it("falls back to the admission window's remaining time for a key blocked by the new-key flood throttle, instead of 0", () => {
+    // This key was never admitted into `attempts` at all — it was
+    // rejected at the door by the flood throttle — so the per-key branch
+    // above can't see it. Without the fallback this silently returned 0.
+    for (let i = 0; i < 500; i++) checkRateLimit(`email:flood-key-${i}`, 5, 10 * 60_000);
+    expect(checkRateLimit("email:brand-new", 5, 10 * 60_000)).toBe(false);
+
+    expect(getRetryAfterSeconds("email:brand-new", 10 * 60_000)).toBe(60);
+
+    vi.setSystemTime(45_000); // 45s into the 60s admission window
+    expect(getRetryAfterSeconds("email:brand-new", 10 * 60_000)).toBe(15);
+  });
 });

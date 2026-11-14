@@ -55,7 +55,12 @@ export async function createTask(
   return rows[0];
 }
 
-type TaskFilters = { status?: TaskStatus; dueWithin?: "TODAY" | "OVERDUE" | "UPCOMING" };
+type TaskFilters = {
+  status?: TaskStatus;
+  dueWithin?: "TODAY" | "OVERDUE" | "UPCOMING";
+  /** Only with dueWithin: "UPCOMING" — narrows it to a dashboard period's forward horizon instead of every future task. */
+  upcomingUntil?: Date;
+};
 
 // Shared by `listTasks` (dashboards want every matching row) and
 // `listTasksPage` (the Tasks table), so visibility/filter rules can't drift.
@@ -76,7 +81,13 @@ function buildTasksWhere(viewer: { id: number; role: Role }, filters: TaskFilter
   }
   if (filters.dueWithin === "OVERDUE") conditions.push(`due_at < now()`);
   if (filters.dueWithin === "TODAY") conditions.push(`due_at::date = current_date`);
-  if (filters.dueWithin === "UPCOMING") conditions.push(`due_at > now() AND due_at::date != current_date`);
+  if (filters.dueWithin === "UPCOMING") {
+    conditions.push(`due_at > now() AND due_at::date != current_date`);
+    if (filters.upcomingUntil) {
+      params.push(filters.upcomingUntil);
+      conditions.push(`due_at <= $${params.length}`);
+    }
+  }
   // A finished task has no more "overdue/today/upcoming" to report — without
   // this, every completed/cancelled task would sit on these lists forever.
   if (filters.dueWithin !== undefined) conditions.push(`status IN ('PENDING', 'IN_PROGRESS')`);

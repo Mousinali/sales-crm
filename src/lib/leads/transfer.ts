@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "./guard";
 import { recordLeadActivity } from "./activities";
-import { assertActiveUserWithRole } from "./assign";
+import { assertActiveUserWithRole, ASSIGNABLE_STATUSES } from "./assign";
 import { LeadActionNotAllowedError, InvalidLeadReasonError } from "./errors";
 import type { LeadRow } from "./types";
 import { recordNotification } from "@/lib/notifications/record";
@@ -48,9 +48,9 @@ export async function transferLead(
   const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
 
   const requiresQualified = input.newSalespersonOwnerId !== undefined;
-  if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+  if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
     throw new LeadActionNotAllowedError(
-      `Lead ${input.leadId} must be qualified or converted before its Salesperson owner can be transferred (status: ${lead.status})`,
+      `Lead ${input.leadId} must be qualified, converted, or closed before its Salesperson owner can be transferred (status: ${lead.status})`,
     );
   }
 
@@ -84,13 +84,13 @@ export async function transferLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
+       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
        RETURNING *`,
       [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, input.leadId],
     );
     updatedLead = rows[0];
     if (!updatedLead) {
-      throw new LeadActionNotAllowedError(`Lead ${input.leadId} is no longer qualified or converted`);
+      throw new LeadActionNotAllowedError(`Lead ${input.leadId} is no longer in an assignable status`);
     }
 
     await client.query(
@@ -163,9 +163,9 @@ export async function bulkTransferLeads(
   const previousLeads: LeadRow[] = [];
   for (const leadId of input.leadIds) {
     const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, leadId);
-    if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+    if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
       throw new LeadActionNotAllowedError(
-        `Lead ${leadId} must be qualified or converted before its Salesperson owner can be transferred (status: ${lead.status})`,
+        `Lead ${leadId} must be qualified, converted, or closed before its Salesperson owner can be transferred (status: ${lead.status})`,
       );
     }
     previousLeads.push(lead);
@@ -182,13 +182,13 @@ export async function bulkTransferLeads(
          SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
              pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
              updated_at = now()
-         WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
+         WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
          RETURNING *`,
         [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, lead.id],
       );
       const updatedLead = rows[0];
       if (!updatedLead) {
-        throw new LeadActionNotAllowedError(`Lead ${lead.id} is no longer qualified or converted`);
+        throw new LeadActionNotAllowedError(`Lead ${lead.id} is no longer in an assignable status`);
       }
       updatedLeads.push(updatedLead);
 

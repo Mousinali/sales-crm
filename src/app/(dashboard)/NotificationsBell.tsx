@@ -184,7 +184,11 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
       type="button"
       aria-label="Notifications"
       onClick={() => setOpen((value) => !value)}
-      className="relative flex h-10 w-10 items-center justify-center rounded-full text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-400"
+      className={`relative flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-brand-400 ${
+        variant === "mobile"
+          ? "text-sidebar-muted hover:bg-sidebar-elevated hover:text-sidebar-foreground"
+          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+      }`}
     >
       <i className="ri-notification-3-line text-lg" aria-hidden="true" />
       {!muted && unreadCount > 0 && (

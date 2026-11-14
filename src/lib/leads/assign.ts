@@ -6,6 +6,57 @@ import { LeadActionNotAllowedError } from "./errors";
 import type { LeadRow } from "./types";
 import { recordNotification } from "@/lib/notifications/record";
 
+// Shared with transfer.ts's identical gate — a Salesperson can only be
+// (re)assigned once a lead has actually been vetted, through to either
+// closed outcome.
+export const ASSIGNABLE_STATUSES = new Set(["QUALIFIED", "CONVERTED", "CLOSED_WON", "CLOSED_LOST"]);
+
+// A readable "who changed to whom" sentence for the lead's Activity tab —
+// the previous notes just dumped the new owner IDs (and only the new
+// ones, so re-assigning the same salesperson looked identical to actually
+// changing it), which is unreadable and tells a viewer nothing about what
+// actually happened.
+async function describeAssignmentChange(
+  pool: Pool,
+  change: {
+    previousSalespersonOwnerId: number | null;
+    newSalespersonOwnerId: number | null;
+    previousPreSalesOwnerId: number | null;
+    newPreSalesOwnerId: number | null;
+  },
+): Promise<string> {
+  const ids = [
+    change.previousSalespersonOwnerId,
+    change.newSalespersonOwnerId,
+    change.previousPreSalesOwnerId,
+    change.newPreSalesOwnerId,
+  ].filter((id): id is number => id !== null);
+
+  const namesById = new Map<number, string>();
+  if (ids.length > 0) {
+    const { rows } = await pool.query<{ id: number; name: string }>("SELECT id, name FROM users WHERE id = ANY($1::int[])", [ids]);
+    for (const row of rows) namesById.set(row.id, row.name);
+  }
+  const nameOf = (id: number | null) => (id === null ? null : (namesById.get(id) ?? `user #${id}`));
+
+  const parts: string[] = [];
+  if (change.newSalespersonOwnerId !== change.previousSalespersonOwnerId) {
+    parts.push(
+      change.previousSalespersonOwnerId === null
+        ? `Salesperson set to ${nameOf(change.newSalespersonOwnerId)}`
+        : `Salesperson changed from ${nameOf(change.previousSalespersonOwnerId)} to ${nameOf(change.newSalespersonOwnerId)}`,
+    );
+  }
+  if (change.newPreSalesOwnerId !== change.previousPreSalesOwnerId) {
+    parts.push(
+      change.previousPreSalesOwnerId === null
+        ? `Pre-sales owner set to ${nameOf(change.newPreSalesOwnerId)}`
+        : `Pre-sales owner changed from ${nameOf(change.previousPreSalesOwnerId)} to ${nameOf(change.newPreSalesOwnerId)}`,
+    );
+  }
+  return parts.length > 0 ? parts.join("; ") : "Assignment confirmed (no ownership change)";
+}
+
 export async function assertActiveUserWithRole(pool: Pool, userId: number, role: Role): Promise<void> {
   const { rows } = await pool.query<{ role: Role; status: "ACTIVE" | "INACTIVE" }>(
     "SELECT role, status FROM users WHERE id = $1",
@@ -32,14 +83,17 @@ export async function assignLead(
   }
 
   const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
-  // Only a Salesperson assignment is gated on Qualified/Converted (req.md
-  // §6.1 step 5). Changing the Pre-sales owner has no such gate — §3.3/§6.2
-  // let a Marketing Head "change the Pre-sales owner when needed" at any
-  // point, including on a lead that's still Pending Review.
+  // Only a Salesperson assignment is gated (req.md §6.1 step 5) — a lead
+  // has to have been vetted before it's handed to a Salesperson at all.
+  // Once it has (Qualified/Converted, or further on to a closed outcome —
+  // a won/lost deal can still need its Salesperson corrected or handed
+  // over), it stays assignable. Changing the Pre-sales owner has no such
+  // gate — §3.3/§6.2 let a Marketing Head "change the Pre-sales owner when
+  // needed" at any point, including on a lead that's still Pending Review.
   const requiresQualified = input.salespersonId !== undefined;
-  if (requiresQualified && lead.status !== "QUALIFIED" && lead.status !== "CONVERTED") {
+  if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
     throw new LeadActionNotAllowedError(
-      `Lead ${input.leadId} must be qualified or converted before it can be assigned a Salesperson (status: ${lead.status})`,
+      `Lead ${input.leadId} must be qualified, converted, or closed before it can be assigned a Salesperson (status: ${lead.status})`,
     );
   }
 
@@ -69,7 +123,7 @@ export async function assignLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED')" : ""}
+       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
        RETURNING *`,
       [input.salespersonId ?? null, input.preSalesOwnerId ?? null, input.leadId],
     );
@@ -79,7 +133,7 @@ export async function assignLead(
       // changed between that read and this write (e.g. another Marketing
       // Head rejected it concurrently) — the WHERE clause is the real
       // guard against that race; the earlier check is just a fast path.
-      throw new LeadActionNotAllowedError(`Lead ${input.leadId} is no longer qualified or converted`);
+      throw new LeadActionNotAllowedError(`Lead ${input.leadId} is no longer in an assignable status`);
     }
 
     await client.query(
@@ -94,7 +148,12 @@ export async function assignLead(
       leadId: input.leadId,
       actorId: input.actorId,
       type: "ASSIGNMENT",
-      notes: `Assigned pre-sales owner ${updatedLead.pre_sales_owner_id ?? "unchanged"}, salesperson ${updatedLead.salesperson_owner_id ?? "unchanged"}`,
+      notes: await describeAssignmentChange(pool, {
+        previousSalespersonOwnerId,
+        newSalespersonOwnerId: updatedLead.salesperson_owner_id,
+        previousPreSalesOwnerId,
+        newPreSalesOwnerId: updatedLead.pre_sales_owner_id,
+      }),
     });
 
     if (updatedLead.salesperson_owner_id !== null && updatedLead.salesperson_owner_id !== previousSalespersonOwnerId) {

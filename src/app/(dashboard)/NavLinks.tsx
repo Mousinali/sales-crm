@@ -18,7 +18,7 @@ const ROW_BASE =
   "group flex items-center rounded-lg py-2 text-sm font-medium outline-none transition-colors duration-150 " +
   "focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar";
 const ROW_ACTIVE = "bg-brand-50 text-brand-700";
-const ROW_INACTIVE = "text-zinc-600 hover:bg-sidebar-elevated hover:text-zinc-900 active:bg-sidebar-elevated/80";
+const ROW_INACTIVE = "text-sidebar-muted hover:bg-sidebar-elevated hover:text-sidebar-foreground active:bg-sidebar-elevated/80";
 
 // Remix icon glyphs don't all occupy the same natural width, so without a
 // fixed-width box around each one, every row's label starts at a slightly
@@ -29,7 +29,7 @@ const ICON_BOX = "inline-flex w-5 shrink-0 justify-center";
 function Badge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sidebar-elevated px-1.5 py-0.5 text-xs font-medium text-zinc-600">
+    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sidebar-elevated px-1.5 py-0.5 text-xs font-medium text-sidebar-muted">
       {count}
     </span>
   );
@@ -67,7 +67,7 @@ export default function NavLinks({ navItems, onNavigate }: { navItems: NavItem[]
   function iconClasses(href: string) {
     // Inactive icons darken on hover (group-hover) so the whole row
     // feels like one responsive control, not just a text color swap.
-    return isActive(href) ? "text-brand-600" : "text-zinc-400 group-hover:text-zinc-600";
+    return isActive(href) ? "text-brand-600" : "text-sidebar-muted group-hover:text-sidebar-foreground";
   }
 
   return (
@@ -118,19 +118,19 @@ function NavGroup({
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className={`${ROW_BASE} w-full justify-between gap-3 px-3 ${
+        className={`${ROW_BASE} w-full justify-between gap-3 px-3 ${open ? "bg-sidebar-elevated" : ""} ${
           // The group header never gets the active pill — that's reserved
           // for whichever single child is actually the current page
           // (below). Here it only gets a bolder label and a tinted icon,
           // so "this group contains the current page" never reads as "this
           // row IS the current page" the way an identical pink fill would.
-          childActive ? "font-semibold text-zinc-900 hover:bg-sidebar-elevated" : ROW_INACTIVE
+          childActive ? "font-semibold text-sidebar-foreground" : ROW_INACTIVE
         }`}
       >
         <span className="flex items-center gap-3">
           <i
             className={`${item.icon} ${ICON_BOX} text-lg font-normal transition-colors duration-150 ${
-              childActive ? "text-brand-600" : "text-zinc-400 group-hover:text-zinc-600"
+              childActive ? "text-brand-600" : "text-sidebar-muted group-hover:text-sidebar-foreground"
             }`}
             aria-hidden="true"
           />
@@ -139,7 +139,7 @@ function NavGroup({
         <span className="flex items-center gap-2">
           {item.badge != null && <Badge count={item.badge} />}
           <i
-            className={`ri-arrow-down-s-line text-base text-zinc-400 transition-transform duration-150 group-hover:text-zinc-600 ${open ? "rotate-180" : ""}`}
+            className={`ri-arrow-down-s-line text-base text-sidebar-muted transition-transform duration-150 group-hover:text-sidebar-foreground ${open ? "rotate-180" : ""}`}
             aria-hidden="true"
           />
         </span>

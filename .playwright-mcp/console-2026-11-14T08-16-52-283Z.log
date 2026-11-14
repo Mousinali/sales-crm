@@ -1,0 +1,2 @@
+[   38170ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4um35zkt:1
+[   38595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4umf1noq:1

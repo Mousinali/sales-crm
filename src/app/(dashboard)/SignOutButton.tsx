@@ -19,7 +19,7 @@ export default function SignOutButton({ className }: { className?: string }) {
         onClick={() => setConfirming(true)}
         className={
           className ??
-          "inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2"
         }
       >
         <i className="ri-logout-box-r-line" aria-hidden="true" />

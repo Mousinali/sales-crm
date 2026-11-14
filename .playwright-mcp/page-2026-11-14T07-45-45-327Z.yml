@@ -1,0 +1,244 @@
+- generic [active] [ref=f18e1]:
+  - generic [ref=f18e2]:
+    - region "Notifications alt+T"
+    - text:                          
+    - complementary [ref=f18e135]:
+      - img "Sales CRM" [ref=f18e138]
+      - navigation "Primary" [ref=f18e139]:
+        - generic [ref=f18e140]:
+          - link [ref=f18e141] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f18e142]:
+              - generic [aria-hidden] [ref=f18e143]: 
+              - text: Dashboard
+          - link [ref=f18e144] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f18e145]:
+              - generic [aria-hidden] [ref=f18e146]: 
+              - text: Calendar
+          - link [ref=f18e147] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f18e148]:
+              - generic [aria-hidden] [ref=f18e149]: 
+              - text: Chat
+          - link [ref=f18e150] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f18e151]:
+              - generic [aria-hidden] [ref=f18e152]: 
+              - text: Notifications
+        - generic [ref=f18e153]:
+          - paragraph [ref=f18e154]: Organization
+          - link [ref=f18e155] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f18e156]:
+              - generic [aria-hidden] [ref=f18e157]: 
+              - text: Team
+          - link [ref=f18e158] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f18e159]:
+              - generic [aria-hidden] [ref=f18e160]: 
+              - text: Companies
+          - generic [ref=f18e161]:
+            - button [expanded] [ref=f18e162]:
+              - generic [ref=f18e163]:
+                - generic [aria-hidden] [ref=f18e164]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f18e166]: 
+            - generic [ref=f18e168]:
+              - link [ref=f18e169] [cursor=pointer]:
+                - /url: /leads/new
+                - generic [ref=f18e170]:
+                  - generic [aria-hidden] [ref=f18e171]: 
+                  - text: Add Lead
+              - link [ref=f18e172] [cursor=pointer]:
+                - /url: /leads
+                - generic [ref=f18e173]:
+                  - generic [aria-hidden] [ref=f18e174]: 
+                  - text: Lead List
+        - generic [ref=f18e175]:
+          - paragraph [ref=f18e176]: Revenue
+          - generic [ref=f18e177]:
+            - button [ref=f18e178]:
+              - generic [ref=f18e179]:
+                - generic [aria-hidden] [ref=f18e180]: 
+                - text: Sales
+              - generic [aria-hidden] [ref=f18e182]: 
+            - link [ref=f18e183] [cursor=pointer]:
+              - /url: /sales/new
+              - generic [ref=f18e184]:
+                - generic [aria-hidden] [ref=f18e185]: 
+                - text: Add Sale
+            - link [ref=f18e186] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f18e187]:
+                - generic [aria-hidden] [ref=f18e188]: 
+                - text: Sales List
+          - generic [ref=f18e189]:
+            - button [ref=f18e190]:
+              - generic [ref=f18e191]:
+                - generic [aria-hidden] [ref=f18e192]: 
+                - text: Payments
+              - generic [aria-hidden] [ref=f18e194]: 
+            - link [ref=f18e195] [cursor=pointer]:
+              - /url: /payments/new
+              - generic [ref=f18e196]:
+                - generic [aria-hidden] [ref=f18e197]: 
+                - text: New Payment
+            - link [ref=f18e198] [cursor=pointer]:
+              - /url: /payments
+              - generic [ref=f18e199]:
+                - generic [aria-hidden] [ref=f18e200]: 
+                - text: Payment List
+        - generic [ref=f18e201]:
+          - paragraph [ref=f18e202]: Workflow
+          - link [ref=f18e203] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f18e204]:
+              - generic [aria-hidden] [ref=f18e205]: 
+              - text: Tasks
+          - link [ref=f18e206] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f18e207]:
+              - generic [aria-hidden] [ref=f18e208]: 
+              - text: Announcements
+        - generic [ref=f18e209]:
+          - paragraph [ref=f18e210]: General
+          - link [ref=f18e211] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f18e212]:
+              - generic [aria-hidden] [ref=f18e213]: 
+              - text: Settings
+      - generic [ref=f18e214]: Sales CRM v0.1.0
+    - generic [ref=f18e11]:
+      - banner [ref=f18e215]:
+        - heading "New Lead" [level=1] [ref=f18e216]
+        - generic [ref=f18e217]:
+          - generic [ref=f18e218]:
+            - img "Mimi Roy" [ref=f18e219]
+            - generic [ref=f18e220]:
+              - paragraph [ref=f18e221]: Mimi Roy
+              - generic [ref=f18e222]: Marketing Head
+          - button "Notifications" [ref=f18e224]:
+            - generic [aria-hidden] [ref=f18e225]: 
+          - button "Sign out" [ref=f18e227]:
+            - generic [aria-hidden] [ref=f18e228]: 
+            - text: Sign out
+      - main [ref=f18e12]:
+        - generic [ref=f18e14]:
+          - generic [ref=f18e16]:
+            - heading "New Lead" [level=1] [ref=f18e18]
+            - navigation "Breadcrumb" [ref=f18e19]:
+              - link "Home" [ref=f18e20] [cursor=pointer]:
+                - /url: /dashboard
+              - generic [ref=f18e21]:
+                - generic [aria-hidden] [ref=f18e22]: 
+                - link "Leads" [ref=f18e23] [cursor=pointer]:
+                  - /url: /leads
+              - generic [ref=f18e24]:
+                - generic [aria-hidden] [ref=f18e25]: 
+                - generic [ref=f18e26]: New Lead
+          - generic [ref=f18e28]:
+            - generic [ref=f18e29]:
+              - generic [ref=f18e30]: Industry type
+              - textbox "Industry type" [ref=f18e31]
+            - generic [ref=f18e32]:
+              - generic [ref=f18e33]: Business type
+              - textbox "Business type" [ref=f18e34]
+            - generic [ref=f18e35]:
+              - generic [ref=f18e36]: Company
+              - textbox "Company" [ref=f18e37]
+            - generic [ref=f18e38]:
+              - generic [ref=f18e39]: Address
+              - textbox "Address" [ref=f18e40]
+            - generic [ref=f18e41]:
+              - generic [ref=f18e42]: State
+              - button "State" [ref=f18e44]:
+                - generic [ref=f18e45]: West Bengal
+                - generic [aria-hidden] [ref=f18e47]: 
+            - generic [ref=f18e48]:
+              - generic [ref=f18e49]: Pincode
+              - textbox "Pincode" [ref=f18e50]
+            - generic [ref=f18e51]:
+              - generic [ref=f18e52]: Country
+              - textbox "Country" [ref=f18e53]: India
+            - generic [ref=f18e54]:
+              - generic [ref=f18e55]: GST Number
+              - textbox "GST Number" [ref=f18e56]
+            - generic [ref=f18e57]:
+              - generic [ref=f18e58]: Contact person
+              - textbox "Contact person" [ref=f18e59]
+            - generic [ref=f18e60]:
+              - generic [ref=f18e61]: Contact person designation
+              - textbox "Contact person designation" [ref=f18e62]
+            - generic [ref=f18e63]:
+              - generic [ref=f18e64]:
+                - generic [ref=f18e65]: Phone
+                - generic [ref=f18e66]:
+                  - checkbox "Same as WhatsApp" [ref=f18e67]
+                  - text: Same as WhatsApp
+              - textbox "Phone" [ref=f18e68]
+            - generic [ref=f18e69]:
+              - generic [ref=f18e70]: WhatsApp number
+              - textbox "WhatsApp number" [ref=f18e71]
+            - generic [ref=f18e72]:
+              - generic [ref=f18e73]: Email
+              - textbox "Email" [ref=f18e74]
+            - generic [ref=f18e75]:
+              - generic [ref=f18e76]: Website
+              - textbox "Website" [ref=f18e77]
+            - generic [ref=f18e78]:
+              - generic [ref=f18e79]: Service interested
+              - button "Service interested" [ref=f18e81]:
+                - generic [ref=f18e82]: Select…
+                - generic [aria-hidden] [ref=f18e83]: 
+            - generic [ref=f18e84]:
+              - generic [ref=f18e85]: Estimated budget
+              - spinbutton "Estimated budget" [ref=f18e86]
+            - generic [ref=f18e87]:
+              - generic [ref=f18e88]: Budget type
+              - combobox "Budget type" [ref=f18e89]:
+                - option "One time" [selected]
+                - option "Monthly"
+                - option "Part payment"
+            - generic [ref=f18e90]:
+              - generic [ref=f18e91]: Lead source
+              - button "Lead source" [ref=f18e93]:
+                - generic [ref=f18e94]: Website enquiry
+                - generic [aria-hidden] [ref=f18e96]: 
+            - generic [ref=f18e97]:
+              - generic [ref=f18e98]: Priority
+              - combobox "Priority" [ref=f18e99]:
+                - option "Low"
+                - option "Medium" [selected]
+                - option "High"
+            - generic [ref=f18e100]:
+              - generic [ref=f18e101]: Remarks
+              - generic [ref=f18e102]:
+                - textbox "Remarks" [ref=f18e103]
+                - generic [ref=f18e104]:
+                  - button "Bold" [ref=f18e105]:
+                    - generic [aria-hidden] [ref=f18e106]: 
+                  - button "Italic" [ref=f18e107]:
+                    - generic [aria-hidden] [ref=f18e108]: 
+                  - button "Code" [ref=f18e109]:
+                    - generic [aria-hidden] [ref=f18e110]: 
+            - generic [ref=f18e111]:
+              - generic [ref=f18e112]: Social links
+              - generic [ref=f18e113]:
+                - button "YouTube" [ref=f18e114]:
+                  - text: YouTube
+                  - generic [aria-hidden] [ref=f18e115]: 
+                - button "Facebook" [ref=f18e116]:
+                  - text: Facebook
+                  - generic [aria-hidden] [ref=f18e117]: 
+                - button "Instagram" [ref=f18e118]:
+                  - text: Instagram
+                  - generic [aria-hidden] [ref=f18e119]: 
+                - button "LinkedIn" [ref=f18e120]:
+                  - text: LinkedIn
+                  - generic [aria-hidden] [ref=f18e121]: 
+            - generic [ref=f18e122]:
+              - button "Cancel" [ref=f18e123]
+              - button "Create" [ref=f18e124]
+    - text:    
+  - alert [ref=f18e134]

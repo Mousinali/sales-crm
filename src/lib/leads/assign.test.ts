@@ -23,6 +23,7 @@ let inactivePreSalesId: number;
 
 let qualifiedLead: { id: number };
 let pendingLead: { id: number };
+let closedWonLead: { id: number };
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
@@ -48,7 +49,9 @@ beforeAll(async () => {
   qualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Assign Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
   pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Assign Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
-  leadIds.push(qualifiedLead.id, pendingLead.id);
+  closedWonLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Closed Won Co", phone: "7", serviceRequirements: "x", leadSource: "OTHER" });
+  await pool.query("UPDATE leads SET status = 'CLOSED_WON', salesperson_owner_id = $2 WHERE id = $1", [closedWonLead.id, salespersonId]);
+  leadIds.push(qualifiedLead.id, pendingLead.id, closedWonLead.id);
 });
 
 afterAll(async () => {
@@ -78,6 +81,27 @@ describe("assignLead", () => {
     await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: qualifiedLead.id, salespersonId: otherSalespersonId });
     const { rows } = await pool.query("SELECT * FROM lead_assignments WHERE lead_id = $1 ORDER BY changed_at", [qualifiedLead.id]);
     expect(rows).toHaveLength(2);
+  });
+
+  it("lets a Marketing Head reassign the Salesperson on a Closed - won lead", async () => {
+    const updated = await assignLead(pool, {
+      actorId: mhId,
+      actorRole: "MARKETING_HEAD",
+      leadId: closedWonLead.id,
+      salespersonId: otherSalespersonId,
+    });
+    expect(updated.salesperson_owner_id).toBe(otherSalespersonId);
+  });
+
+  it("records a human-readable before/after activity note, not raw ids", async () => {
+    // Previous test left closedWonLead on otherSalespersonId ("Other SP") —
+    // assigning it back to salespersonId ("SP") is the actual change here.
+    await pool.query("DELETE FROM lead_activities WHERE lead_id = $1", [closedWonLead.id]);
+    await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: closedWonLead.id, salespersonId });
+    const { rows } = await pool.query("SELECT notes FROM lead_activities WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 1", [
+      closedWonLead.id,
+    ]);
+    expect(rows[0].notes).toBe("Salesperson changed from Other SP to SP");
   });
 
   it("rejects assigning to an inactive Salesperson", async () => {

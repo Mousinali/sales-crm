@@ -8,6 +8,7 @@ const PERIODS: { value: SummaryPeriod; label: string }[] = [
   { value: "TODAY", label: "Today" },
   { value: "WEEK", label: "This week" },
   { value: "MONTH", label: "This month" },
+  { value: "ALL_TIME", label: "All time" },
 ];
 
 const TODAY_LABEL = `Today, ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;

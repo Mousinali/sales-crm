@@ -7,17 +7,17 @@ export default function Sidebar({ navSections, version }: { navSections: NavSect
       <div className="mb-4 border-b border-sidebar-border px-1 pb-4">
         <Brand />
       </div>
-      <nav aria-label="Primary" className="flex flex-1 flex-col gap-6 overflow-y-auto">
+      <nav aria-label="Primary" className="no-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto">
         {navSections.map((section, index) => (
           <div key={section.label ?? `section-${index}`} className="flex flex-col gap-0">
             {section.label && (
-              <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">{section.label}</p>
+              <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-sidebar-muted uppercase">{section.label}</p>
             )}
             <NavLinks navItems={section.items} />
           </div>
         ))}
       </nav>
-      <div className="mt-4 border-t border-sidebar-border pt-3 text-xs text-zinc-400">Sales CRM v{version}</div>
+      <div className="mt-4 border-t border-sidebar-border pt-3 text-xs text-sidebar-muted">Sales CRM v{version}</div>
     </aside>
   );
 }

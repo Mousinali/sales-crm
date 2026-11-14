@@ -73,11 +73,26 @@ export function resetRateLimit(key: string): void {
 // Seconds left until this key's window resets and it's admitted again — 0
 // if it isn't currently rate-limited. Lets a caller tell the user exactly
 // how long to wait instead of a vague "try again later".
+//
+// A key rejected by the admission throttle (a flood of brand-new
+// identifiers in its namespace, e.g. a credential-stuffing run with a
+// fresh email on every request) has no entry in `attempts` — it was
+// never admitted — so without this fallback this always returned 0,
+// which reads as "retry immediately" and defeats the backoff the 429
+// is asking for. Falling back to the namespace's own admission window
+// gives a real wait time in that case too.
 export function getRetryAfterSeconds(key: string, windowMs: number): number {
   const entry = attempts.get(key);
-  if (!entry) return 0;
-  const remainingMs = entry.windowStart + windowMs - Date.now();
-  return Math.max(0, Math.ceil(remainingMs / 1000));
+  if (entry) {
+    const remainingMs = entry.windowStart + windowMs - Date.now();
+    return Math.max(0, Math.ceil(remainingMs / 1000));
+  }
+  const admission = newKeyWindows.get(namespaceOf(key));
+  if (admission && admission.count >= MAX_NEW_KEYS_PER_WINDOW) {
+    const remainingMs = admission.windowStart + NEW_KEY_WINDOW_MS - Date.now();
+    return Math.max(0, Math.ceil(remainingMs / 1000));
+  }
+  return 0;
 }
 
 export function _rateLimitStoreSize(): number {

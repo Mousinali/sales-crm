@@ -1,0 +1,218 @@
+- generic [active] [ref=f27e1]:
+  - generic [ref=f27e2]:
+    - region "Notifications alt+T"
+    - text:                         
+    - complementary [ref=f27e3]:
+      - img "Sales CRM" [ref=f27e6]
+      - navigation "Primary" [ref=f27e7]:
+        - generic [ref=f27e8]:
+          - link [ref=f27e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f27e10]:
+              - generic [aria-hidden] [ref=f27e11]: 
+              - text: Dashboard
+          - link [ref=f27e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f27e13]:
+              - generic [aria-hidden] [ref=f27e14]: 
+              - text: Calendar
+          - link [ref=f27e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f27e16]:
+              - generic [aria-hidden] [ref=f27e17]: 
+              - text: Chat
+          - link [ref=f27e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f27e19]:
+              - generic [aria-hidden] [ref=f27e20]: 
+              - text: Notifications
+        - generic [ref=f27e21]:
+          - paragraph [ref=f27e22]: Organization
+          - link [ref=f27e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f27e24]:
+              - generic [aria-hidden] [ref=f27e25]: 
+              - text: Team
+          - link [ref=f27e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f27e27]:
+              - generic [aria-hidden] [ref=f27e28]: 
+              - text: Companies
+          - generic [ref=f27e29]:
+            - button [ref=f27e30]:
+              - generic [ref=f27e31]:
+                - generic [aria-hidden] [ref=f27e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f27e34]: 
+            - link [ref=f27e35] [cursor=pointer]:
+              - /url: /leads/new
+              - generic [ref=f27e36]:
+                - generic [aria-hidden] [ref=f27e37]: 
+                - text: Add Lead
+            - link [ref=f27e38] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f27e39]:
+                - generic [aria-hidden] [ref=f27e40]: 
+                - text: Lead List
+        - generic [ref=f27e41]:
+          - paragraph [ref=f27e42]: Revenue
+          - generic [ref=f27e43]:
+            - button [ref=f27e44]:
+              - generic [ref=f27e45]:
+                - generic [aria-hidden] [ref=f27e46]: 
+                - text: Sales
+              - generic [aria-hidden] [ref=f27e48]: 
+            - link [ref=f27e49] [cursor=pointer]:
+              - /url: /sales/new
+              - generic [ref=f27e50]:
+                - generic [aria-hidden] [ref=f27e51]: 
+                - text: Add Sale
+            - link [ref=f27e52] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f27e53]:
+                - generic [aria-hidden] [ref=f27e54]: 
+                - text: Sales List
+          - generic [ref=f27e55]:
+            - button [ref=f27e56]:
+              - generic [ref=f27e57]:
+                - generic [aria-hidden] [ref=f27e58]: 
+                - text: Payments
+              - generic [aria-hidden] [ref=f27e60]: 
+            - link [ref=f27e61] [cursor=pointer]:
+              - /url: /payments/new
+              - generic [ref=f27e62]:
+                - generic [aria-hidden] [ref=f27e63]: 
+                - text: New Payment
+            - link [ref=f27e64] [cursor=pointer]:
+              - /url: /payments
+              - generic [ref=f27e65]:
+                - generic [aria-hidden] [ref=f27e66]: 
+                - text: Payment List
+        - generic [ref=f27e67]:
+          - paragraph [ref=f27e68]: Workflow
+          - link [ref=f27e69] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f27e70]:
+              - generic [aria-hidden] [ref=f27e71]: 
+              - text: Tasks
+          - link [ref=f27e72] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f27e73]:
+              - generic [aria-hidden] [ref=f27e74]: 
+              - text: Announcements
+        - generic [ref=f27e75]:
+          - paragraph [ref=f27e76]: General
+          - link [ref=f27e77] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f27e78]:
+              - generic [aria-hidden] [ref=f27e79]: 
+              - text: Settings
+      - generic [ref=f27e80]: Sales CRM v0.1.0
+    - generic [ref=f27e81]:
+      - banner [ref=f27e82]:
+        - heading "Dashboard" [level=1] [ref=f27e83]
+        - generic [ref=f27e84]:
+          - generic [ref=f27e85]:
+            - img "Mimi Roy" [ref=f27e87]
+            - generic [ref=f27e89]:
+              - paragraph [ref=f27e90]: Mimi Roy
+              - paragraph [ref=f27e91]: Marketing Head
+          - button "Notifications" [ref=f27e93]:
+            - generic [aria-hidden] [ref=f27e94]: 
+          - button "Sign out" [ref=f27e96]:
+            - generic [aria-hidden] [ref=f27e97]: 
+            - text: Sign out
+      - main [ref=f27e98]:
+        - generic [ref=f27e100]:
+          - generic [ref=f27e101]:
+            - generic [ref=f27e102]:
+              - generic [ref=f27e103]: MR
+              - generic [ref=f27e104]:
+                - paragraph [ref=f27e105]: Welcome back, Mimi Roy
+                - generic [ref=f27e106]: Marketing Head
+            - button "Refresh" [ref=f27e108] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f27e109]: 
+          - generic [ref=f27e111]:
+            - generic [ref=f27e113]:
+              - generic [ref=f27e114]:
+                - paragraph [ref=f27e115]: "2"
+                - paragraph [ref=f27e116]: Total leads
+              - generic [aria-hidden] [ref=f27e118]: 
+            - generic [ref=f27e120]:
+              - generic [ref=f27e121]:
+                - paragraph [ref=f27e122]: "1"
+                - paragraph [ref=f27e123]: Awaiting review
+              - generic [aria-hidden] [ref=f27e125]: 
+            - generic [ref=f27e127]:
+              - generic [ref=f27e128]:
+                - paragraph [ref=f27e129]: "0"
+                - paragraph [ref=f27e130]: Qualified
+              - generic [aria-hidden] [ref=f27e132]: 
+            - generic [ref=f27e134]:
+              - generic [ref=f27e135]:
+                - paragraph [ref=f27e136]: "0"
+                - paragraph [ref=f27e137]: Converted
+              - generic [aria-hidden] [ref=f27e139]: 
+            - generic [ref=f27e141]:
+              - generic [ref=f27e142]:
+                - paragraph [ref=f27e143]: 0.0%
+                - paragraph [ref=f27e144]: Conversion rate
+              - generic [aria-hidden] [ref=f27e146]: 
+            - generic [ref=f27e148]:
+              - generic [ref=f27e149]:
+                - paragraph [ref=f27e150]: "0"
+                - paragraph [ref=f27e151]: Upcoming visits
+              - generic [aria-hidden] [ref=f27e153]: 
+            - generic [ref=f27e155]:
+              - generic [ref=f27e156]:
+                - paragraph [ref=f27e157]: "0"
+                - paragraph [ref=f27e158]: Missed visits
+              - generic [aria-hidden] [ref=f27e160]: 
+            - generic [ref=f27e162]:
+              - generic [ref=f27e163]:
+                - paragraph [ref=f27e164]: "0"
+                - paragraph [ref=f27e165]: Transfer history
+              - generic [aria-hidden] [ref=f27e167]: 
+          - generic [ref=f27e168]:
+            - generic [ref=f27e170]:
+              - generic [ref=f27e171]:
+                - generic [ref=f27e172]:
+                  - paragraph [ref=f27e173]: Leads entries
+                  - paragraph [ref=f27e174]: 0 in the selected period
+                - generic [ref=f27e175]:
+                  - generic [ref=f27e176]:
+                    - button "Leads" [ref=f27e177] [cursor=pointer]
+                    - button "Sales" [ref=f27e178] [cursor=pointer]
+                  - generic [ref=f27e179]:
+                    - button "Today" [ref=f27e180] [cursor=pointer]
+                    - button "Week" [ref=f27e181] [cursor=pointer]
+                    - button "Month" [ref=f27e182] [cursor=pointer]
+              - paragraph [ref=f27e184]: Loading…
+            - generic [ref=f27e185]:
+              - paragraph [ref=f27e186]: Leads by priority
+              - generic [ref=f27e188]:
+                - figure "chart, 1 series":
+                  - generic [ref=f27e189]:
+                    - img "interactive chart"
+                  - list "Legend" [ref=f27e190]:
+                    - listitem:
+                      - switch "High, Legend item 1 of 2" [checked] [ref=f27e191] [cursor=pointer]
+                    - listitem:
+                      - switch "Medium, Legend item 2 of 2" [checked] [ref=f27e192] [cursor=pointer]
+                - status [aria-hidden]
+          - generic [ref=f27e193]:
+            - generic [ref=f27e194]:
+              - paragraph [ref=f27e195]: Leads by Pre-sales owner
+              - paragraph [ref=f27e196]: No data yet.
+            - generic [ref=f27e197]:
+              - paragraph [ref=f27e198]: Leads by Salesperson owner
+              - generic [ref=f27e201]:
+                - figure "chart, 1 series":
+                  - generic [ref=f27e202]:
+                    - img "interactive chart"
+                - status [aria-hidden]
+          - generic [ref=f27e203]:
+            - paragraph [ref=f27e204]: Overdue follow-ups (0)
+            - paragraph [ref=f27e205]: Nothing overdue.
+    - text:    
+  - alert [ref=f27e206]

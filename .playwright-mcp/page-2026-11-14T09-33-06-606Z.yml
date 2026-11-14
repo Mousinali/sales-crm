@@ -1,0 +1,292 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - region "Notifications alt+T"
+    - text:                         
+    - complementary [ref=f1e3]:
+      - img "Sales CRM" [ref=f1e6]
+      - navigation "Primary" [ref=f1e7]:
+        - generic [ref=f1e8]:
+          - link [ref=f1e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f1e10]:
+              - generic [aria-hidden] [ref=f1e11]: 
+              - text: Dashboard
+          - link [ref=f1e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f1e13]:
+              - generic [aria-hidden] [ref=f1e14]: 
+              - text: Calendar
+          - link [ref=f1e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f1e16]:
+              - generic [aria-hidden] [ref=f1e17]: 
+              - text: Chat
+          - link [ref=f1e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f1e19]:
+              - generic [aria-hidden] [ref=f1e20]: 
+              - text: Notifications
+        - generic [ref=f1e21]:
+          - paragraph [ref=f1e22]: Organization
+          - link [ref=f1e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f1e24]:
+              - generic [aria-hidden] [ref=f1e25]: 
+              - text: Team
+          - link [ref=f1e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f1e27]:
+              - generic [aria-hidden] [ref=f1e28]: 
+              - text: Companies
+          - generic [ref=f1e29]:
+            - button [expanded] [ref=f1e30]:
+              - generic [ref=f1e31]:
+                - generic [aria-hidden] [ref=f1e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f1e34]: 
+            - generic [ref=f1e36]:
+              - link [ref=f1e37] [cursor=pointer]:
+                - /url: /leads/new
+                - generic [ref=f1e38]:
+                  - generic [aria-hidden] [ref=f1e39]: 
+                  - text: Add Lead
+              - link [ref=f1e40] [cursor=pointer]:
+                - /url: /leads
+                - generic [ref=f1e41]:
+                  - generic [aria-hidden] [ref=f1e42]: 
+                  - text: Lead List
+        - generic [ref=f1e43]:
+          - paragraph [ref=f1e44]: Revenue
+          - generic [ref=f1e45]:
+            - button [ref=f1e46]:
+              - generic [ref=f1e47]:
+                - generic [aria-hidden] [ref=f1e48]: 
+                - text: Sales
+              - generic [aria-hidden] [ref=f1e50]: 
+            - link [ref=f1e51] [cursor=pointer]:
+              - /url: /sales/new
+              - generic [ref=f1e52]:
+                - generic [aria-hidden] [ref=f1e53]: 
+                - text: Add Sale
+            - link [ref=f1e54] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f1e55]:
+                - generic [aria-hidden] [ref=f1e56]: 
+                - text: Sales List
+          - generic [ref=f1e57]:
+            - button [ref=f1e58]:
+              - generic [ref=f1e59]:
+                - generic [aria-hidden] [ref=f1e60]: 
+                - text: Payments
+              - generic [aria-hidden] [ref=f1e62]: 
+            - link [ref=f1e63] [cursor=pointer]:
+              - /url: /payments/new
+              - generic [ref=f1e64]:
+                - generic [aria-hidden] [ref=f1e65]: 
+                - text: New Payment
+            - link [ref=f1e66] [cursor=pointer]:
+              - /url: /payments
+              - generic [ref=f1e67]:
+                - generic [aria-hidden] [ref=f1e68]: 
+                - text: Payment List
+        - generic [ref=f1e69]:
+          - paragraph [ref=f1e70]: Workflow
+          - link [ref=f1e71] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f1e72]:
+              - generic [aria-hidden] [ref=f1e73]: 
+              - text: Tasks
+          - link [ref=f1e74] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f1e75]:
+              - generic [aria-hidden] [ref=f1e76]: 
+              - text: Announcements
+        - generic [ref=f1e77]:
+          - paragraph [ref=f1e78]: General
+          - link [ref=f1e79] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f1e80]:
+              - generic [aria-hidden] [ref=f1e81]: 
+              - text: Settings
+      - generic [ref=f1e82]: Sales CRM v0.1.0
+    - generic [ref=f1e83]:
+      - banner [ref=f1e84]:
+        - heading "Lead Details" [level=1] [ref=f1e85]
+        - generic [ref=f1e86]:
+          - button "Notifications" [ref=f1e88]:
+            - generic [aria-hidden] [ref=f1e89]: 
+          - generic [ref=f1e90]:
+            - img "Mimi Roy" [ref=f1e92]
+            - generic [ref=f1e94]:
+              - paragraph [ref=f1e95]: Mimi Roy
+              - paragraph [ref=f1e96]: Marketing Head
+          - button "Sign out" [ref=f1e98]:
+            - generic [aria-hidden] [ref=f1e99]: 
+            - text: Sign out
+      - main [ref=f1e100]:
+        - generic [ref=f1e102]:
+          - generic [ref=f1e103]:
+            - generic [ref=f1e104]:
+              - generic [ref=f1e105]:
+                - heading "Ryan 360" [level=1] [ref=f1e106]
+                - paragraph [ref=f1e107]:
+                  - generic [aria-hidden] [ref=f1e108]: 
+                  - text: "7003353696"
+                  - generic [ref=f1e109]: · Mousin Ali
+              - generic [ref=f1e110]:
+                - generic [ref=f1e111]:
+                  - generic [aria-hidden] [ref=f1e112]: 
+                  - text: Closed — won
+                - generic [ref=f1e113]: Converted to sale
+                - generic [ref=f1e114]:
+                  - generic [aria-hidden] [ref=f1e115]: 
+                  - text: High
+                - button "Refresh" [ref=f1e117] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=f1e118]: 
+                  - text: Refresh
+            - generic [ref=f1e120]:
+              - link "Edit" [ref=f1e121] [cursor=pointer]:
+                - /url: /leads/2549/edit
+                - generic [aria-hidden] [ref=f1e122]: 
+                - text: Edit
+              - button "Transfer" [ref=f1e123]:
+                - generic [aria-hidden] [ref=f1e124]: 
+                - text: Transfer
+              - button "Delete" [ref=f1e125]:
+                - generic [aria-hidden] [ref=f1e126]: 
+                - text: Delete
+          - generic [ref=f1e127]:
+            - generic [ref=f1e128]:
+              - generic [ref=f1e130]:
+                - generic [ref=f1e131]:
+                  - generic [aria-hidden] [ref=f1e133]: 
+                  - generic [ref=f1e134]:
+                    - paragraph [ref=f1e135]: Email
+                    - generic [ref=f1e136]: work.mousin@gmail.com
+                  - button "Copy email" [ref=f1e137]:
+                    - generic [aria-hidden] [ref=f1e138]: 
+                - generic [ref=f1e139]:
+                  - generic [aria-hidden] [ref=f1e141]: 
+                  - generic [ref=f1e142]:
+                    - paragraph [ref=f1e143]: Phone
+                    - generic [ref=f1e144]: "7003353696"
+                  - button "Copy phone" [ref=f1e145]:
+                    - generic [aria-hidden] [ref=f1e146]: 
+                - generic [ref=f1e147]:
+                  - generic [aria-hidden] [ref=f1e149]: 
+                  - generic [ref=f1e150]:
+                    - paragraph [ref=f1e151]: WhatsApp
+                    - generic [ref=f1e152]: "7003353696"
+                  - link "Open in WhatsApp" [ref=f1e153] [cursor=pointer]:
+                    - /url: https://wa.me/7003353696
+                    - generic [aria-hidden] [ref=f1e154]: 
+                - generic [ref=f1e155]:
+                  - generic [aria-hidden] [ref=f1e157]: 
+                  - generic [ref=f1e158]:
+                    - paragraph [ref=f1e159]: Address
+                    - generic [ref=f1e160]: 6/12, Poddarnagar, Jadavpur, West Bengal, 700068, India
+                - generic [ref=f1e161]:
+                  - generic [aria-hidden] [ref=f1e163]: 
+                  - generic [ref=f1e164]:
+                    - paragraph [ref=f1e165]: GST Number
+                    - generic [ref=f1e166]: 29AAACC1206D2ZB
+                - generic [ref=f1e167]:
+                  - generic [aria-hidden] [ref=f1e169]: 
+                  - generic [ref=f1e170]:
+                    - paragraph [ref=f1e171]: Created on
+                    - generic [ref=f1e172]: 11/12/2026, 12:43:06 PM
+                - generic [ref=f1e173]:
+                  - generic [aria-hidden] [ref=f1e175]: 
+                  - generic [ref=f1e176]:
+                    - paragraph [ref=f1e177]: Created by
+                    - generic [ref=f1e178]: Shantanu
+              - generic [ref=f1e179]:
+                - generic [ref=f1e180]:
+                  - generic [ref=f1e181]:
+                    - generic [aria-hidden] [ref=f1e183]: 
+                    - generic [ref=f1e184]:
+                      - paragraph [ref=f1e185]: Industry type
+                      - generic [ref=f1e186]: Real Estate
+                  - generic [ref=f1e187]:
+                    - generic [aria-hidden] [ref=f1e189]: 
+                    - generic [ref=f1e190]:
+                      - paragraph [ref=f1e191]: Business type
+                      - generic [ref=f1e192]: Consultant
+                  - generic [ref=f1e193]:
+                    - generic [aria-hidden] [ref=f1e195]: 
+                    - generic [ref=f1e196]:
+                      - paragraph [ref=f1e197]: Website
+                      - link "demo.in" [ref=f1e199] [cursor=pointer]:
+                        - /url: demo.in
+                        - text: demo.in
+                        - generic [aria-hidden] [ref=f1e200]: 
+                  - generic [ref=f1e201]:
+                    - generic [aria-hidden] [ref=f1e203]: 
+                    - generic [ref=f1e204]:
+                      - paragraph [ref=f1e205]: Estimated budget
+                      - generic [ref=f1e206]:
+                        - text: ₹20,000
+                        - generic [ref=f1e207]: One time
+                  - generic [ref=f1e208]:
+                    - generic [aria-hidden] [ref=f1e210]: 
+                    - generic [ref=f1e211]:
+                      - paragraph [ref=f1e212]: Service interested
+                      - generic [ref=f1e213]: App Development
+                - generic [ref=f1e217]:
+                  - term [ref=f1e218]: Sale payment status
+                  - definition [ref=f1e219]:
+                    - link "₹2,000 paid of ₹20,000" [ref=f1e220] [cursor=pointer]:
+                      - /url: /sales/421
+                    - generic [ref=f1e221]: (₹18,000 remaining)
+              - generic [ref=f1e223]:
+                - generic "No YouTube link added" [ref=f1e224]:
+                  - img "YouTube" [ref=f1e225]
+                - generic "No Facebook link added" [ref=f1e226]:
+                  - img "Facebook" [ref=f1e227]
+                - generic "No Instagram link added" [ref=f1e228]:
+                  - img "Instagram" [ref=f1e229]
+                - generic "No LinkedIn link added" [ref=f1e230]:
+                  - img "LinkedIn" [ref=f1e231]
+            - generic [ref=f1e232]:
+              - tablist [ref=f1e234]:
+                - tab "Activity" [selected] [ref=f1e235]:
+                  - generic [aria-hidden] [ref=f1e236]: 
+                  - text: Activity
+                - tab "Assignment" [ref=f1e237]:
+                  - generic [aria-hidden] [ref=f1e238]: 
+                  - text: Assignment
+                - tab "Visits" [ref=f1e239]:
+                  - generic [aria-hidden] [ref=f1e240]: 
+                  - text: Visits
+              - generic [ref=f1e241]:
+                - generic [ref=f1e242]:
+                  - generic [ref=f1e243]:
+                    - generic [ref=f1e244]: Type
+                    - combobox "Type" [ref=f1e245]:
+                      - option "Note" [selected]
+                      - option "Call"
+                      - option "Meeting"
+                      - option "Other"
+                  - generic [ref=f1e246]:
+                    - generic [ref=f1e247]: Notes
+                    - textbox "Notes" [ref=f1e248]
+                  - button "Log activity" [ref=f1e249]
+                - list [ref=f1e250]:
+                  - listitem [ref=f1e251]:
+                    - generic [aria-hidden] [ref=f1e254]: 
+                    - generic [ref=f1e256]:
+                      - generic [ref=f1e257]:
+                        - paragraph [ref=f1e258]: Assignment
+                        - time [ref=f1e259]: 14 Nov 2026, 15:02
+                      - paragraph [ref=f1e260]: Salesperson changed from Shantanu to Bikash
+                      - paragraph [ref=f1e261]: by Mimi Roy
+                  - listitem [ref=f1e262]:
+                    - generic [aria-hidden] [ref=f1e265]: 
+                    - generic [ref=f1e266]:
+                      - generic [ref=f1e267]:
+                        - paragraph [ref=f1e268]: Status change
+                        - time [ref=f1e269]: 12 Nov 2026, 14:05
+                      - paragraph [ref=f1e270]: "Converted to sale #421"
+                      - paragraph [ref=f1e271]: by Mimi Roy
+    - text:    
+  - alert [ref=f1e272]

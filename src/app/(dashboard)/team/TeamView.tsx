@@ -573,23 +573,23 @@ export default function TeamView({
                     >
                       Edit
                     </button>
-                    {user.status === "ACTIVE" ? (
-                      <button
-                        type="button"
-                        onClick={() => askConfirm("deactivate", user)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
-                      >
-                        Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => askConfirm("activate", user)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-400"
-                      >
-                        Activate
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={user.status === "ACTIVE"}
+                      aria-label={user.status === "ACTIVE" ? "Deactivate user" : "Activate user"}
+                      onClick={() => askConfirm(user.status === "ACTIVE" ? "deactivate" : "activate", user)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ${
+                        user.status === "ACTIVE" ? "bg-emerald-500" : "bg-zinc-300"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          user.status === "ACTIVE" ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
                     <button
                       type="button"
                       onClick={() => askResetAccess(user)}

@@ -9,8 +9,8 @@ export default function TopBar({ user }: { user: AuthUser }) {
     <header className="sticky top-0 z-10 hidden items-center justify-between border-b border-zinc-200 bg-white px-6 py-3 lg:flex">
       <PageTitle />
       <div className="flex items-center gap-4">
-        <UserBadge user={user} />
         <NotificationsBell />
+        <UserBadge user={user} />
         <div className="h-8 w-px bg-zinc-200" aria-hidden="true" />
         <SignOutButton />
       </div>

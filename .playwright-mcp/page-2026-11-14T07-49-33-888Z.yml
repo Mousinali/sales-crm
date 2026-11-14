@@ -1,0 +1,207 @@
+- generic [ref=f21e1]:
+  - generic [ref=f21e2]:
+    - region "Notifications alt+T"
+    - text:                          
+    - complementary [ref=f21e3]:
+      - img "Sales CRM" [ref=f21e6]
+      - navigation "Primary" [ref=f21e7]:
+        - generic [ref=f21e8]:
+          - link [ref=f21e9] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f21e10]:
+              - generic [aria-hidden] [ref=f21e11]: 
+              - text: Dashboard
+          - link [ref=f21e12] [cursor=pointer]:
+            - /url: /calendar
+            - generic [ref=f21e13]:
+              - generic [aria-hidden] [ref=f21e14]: 
+              - text: Calendar
+          - link [ref=f21e15] [cursor=pointer]:
+            - /url: /chat
+            - generic [ref=f21e16]:
+              - generic [aria-hidden] [ref=f21e17]: 
+              - text: Chat
+          - link [ref=f21e18] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f21e19]:
+              - generic [aria-hidden] [ref=f21e20]: 
+              - text: Notifications
+        - generic [ref=f21e21]:
+          - paragraph [ref=f21e22]: Organization
+          - link [ref=f21e23] [cursor=pointer]:
+            - /url: /team
+            - generic [ref=f21e24]:
+              - generic [aria-hidden] [ref=f21e25]: 
+              - text: Team
+          - link [ref=f21e26] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=f21e27]:
+              - generic [aria-hidden] [ref=f21e28]: 
+              - text: Companies
+          - generic [ref=f21e29]:
+            - button [ref=f21e30]:
+              - generic [ref=f21e31]:
+                - generic [aria-hidden] [ref=f21e32]: 
+                - text: Leads
+              - generic [aria-hidden] [ref=f21e34]: 
+            - link [ref=f21e35] [cursor=pointer]:
+              - /url: /leads/new
+              - generic [ref=f21e36]:
+                - generic [aria-hidden] [ref=f21e37]: 
+                - text: Add Lead
+            - link [ref=f21e38] [cursor=pointer]:
+              - /url: /leads
+              - generic [ref=f21e39]:
+                - generic [aria-hidden] [ref=f21e40]: 
+                - text: Lead List
+        - generic [ref=f21e41]:
+          - paragraph [ref=f21e42]: Revenue
+          - generic [ref=f21e43]:
+            - button [ref=f21e44]:
+              - generic [ref=f21e45]:
+                - generic [aria-hidden] [ref=f21e46]: 
+                - text: Sales
+              - generic [aria-hidden] [ref=f21e48]: 
+            - link [ref=f21e49] [cursor=pointer]:
+              - /url: /sales/new
+              - generic [ref=f21e50]:
+                - generic [aria-hidden] [ref=f21e51]: 
+                - text: Add Sale
+            - link [ref=f21e52] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f21e53]:
+                - generic [aria-hidden] [ref=f21e54]: 
+                - text: Sales List
+          - generic [ref=f21e55]:
+            - button [ref=f21e56]:
+              - generic [ref=f21e57]:
+                - generic [aria-hidden] [ref=f21e58]: 
+                - text: Payments
+              - generic [aria-hidden] [ref=f21e60]: 
+            - link [ref=f21e61] [cursor=pointer]:
+              - /url: /payments/new
+              - generic [ref=f21e62]:
+                - generic [aria-hidden] [ref=f21e63]: 
+                - text: New Payment
+            - link [ref=f21e64] [cursor=pointer]:
+              - /url: /payments
+              - generic [ref=f21e65]:
+                - generic [aria-hidden] [ref=f21e66]: 
+                - text: Payment List
+        - generic [ref=f21e67]:
+          - paragraph [ref=f21e68]: Workflow
+          - link [ref=f21e69] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=f21e70]:
+              - generic [aria-hidden] [ref=f21e71]: 
+              - text: Tasks
+          - link [ref=f21e72] [cursor=pointer]:
+            - /url: /announcements
+            - generic [ref=f21e73]:
+              - generic [aria-hidden] [ref=f21e74]: 
+              - text: Announcements
+        - generic [ref=f21e75]:
+          - paragraph [ref=f21e76]: General
+          - link [ref=f21e77] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=f21e78]:
+              - generic [aria-hidden] [ref=f21e79]: 
+              - text: Settings
+      - generic [ref=f21e80]: Sales CRM v0.1.0
+    - generic [ref=f21e81]:
+      - banner [ref=f21e82]:
+        - heading "Team" [level=1] [ref=f21e83]
+        - generic [ref=f21e84]:
+          - generic [ref=f21e85]:
+            - img "Mimi Roy" [ref=f21e86]
+            - generic [ref=f21e87]:
+              - paragraph [ref=f21e88]: Mimi Roy
+              - generic [ref=f21e89]: Marketing Head
+          - button "Notifications" [ref=f21e91]:
+            - generic [aria-hidden] [ref=f21e92]: 
+          - button "Sign out" [ref=f21e94]:
+            - generic [aria-hidden] [ref=f21e95]: 
+            - text: Sign out
+      - main [ref=f21e96]:
+        - generic [ref=f21e98]:
+          - generic [ref=f21e100]:
+            - generic [ref=f21e101]:
+              - heading "Team" [level=1] [ref=f21e102]
+              - generic [ref=f21e103]: "2"
+            - navigation "Breadcrumb" [ref=f21e104]:
+              - link "Home" [ref=f21e105] [cursor=pointer]:
+                - /url: /dashboard
+              - generic [ref=f21e106]:
+                - generic [aria-hidden] [ref=f21e107]: 
+                - generic [ref=f21e108]: Team
+          - generic [ref=f21e109]:
+            - generic [ref=f21e110]:
+              - generic [ref=f21e111]:
+                - generic [ref=f21e112]:
+                  - textbox "Search" [ref=f21e113]:
+                    - /placeholder: Name or email
+                  - button "Filter by role" [ref=f21e115] [cursor=pointer]:
+                    - generic [ref=f21e116]:
+                      - generic [aria-hidden] [ref=f21e117]: 
+                      - generic [ref=f21e118]: All roles
+                    - generic [aria-hidden] [ref=f21e119]: 
+                  - button "Filter by status" [ref=f21e121] [cursor=pointer]:
+                    - generic [ref=f21e122]:
+                      - generic [aria-hidden] [ref=f21e123]: 
+                      - generic [ref=f21e124]: All statuses
+                    - generic [aria-hidden] [ref=f21e125]: 
+                  - button "Apply filters" [ref=f21e126]
+                - text: 
+                - generic [ref=f21e127]:
+                  - button "Refresh" [ref=f21e128] [cursor=pointer]:
+                    - generic [aria-hidden] [ref=f21e129]: 
+                    - text: Refresh
+                  - button "New User" [ref=f21e130]:
+                    - generic [aria-hidden] [ref=f21e131]: 
+                    - text: New User
+              - text:     
+              - table [ref=f21e133]:
+                - rowgroup [ref=f21e134]:
+                  - row [ref=f21e135]:
+                    - columnheader "Name" [ref=f21e136]
+                    - columnheader "Role" [ref=f21e137]
+                    - columnheader "Status" [ref=f21e138]
+                    - columnheader "Actions" [ref=f21e139]
+                - rowgroup [ref=f21e140]:
+                  - row [ref=f21e141]:
+                    - cell "SH Shantanu BDM s@gmail.com" [ref=f21e142]:
+                      - generic [ref=f21e143]:
+                        - generic [ref=f21e144]: SH
+                        - generic [ref=f21e145]:
+                          - paragraph [ref=f21e146]: Shantanu
+                          - paragraph [ref=f21e147]: BDM
+                          - paragraph [ref=f21e148]: s@gmail.com
+                    - cell "Salesperson" [ref=f21e149]
+                    - cell "Active" [ref=f21e151]
+                    - cell [ref=f21e154]:
+                      - generic [ref=f21e155]:
+                        - button "Edit" [ref=f21e156]
+                        - switch "Deactivate user" [checked] [active] [ref=f21e157] [cursor=pointer]
+                        - button "Reset Access" [ref=f21e159]
+                  - row [ref=f21e160]:
+                    - cell "BI Bikash bikash@gmail.com" [ref=f21e161]:
+                      - generic [ref=f21e162]:
+                        - generic [ref=f21e163]: BI
+                        - generic [ref=f21e164]:
+                          - paragraph [ref=f21e165]: Bikash
+                          - paragraph [ref=f21e166]: bikash@gmail.com
+                    - cell "Salesperson" [ref=f21e167]
+                    - cell "Active" [ref=f21e169]
+                    - cell [ref=f21e172]:
+                      - generic [ref=f21e173]:
+                        - button "Edit" [ref=f21e174]
+                        - switch "Deactivate user" [checked] [ref=f21e175] [cursor=pointer]
+                        - button "Reset Access" [ref=f21e177]
+            - generic [ref=f21e180]:
+              - heading "Deactivate user" [level=2] [ref=f21e181]
+              - paragraph [ref=f21e182]: Are you sure you want to deactivate Shantanu?
+              - generic [ref=f21e183]:
+                - button "Cancel" [ref=f21e184]
+                - button "Yes, deactivate" [ref=f21e185]
+    - text:    
+  - alert [ref=f21e178]

@@ -38,7 +38,7 @@ export default function MobileNav({ user, navSections }: { user: AuthUser; navSe
             aria-expanded={open}
             aria-controls="mobile-sidebar"
             onClick={() => setOpen((value) => !value)}
-            className="rounded-md p-2 text-zinc-600 hover:bg-sidebar-elevated hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="rounded-md p-2 text-sidebar-muted hover:bg-sidebar-elevated hover:text-sidebar-foreground focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             <i className={open ? "ri-close-line text-xl" : "ri-menu-line text-xl"} aria-hidden="true" />
           </button>
@@ -68,18 +68,18 @@ export default function MobileNav({ user, navSections }: { user: AuthUser; navSe
           <div className="flex items-center gap-3 border-b border-sidebar-border p-4">
             <Avatar name={user.name} imageUrl={user.avatarUrl} size="md" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-900">{user.name}</p>
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{user.name}</p>
               <span className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[user.role]}`}>
                 {user.designation || ROLE_LABELS[user.role]}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-3">
+          <div className="no-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto p-3">
             {navSections.map((section, index) => (
               <div key={section.label ?? `section-${index}`} className="flex flex-col gap-0">
                 {section.label && (
-                  <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">{section.label}</p>
+                  <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-sidebar-muted uppercase">{section.label}</p>
                 )}
                 <NavLinks navItems={section.items} onNavigate={() => setOpen(false)} />
               </div>
@@ -87,7 +87,7 @@ export default function MobileNav({ user, navSections }: { user: AuthUser; navSe
           </div>
 
           <div className="border-t border-sidebar-border p-3">
-            <SignOutButton className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50" />
+            <SignOutButton className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10" />
           </div>
         </nav>
       </div>

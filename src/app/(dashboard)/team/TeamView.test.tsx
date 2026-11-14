@@ -43,7 +43,7 @@ describe("TeamView", () => {
   it("requires confirmation before deactivating a user", async () => {
     render(<TeamView initialUsers={sampleUsers} initialTotal={1} initialTotalPages={1} viewerRole="MARKETING_HEAD" creatableRoles={["PRE_SALES", "SALESPERSON"]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /deactivate/i }));
+    fireEvent.click(screen.getByRole("switch", { name: /deactivate/i }));
     expect(screen.getByText(/are you sure/i)).toBeInTheDocument();
   });
 });

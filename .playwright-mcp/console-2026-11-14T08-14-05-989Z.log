@@ -1,0 +1,12 @@
+[   17681ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qlyrigy:1
+[   18077ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qm9r5l9:1
+[   19461ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qnc7emm:1
+[   20637ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qo8vnyp:1
+[   22226ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qph02em:1
+[   24079ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qqwi7nz:1
+[   26660ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qsw7mj9:1
+[   29083ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qurhfen:1
+[   31665ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qwr70b4:1
+[   34087ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4qymi2zp:1
+[   36668ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4r0m7hdx:1
+[   39091ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=4r2hihop:1

@@ -22,7 +22,7 @@ const PERIODS: { value: EntriesPeriod; label: string }[] = [
 // (busiest period), not a categorical-identity one.
 function toEmphasisBarData(points: { label: string; value: number }[]): BarDatum[] {
   const max = Math.max(0, ...points.map((p) => p.value));
-  return points.map((p) => ({ label: p.label, value: p.value, color: p.value > 0 && p.value === max ? "#cf362a" : "#f2b4ae" }));
+  return points.map((p) => ({ label: p.label, value: p.value, color: p.value > 0 && p.value === max ? "#d1155a" : "#f9bed4" }));
 }
 
 export default function EntriesChartCard() {

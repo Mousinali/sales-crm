@@ -1,0 +1,47 @@
+[   18504ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3pya6ix9:1
+[   18910ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3pylhj81:1
+[   20097ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3pzigacq:1
+[   20866ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q03tsdg:1
+[   23156ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q1vem6g:1
+[   25514ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q3oxnoe:1
+[   28161ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q5qgkzr:1
+[   30520ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q7jyg0q:1
+[   33167ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3q9likxx:1
+[   35526ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qbf1ypu:1
+[   38173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qdgkbtl:1
+[   40532ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qfa2wfb:1
+[   43179ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qhbl0rq:1
+[   45538ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qj54uur:1
+[   48185ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3ql6n33t:1
+[   50544ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qn06021:1
+[   53191ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qp1pivz:1
+[   55549ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qqv82u1:1
+[   58196ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qswru6g:1
+[   60555ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3quqak1s:1
+[   63200ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qwrs5k7:1
+[   65561ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3qylbphk:1
+[   68206ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3r0msn0f:1
+[   70566ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3r2gd750:1
+[   73212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3r4hvfrf:1
+[   75573ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3r6bfnnn:1
+[   78218ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3r8cxjww:1
+[   80579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3ra6h5x1:1
+[   83224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3rc7yl93:1
+[   85586ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3re1kv36:1
+[   88230ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/socket.io/?EIO=4&transport=polling&t=3rg307w4:1
+[   90535ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/calendar?_rsc=pJHLZMydJ8GFT4Td:1
+[   90535ms] [ERROR] Failed to fetch RSC payload for http://localhost:3100/calendar. Falling back to browser navigation. TypeError: Failed to fetch
+    at n (http://localhost:3100/_next/static/chunks/0j2ryougg95mw.js:2:37086)
+    at C (http://localhost:3100/_next/static/chunks/0j2ryougg95mw.js:1:35530)
+    at async E (http://localhost:3100/_next/static/chunks/0j2ryougg95mw.js:1:33416)
+    at async B (http://localhost:3100/_next/static/chunks/0j2ryougg95mw.js:1:27000) @ http://localhost:3100/_next/static/chunks/0j2ryougg95mw.js:1
+[   90543ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/dashboard?_rsc=DYU2K4LcPD9zFf2n:1
+[   90544ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/calendar?_rsc=DYU2K4LcPD9zFf2n:1
+[   90544ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/chat?_rsc=DYU2K4LcPD9zFf2n:1
+[   90544ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/notifications?_rsc=DYU2K4LcPD9zFf2n:1
+[   90546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/team?_rsc=DYU2K4LcPD9zFf2n:1
+[   90547ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/companies?_rsc=DYU2K4LcPD9zFf2n:1
+[   90547ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/leads/new?_rsc=DYU2K4LcPD9zFf2n:1
+[   90547ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/leads?_rsc=DYU2K4LcPD9zFf2n:1
+[   90549ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/tasks?_rsc=DYU2K4LcPD9zFf2n:1
+[   90550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/announcements?_rsc=DYU2K4LcPD9zFf2n:1

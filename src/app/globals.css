@@ -10,31 +10,38 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
 
-  /* Sidebar: a plain white surface with a faint grey "elevated" tone for
-     hover rows and a hairline border for dividers, so these three never
-     drift out of sync across Sidebar/NavLinks/MobileNav/Brand. Active-row
-     color comes from the brand scale below, not from this group. */
-  --color-sidebar: #ffffff;
-  --color-sidebar-elevated: #f4f4f6;
-  --color-sidebar-border: #e8e8ec;
+  /* Sidebar: the secondary brand navy as a solid surface, with a lighter
+     navy "elevated" tone for hover rows and a slightly-lighter-still
+     border for dividers, so these three never drift out of sync across
+     Sidebar/NavLinks/MobileNav/Brand. Active-row color comes from the
+     brand scale below, not from this group. Text/icon color on this dark
+     surface uses the sidebar-foreground/sidebar-muted pair below instead
+     of the zinc scale, which was tuned for a white surface. */
+  --color-sidebar: #10163a;
+  --color-sidebar-elevated: #1b2250;
+  --color-sidebar-border: #262f63;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-muted: #ffffff;
 
   /* App background behind the white content cards — a soft blue-grey,
      distinct from pure white so cards read as elevated. */
   --color-page: #f4f5f9;
 
-  /* Brand accent: a coral-red used for primary actions, active nav/tab
-     state, and anything that should read as "the one color" in the UI.
-     Kept as its own scale (not Tailwind's red) so it can carry its own
-     tint/shade steps independent of any built-in palette. */
-  --color-brand-50: #fdf2f1;
-  --color-brand-100: #fce1df;
-  --color-brand-200: #f8c6c2;
-  --color-brand-300: #f29d96;
-  --color-brand-400: #ea6c62;
-  --color-brand-500: #e14b3f;
-  --color-brand-600: #cf362a;
-  --color-brand-700: #ad2a20;
-  --color-brand-800: #8c231c;
+  /* Brand accent: primary (pink/magenta) used for primary actions, active
+     nav/tab state, and anything that should read as "the one color" in
+     the UI. Kept as its own scale (not Tailwind's rose) so it can carry
+     its own tint/shade steps independent of any built-in palette. #e91e67
+     sits at the 500 step, matching how every bg-brand-500 button/control
+     already expects to find its base color there. */
+  --color-brand-50: #fef1f6;
+  --color-brand-100: #fcdfe9;
+  --color-brand-200: #f9bed4;
+  --color-brand-300: #f48bb1;
+  --color-brand-400: #f06b9c;
+  --color-brand-500: #e91e67;
+  --color-brand-600: #d1155a;
+  --color-brand-700: #ac114a;
+  --color-brand-800: #8b0e3c;
 }
 
 body {
@@ -54,6 +61,57 @@ body {
 button:focus:not(:focus-visible) {
   box-shadow: none !important;
   outline: none !important;
+}
+
+/* Every content card across the dashboard shares this exact Tailwind
+   class combo (rounded-lg + border-zinc-200 + bg-white) rather than a
+   shared component, so a flat `border` with no shadow reads the same way
+   everywhere — one rule here gives all of them real elevation at once
+   instead of editing every call site. The 3-class selector only matches
+   that combo, so it skips unrelated same-rounding elements like the
+   metric/period toggle pills (rounded-md) and round avatars/chips
+   (rounded-full). */
+.rounded-lg.border-zinc-200.bg-white {
+  box-shadow:
+    0 1px 2px rgba(16, 22, 58, 0.06),
+    0 8px 24px -8px rgba(16, 22, 58, 0.14);
+}
+
+/* Solid, white-text CTA buttons (bg-brand-500/600, bg-emerald-600,
+   bg-indigo-600, bg-red-600, bg-rose-600 — every "primary action" button
+   in the app, whichever color family it's in) pick up the same hover
+   concept as smscannon.com's own sign-in button: the fill color stays
+   exactly where it is, and a soft shadow tinted to that same color lifts
+   the button off the page, rather than relying on the bg-darkening alone.
+   The same glow on :focus-visible gives every one of these buttons a
+   real keyboard-focus indicator too — several call sites only ever added
+   `hover:bg-*-700` and no `focus:ring-*` utility, so without this they had
+   no visible focus state at all. One rule per color here covers every
+   button using that class today and any new one that reuses it, instead
+   of adding `hover:shadow-*`/`focus:ring-*` to each call site. Scoped to
+   <button>/<a> so it never reaches a plain bg-brand-500 status dot or
+   notification-count badge. */
+:is(button, a).bg-brand-500:hover:not(:disabled),
+:is(button, a).bg-brand-600:hover:not(:disabled),
+:is(button, a).bg-brand-500:focus-visible,
+:is(button, a).bg-brand-600:focus-visible {
+  box-shadow: 0 8px 20px -6px var(--color-brand-500);
+}
+:is(button, a).bg-emerald-600:hover:not(:disabled),
+:is(button, a).bg-emerald-600:focus-visible {
+  box-shadow: 0 8px 20px -6px rgb(5 150 105 / 55%);
+}
+:is(button, a).bg-indigo-600:hover:not(:disabled),
+:is(button, a).bg-indigo-600:focus-visible {
+  box-shadow: 0 8px 20px -6px rgb(79 70 229 / 55%);
+}
+:is(button, a).bg-red-600:hover:not(:disabled),
+:is(button, a).bg-red-600:focus-visible {
+  box-shadow: 0 8px 20px -6px rgb(220 38 38 / 55%);
+}
+:is(button, a).bg-rose-600:hover:not(:disabled),
+:is(button, a).bg-rose-600:focus-visible {
+  box-shadow: 0 8px 20px -6px rgb(225 29 72 / 55%);
 }
 
 /* Re-themes react-day-picker (used by DateRangeFilter) to the brand scale
@@ -138,14 +196,34 @@ select.rounded-md {
 }
 
 /* Hides the scrollbar on a horizontally swipeable row (e.g. the Super
-   Admin dashboard's stat tiles on mobile) without disabling scrolling —
-   the swipe gesture still works, there's just no track/thumb drawn. */
+   Admin dashboard's stat tiles on mobile) or a vertically scrollable panel
+   (the sidebar/mobile-drawer nav list) without disabling scrolling — the
+   swipe/scroll still works, there's just no track/thumb drawn. */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* StatTile's spec (from Figma) uses a 1px *gradient* stroke — a light
+   tint fading to a muted, gray-tinted version of the same hue — plus a
+   near-white gradient fill, not flat colors. An element can only have one
+   real border, so this is the standard two-background trick instead: the
+   fill gradient paints the padding-box, the stroke gradient paints the
+   border-box, and a transparent 1px border is what leaves a gap for that
+   second layer to show through as a ring. StatTile sets the four
+   --tile-* stops per tone via inline style. */
+.stat-tile {
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background-image:
+    linear-gradient(to bottom, var(--tile-fill-from), var(--tile-fill-to)),
+    linear-gradient(to bottom, var(--tile-border-from), var(--tile-border-to));
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 1px 2px rgba(16, 22, 58, 0.05);
 }
 
 /* Tables collapse from a grid into a stack of labelled rows below the sm

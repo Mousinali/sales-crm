@@ -25,10 +25,17 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     throw error;
   }
 
-  const activities = await listLeadActivities(pool, user, lead.id);
-  const services = await listLeadServices(pool, lead.id);
-  const latestSale = await getLatestSaleForLead(pool, lead.id);
-  const ownerNames = await getLeadOwnerNames(pool, lead);
+  // None of these four depend on each other's result (just on `lead`
+  // itself, already fetched above) — running them one at a time serialized
+  // every page load behind 4 round trips instead of the slowest one. Under
+  // load-testing this page averaged ~500ms (p95 ~1s), 3x any other page in
+  // the app, for exactly this reason.
+  const [activities, services, latestSale, ownerNames] = await Promise.all([
+    listLeadActivities(pool, user, lead.id),
+    listLeadServices(pool, lead.id),
+    getLatestSaleForLead(pool, lead.id),
+    getLeadOwnerNames(pool, lead),
+  ]);
   const leadWithSale = {
     ...lead,
     latest_sale_id: latestSale?.id ?? null,
