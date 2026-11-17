@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import Tabs from "@/components/ui/Tabs";
 import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
@@ -50,7 +51,7 @@ export default function EmployeeRankingCard() {
         {error ? (
           <p className="text-sm text-rose-600">{error}</p>
         ) : employees === null ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <SkeletonList />
         ) : employees.length === 0 ? (
           <p className="text-sm text-zinc-500">No sales in this period.</p>
         ) : (

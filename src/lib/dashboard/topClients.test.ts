@@ -5,6 +5,7 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createSale } from "@/lib/sales/create";
+import { recordSalePayment } from "@/lib/sales/payments";
 import { getGroupDetail, getPerformance } from "@/lib/analysis/performance";
 import { getBestClients, getEmployeeRanking } from "./topClients";
 
@@ -23,6 +24,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM sale_payments WHERE sale_id = ANY($1)", [saleIds]);
   await pool.query("DELETE FROM sales WHERE id = ANY($1)", [saleIds]);
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [adminId]);
   await pool.query("DELETE FROM users WHERE id = ANY($1)", [[spId, otherSpId, adminId]]);
@@ -48,7 +50,7 @@ describe("best clients and employee ranking", () => {
 
   it("groups performance by client, employee, industry and category", async () => {
     const byClient = await getPerformance(pool, "sales", "client", "ALL_TIME", ALL);
-    expect(byClient.items.find((r) => r.label === `Big ${stamp}`)).toMatchObject({ sales: 9000, paid: 0, due: 9000, count: 1 });
+    expect(byClient.items.find((r) => r.label === `Big ${stamp}`)).toMatchObject({ sales: 9000, paid: 0, due: 9000, excess: 0, count: 1 });
     expect((await getPerformance(pool, "sales", "employee", "ALL_TIME", ALL)).items.find((r) => r.label === "TopSP")?.sales).toBe(9000);
     expect((await getPerformance(pool, "sales", "industry", "ALL_TIME", ALL)).items.find((r) => r.label === "Unknown")?.sales).toBeGreaterThanOrEqual(9100);
     expect((await getPerformance(pool, "payments", "category", "ALL_TIME", ALL)).items.every((r) => typeof r.paid === "number")).toBe(true);
@@ -58,10 +60,20 @@ describe("best clients and employee ranking", () => {
   it("drills into one group with its sales and activity", async () => {
     const row = (await getPerformance(pool, "sales", "client", "ALL_TIME", ALL)).items.find((r) => r.label === `Big ${stamp}`)!;
     const detail = await getGroupDetail(pool, "client", row.key, "ALL_TIME", { page: 1, pageSize: 10 });
-    expect(detail.totals).toEqual({ sales: 9000, paid: 0, due: 9000, count: 1 });
+    expect(detail.totals).toEqual({ sales: 9000, paid: 0, due: 9000, excess: 0, count: 1 });
     expect(detail.sales.items).toHaveLength(1);
     expect(detail.events.some((e) => e.kind === "SALE")).toBe(true);
     const emp = await getGroupDetail(pool, "employee", String(spId), "ALL_TIME", { page: 1, pageSize: 10 });
     expect(emp.totals.sales).toBe(9000);
+  });
+
+  it("reports money paid beyond the sale amount as excess, not negative due", async () => {
+    const sale = await createSale(pool, { creatorId: spId, creatorRole: "SALESPERSON", companyName: `Over ${stamp}`, budgetAmount: 1000, budgetType: "ONE_TIME" });
+    saleIds.push(sale.id);
+    await recordSalePayment(pool, { actorId: spId, actorRole: "SALESPERSON", saleId: sale.id, amount: 1500, paymentMethod: "CASH" });
+    const row = (await getPerformance(pool, "payments", "client", "ALL_TIME", ALL)).items.find((r) => r.label === `Over ${stamp}`);
+    expect(row).toMatchObject({ sales: 1000, paid: 1500, due: 0, excess: 500 });
+    const detail = await getGroupDetail(pool, "client", `over ${stamp}`, "ALL_TIME", { page: 1, pageSize: 10 });
+    expect(detail.totals).toMatchObject({ due: 0, excess: 500 });
   });
 });

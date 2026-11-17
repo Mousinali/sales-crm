@@ -1,5 +1,6 @@
 "use client";
 
+import BalanceText from "@/components/ui/BalanceText";
 import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -56,7 +57,6 @@ export default function NewPaymentForm() {
   }, []);
 
   const selectedSale = saleOptions.find((s) => String(s.id) === saleId);
-  const due = selectedSale ? Math.max(Number(selectedSale.budget_amount) - Number(selectedSale.paid_amount ?? 0), 0) : null;
 
   async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,6 +101,7 @@ export default function NewPaymentForm() {
       await response.json();
       toast.success("Payment recorded", selectedSale?.company_name);
       router.push("/payments");
+      router.refresh(); // drop cached list pages so the new record shows up
     } catch {
       setCreateError("Could not record the payment.");
       toast.error("Could not record payment");
@@ -125,7 +126,7 @@ export default function NewPaymentForm() {
               label: `${sale.sale_number} · ${sale.company_name}`,
             }))}
           />
-          {due !== null && <p className="text-xs text-amber-700">{formatCurrency(due)} due on this sale</p>}
+          {selectedSale && <p><BalanceText budget={Number(selectedSale.budget_amount)} paid={Number(selectedSale.paid_amount ?? 0)} dueLabel="due on this sale" /></p>}
         </div>
 
         <div className="flex flex-col gap-1.5">

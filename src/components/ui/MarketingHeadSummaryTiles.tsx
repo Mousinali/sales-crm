@@ -44,10 +44,10 @@ export default function MarketingHeadSummaryTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      <StatTile label="Total sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
-      <StatTile label="Total payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
-      <StatTile label="Total leads" value={summary?.totalLeads ?? 0} icon="ri-contacts-line" tone="brand" />
-      <StatTile label="Total visits" value={summary?.totalVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
+      <StatTile loading={summary === null} label="Total sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+      <StatTile loading={summary === null} label="Total payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
+      <StatTile loading={summary === null} label="Total leads" value={summary?.totalLeads ?? 0} icon="ri-contacts-line" tone="brand" />
+      <StatTile loading={summary === null} label="Total visits" value={summary?.totalVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
     </div>
   );
 }

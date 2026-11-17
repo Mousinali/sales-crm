@@ -27,15 +27,23 @@ export const DIMENSION_SQL: Record<Dimension, { key: string; label: string; join
 // sales, the payments view by amount paid.
 const ORDER_BY: Record<Metric, string> = { sales: "SUM(s.budget_amount)", payments: "COALESCE(SUM(pay.paid), 0)" };
 
+// Per sale, what is still due and what was paid beyond the sale amount
+// ("excess"), summed up — so one overpaid sale doesn't hide another's balance.
+const DUE_SQL = "GREATEST(s.budget_amount - COALESCE(pay.paid, 0), 0)";
+const EXCESS_SQL = "GREATEST(COALESCE(pay.paid, 0) - s.budget_amount, 0)";
+
 export async function getPerformance(pool: Pool, metric: Metric, dimension: Dimension, range: RankingRange, params: PageParams) {
   const d = DIMENSION_SQL[dimension];
   // The window columns carry the totals over every group, not just this page.
   const { rows } = await pool.query<{
-    label: string; key: string; sales: string; paid: string; count: string; total_count: number; grand_sales: string; grand_paid: string; grand_count: string;
+    label: string; key: string; sales: string; paid: string; due: string; excess: string; count: string;
+    total_count: number; grand_sales: string; grand_paid: string; grand_due: string; grand_excess: string; grand_count: string;
   }>(
-    `SELECT ${d.label} AS label, (${d.key})::text AS key, SUM(s.budget_amount) AS sales, COALESCE(SUM(pay.paid), 0) AS paid, count(*) AS count,
+    `SELECT ${d.label} AS label, (${d.key})::text AS key, SUM(s.budget_amount) AS sales, COALESCE(SUM(pay.paid), 0) AS paid,
+            SUM(${DUE_SQL}) AS due, SUM(${EXCESS_SQL}) AS excess, count(*) AS count,
             count(*) OVER() AS total_count, SUM(SUM(s.budget_amount)) OVER() AS grand_sales,
-            SUM(COALESCE(SUM(pay.paid), 0)) OVER() AS grand_paid, SUM(count(*)) OVER() AS grand_count
+            SUM(COALESCE(SUM(pay.paid), 0)) OVER() AS grand_paid, SUM(SUM(${DUE_SQL})) OVER() AS grand_due,
+            SUM(SUM(${EXCESS_SQL})) OVER() AS grand_excess, SUM(count(*)) OVER() AS grand_count
      FROM sales s
      LEFT JOIN (SELECT sale_id, SUM(amount) AS paid FROM sale_payments GROUP BY sale_id) pay ON pay.sale_id = s.id
      ${d.join}
@@ -44,16 +52,21 @@ export async function getPerformance(pool: Pool, metric: Metric, dimension: Dime
     [params.pageSize, (params.page - 1) * params.pageSize],
   );
   const paged = toPagedResult(
-    rows.map((r) => {
-      const sales = Number(r.sales);
-      const paid = Number(r.paid);
-      return { label: r.label, key: r.key, sales, paid, due: sales - paid, count: Number(r.count), total_count: Number(r.total_count) };
-    }),
+    rows.map((r) => ({
+      label: r.label, key: r.key, sales: Number(r.sales), paid: Number(r.paid), due: Number(r.due), excess: Number(r.excess),
+      count: Number(r.count), total_count: Number(r.total_count),
+    })),
     params,
   );
-  const grandSales = Number(rows[0]?.grand_sales ?? 0);
-  const grandPaid = Number(rows[0]?.grand_paid ?? 0);
-  return { ...paged, grandSales, grandPaid, grandDue: grandSales - grandPaid, grandCount: Number(rows[0]?.grand_count ?? 0) };
+  const first = rows[0];
+  return {
+    ...paged,
+    grandSales: Number(first?.grand_sales ?? 0),
+    grandPaid: Number(first?.grand_paid ?? 0),
+    grandDue: Number(first?.grand_due ?? 0),
+    grandExcess: Number(first?.grand_excess ?? 0),
+    grandCount: Number(first?.grand_count ?? 0),
+  };
 }
 
 const EVENT_LIMIT = 30;
@@ -74,10 +87,10 @@ export async function getGroupDetail(pool: Pool, dimension: Dimension, key: stri
        ${scope} ORDER BY s.sale_date DESC, s.id DESC LIMIT $2 OFFSET $3`,
       [key, params.pageSize, (params.page - 1) * params.pageSize],
     ),
-    pool.query<{ sales: string; paid: string; count: string }>(
-      `SELECT COALESCE(SUM(s.budget_amount), 0) AS sales, count(*) AS count,
-              COALESCE(SUM((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id)), 0) AS paid
-       ${scope}`,
+    pool.query<{ sales: string; paid: string; due: string; excess: string; count: string }>(
+      `SELECT COALESCE(SUM(t.budget_amount), 0) AS sales, count(*) AS count, COALESCE(SUM(t.paid), 0) AS paid,
+              COALESCE(SUM(GREATEST(t.budget_amount - t.paid, 0)), 0) AS due, COALESCE(SUM(GREATEST(t.paid - t.budget_amount, 0)), 0) AS excess
+       FROM (SELECT s.budget_amount, COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id), 0) AS paid ${scope}) t`,
       [key],
     ),
     pool.query<{ id: string; kind: string; at: Date; title: string; description: string | null; actor: string | null }>(
@@ -104,7 +117,7 @@ export async function getGroupDetail(pool: Pool, dimension: Dimension, key: stri
   const sum = Number(totals.rows[0].sales);
   const paid = Number(totals.rows[0].paid);
   return {
-    totals: { sales: sum, paid, due: sum - paid, count: total },
+    totals: { sales: sum, paid, due: Number(totals.rows[0].due), excess: Number(totals.rows[0].excess), count: total },
     sales: {
       items: sales.rows.map((r) => ({
         id: Number(r.id), saleNumber: r.sale_number, company: r.company_name, saleDate: r.sale_date,

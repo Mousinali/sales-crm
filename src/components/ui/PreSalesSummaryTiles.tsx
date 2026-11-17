@@ -46,12 +46,12 @@ export default function PreSalesSummaryTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      <StatTile label="My sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
-      <StatTile label="My payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
-      <StatTile label="Leads created" value={summary?.leadsCreated ?? 0} icon="ri-add-circle-line" tone="brand" />
-      <StatTile label="Awaiting review" value={summary?.leadsAwaitingReview ?? 0} icon="ri-time-line" tone="amber" />
-      <StatTile label="Follow-ups due today" value={summary?.followUpsDueToday ?? 0} icon="ri-calendar-check-line" tone="sky" />
-      <StatTile label="Upcoming tasks" value={summary?.upcomingTasks ?? 0} icon="ri-list-check" tone="teal" />
+      <StatTile loading={summary === null} label="My sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+      <StatTile loading={summary === null} label="My payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
+      <StatTile loading={summary === null} label="Leads created" value={summary?.leadsCreated ?? 0} icon="ri-add-circle-line" tone="brand" />
+      <StatTile loading={summary === null} label="Awaiting review" value={summary?.leadsAwaitingReview ?? 0} icon="ri-time-line" tone="amber" />
+      <StatTile loading={summary === null} label="Follow-ups due today" value={summary?.followUpsDueToday ?? 0} icon="ri-calendar-check-line" tone="sky" />
+      <StatTile loading={summary === null} label="Upcoming tasks" value={summary?.upcomingTasks ?? 0} icon="ri-list-check" tone="teal" />
     </div>
   );
 }

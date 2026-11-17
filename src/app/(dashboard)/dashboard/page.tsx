@@ -23,7 +23,7 @@ import PreSalesSummaryTiles from "@/components/ui/PreSalesSummaryTiles";
 import SalespersonSummaryTiles from "@/components/ui/SalespersonSummaryTiles";
 import SuperAdminPeriodDropdown from "@/components/ui/SuperAdminPeriodDropdown";
 import { SuperAdminPeriodProvider } from "@/components/ui/SuperAdminPeriodContext";
-import { leadStatusBarData, leadPriorityBarData, roleBarData, ownerBarData } from "@/app/(dashboard)/dashboardChartColors";
+import { leadStatusBarData, leadPriorityBarData, roleBarData } from "@/app/(dashboard)/dashboardChartColors";
 import { LEAD_STATUS_LABELS, LEAD_ACTIVITY_DISPLAY } from "@/app/(dashboard)/leadDisplay";
 
 function ChartCard({ title, data }: { title: string; data: BarDatum[] }) {
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
   }
 
   if (user.role === "MARKETING_HEAD") {
-    const d = await getMarketingHeadDashboard(pool);
+    const d = await getMarketingHeadDashboard(pool, user.id);
     return (
       <SuperAdminPeriodProvider>
         <div className="flex flex-col gap-6">
@@ -166,7 +166,6 @@ export default async function DashboardPage() {
             extra={<SuperAdminPeriodDropdown />}
           />
           <MarketingHeadSummaryTiles />
-          <BestClientsCard />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <EntriesChartCard />
@@ -174,21 +173,22 @@ export default async function DashboardPage() {
             <PieCard title="Leads by priority" data={leadPriorityBarData(d.leadsByPriority)} stacked />
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ChartCard title="Leads by Pre-sales owner" data={ownerBarData(d.leadsByPreSalesOwner)} />
-            <ChartCard title="Leads by Salesperson owner" data={ownerBarData(d.leadsBySalespersonOwner)} />
-          </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <p className="mb-3 text-sm font-semibold text-zinc-900">Overdue follow-ups ({d.overdueTasks.length})</p>
-            <Timeline
-              emptyText="Nothing overdue."
-              entries={d.overdueTasks.map((task) => ({
-                id: task.id,
-                icon: "ri-alarm-warning-line",
-                iconClass: "bg-rose-50 text-rose-600",
-                title: task.title,
-                timestamp: task.due_at,
-              }))}
-            />
+            <BestClientsCard />
+            <div className="h-full min-h-72 rounded-lg border border-zinc-200 bg-white p-4">
+              <p className="mb-3 text-sm font-semibold text-zinc-900">Overdue follow-ups ({d.overdueTasks.length})</p>
+              <div className="slim-scrollbar -mr-2 max-h-72 overflow-y-auto pr-2">
+                <Timeline
+                  emptyText="Nothing overdue."
+                  entries={d.overdueTasks.map((task) => ({
+                    id: task.id,
+                    icon: "ri-alarm-warning-line",
+                    iconClass: "bg-rose-50 text-rose-600",
+                    title: task.title,
+                    timestamp: task.due_at,
+                  }))}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </SuperAdminPeriodProvider>

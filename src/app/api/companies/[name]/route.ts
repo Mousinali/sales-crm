@@ -24,7 +24,7 @@ export async function GET(
   const { name } = await params;
 
   try {
-    const company = await getCompany(pool, name, viewerScope(user));
+    const company = await getCompany(pool, name, viewerScope(user), { includeLeads: user.role !== "ACCOUNTANT", includeTransfers: user.role === "SUPER_ADMIN" });
     // An Accountant sees the company's details and sales, never its leads.
     return NextResponse.json(user.role === "ACCOUNTANT" ? { ...company, leads: [] } : company);
   } catch (error) {

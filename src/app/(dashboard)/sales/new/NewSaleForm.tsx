@@ -176,6 +176,7 @@ export default function NewSaleForm({ serviceOptions, isAccountant }: { serviceO
       await response.json();
       toast.success("Sale recorded", leadId ? leadOptions.find((l) => String(l.id) === leadId)?.company_name : companyName.trim());
       router.push("/sales");
+      router.refresh(); // drop cached list pages so the new record shows up
     } catch {
       setCreateError("Could not record the sale.");
       toast.error("Could not record sale");

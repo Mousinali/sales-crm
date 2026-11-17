@@ -12,13 +12,13 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
   let company;
   try {
-    company = await getCompany(pool, name, viewerScope(user));
+    // An Accountant sees the company's details and sales, never its leads.
+    company = await getCompany(pool, name, viewerScope(user), { includeLeads: user.role !== "ACCOUNTANT", includeTransfers: user.role === "SUPER_ADMIN" });
   } catch (error) {
     if (error instanceof CompanyNotFoundError) notFound();
     throw error;
   }
 
-  // An Accountant sees the company's details and sales, never its leads.
   const showLeads = user.role !== "ACCOUNTANT";
   return (
     <CompanyDetailView

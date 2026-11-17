@@ -6,7 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { listLeads } from "./list";
-import { listLeadShares, shareLead, unshareLead } from "./share";
+import { bulkShareLeads, listLeadShares, shareLead, unshareLead } from "./share";
 import { LeadActionNotAllowedError, LeadNotAccessibleError } from "./errors";
 
 const adminEmail = `share-admin-${Date.now()}@example.com`;
@@ -70,5 +70,22 @@ describe("lead sharing", () => {
   it("stops showing the lead once unshared", async () => {
     await unshareLead(pool, { id: ownerId, role: "PRE_SALES" }, lead.id, viewerId);
     expect(await ids({ id: viewerId, role: "SALESPERSON" })).not.toContain(lead.id);
+  });
+
+  it("bulk-shares several leads with several people, but only leads the actor owns", async () => {
+    const second = await createLead(pool, { creatorId: ownerId, creatorRole: "PRE_SALES", companyName: "Share Co 2", phone: "2", leadSource: "OTHER" });
+    const foreign = await createLead(pool, { creatorId: strangerId, creatorRole: "PRE_SALES", companyName: "Share Co 3", phone: "3", leadSource: "OTHER" });
+    try {
+      const owner = { id: ownerId, role: "PRE_SALES" as const };
+      await expect(bulkShareLeads(pool, owner, [lead.id, foreign.id], [viewerId])).rejects.toThrow(LeadNotAccessibleError);
+      await expect(bulkShareLeads(pool, owner, [lead.id], [accountantId])).rejects.toThrow(LeadActionNotAllowedError);
+
+      expect(await bulkShareLeads(pool, owner, [lead.id, second.id], [viewerId, strangerId])).toEqual({ leads: 2, users: 2 });
+      expect(await ids({ id: viewerId, role: "SALESPERSON" })).toEqual(expect.arrayContaining([lead.id, second.id]));
+      expect(await ids({ id: strangerId, role: "PRE_SALES" })).toContain(second.id);
+    } finally {
+      await pool.query("DELETE FROM lead_shares WHERE lead_id = ANY($1)", [[second.id, foreign.id]]);
+      await pool.query("DELETE FROM leads WHERE id = ANY($1)", [[second.id, foreign.id]]);
+    }
   });
 });

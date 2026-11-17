@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 import { getMySalesAndPayments } from "@/lib/dashboard/mySales";
 import { PERIOD_SINCE_SQL, type SummaryPeriod } from "@/lib/dashboard/superAdminSummary";
 
@@ -15,13 +16,17 @@ export const PERIOD_UNTIL_SQL: Record<SummaryPeriod, string> = {
 };
 
 // Period-scoped numbers for the Marketing Head welcome row's 4 stat tiles.
-// Leads are scoped by when the lead was created, visits by visit date.
+// Leads are scoped by when the lead was created, visits by visit date, both
+// limited to the leads this Marketing Head can see (not the whole company).
 export async function getMarketingHeadPeriodSummary(pool: Pool, userId: number, period: SummaryPeriod) {
   const since = PERIOD_SINCE_SQL[period];
 
   const [total, visits, money] = await Promise.all([
-    pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE created_at >= ${since} AND archived_at IS NULL`),
-    pool.query<{ count: string }>(`SELECT count(*) FROM client_visits WHERE visit_date >= ${since}`),
+    pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE created_at >= ${since} AND archived_at IS NULL AND ${leadVisibleSql("leads", "$1")}`, [userId]),
+    pool.query<{ count: string }>(
+      `SELECT count(*) FROM client_visits cv JOIN leads l ON l.id = cv.lead_id WHERE cv.visit_date >= ${since} AND ${leadVisibleSql("l", "$1")}`,
+      [userId],
+    ),
     getMySalesAndPayments(pool, userId, period),
   ]);
 

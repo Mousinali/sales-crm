@@ -44,13 +44,13 @@ export default function SuperAdminSummaryTiles() {
   return (
     <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0">
       <div className="min-w-[160px] shrink-0 sm:min-w-0 sm:shrink">
-        <StatTile label="Total sales" value={`₹${(summary?.totalSales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+        <StatTile loading={summary === null} label="Total sales" value={`₹${(summary?.totalSales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
       </div>
       <div className="min-w-[160px] shrink-0 sm:min-w-0 sm:shrink">
-        <StatTile label="Total leads" value={summary?.totalLeads ?? 0} icon="ri-contacts-line" tone="brand" />
+        <StatTile loading={summary === null} label="Total leads" value={summary?.totalLeads ?? 0} icon="ri-contacts-line" tone="brand" />
       </div>
       <div className="min-w-[160px] shrink-0 sm:min-w-0 sm:shrink">
-        <StatTile label="Total companies" value={summary?.totalCompanies ?? 0} icon="ri-building-line" tone="sky" />
+        <StatTile loading={summary === null} label="Total companies" value={summary?.totalCompanies ?? 0} icon="ri-building-line" tone="sky" />
       </div>
       <div className="min-w-[160px] shrink-0 sm:min-w-0 sm:shrink">
         <StatTile

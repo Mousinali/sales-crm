@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { CSSProperties } from "react";
 
 const TONE_ICON_BG = {
@@ -46,17 +47,24 @@ export default function StatTile({
   value,
   icon,
   tone = "zinc",
+  loading = false,
 }: {
   label: string;
   value: number | string;
   icon: string;
   tone?: Tone;
+  // Shows a placeholder in place of the value while the figure is still being fetched.
+  loading?: boolean;
 }) {
   return (
     <div className="stat-tile p-4" style={toneStyle(tone)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-2xl font-semibold text-zinc-900">{typeof value === "number" ? value.toLocaleString() : value}</p>
+          {loading ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <p className="text-2xl font-semibold text-zinc-900">{typeof value === "number" ? value.toLocaleString() : value}</p>
+          )}
           <p className="mt-1 text-xs font-semibold text-zinc-500">{label}</p>
         </div>
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white ${TONE_ICON_BG[tone]}`}>

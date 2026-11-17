@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "@/lib/toast";
 import { useMobileOverlay } from "./MobileOverlayContext";
+import NotificationIcon from "./NotificationIcon";
+import { notificationDisplay } from "./notificationDisplay";
 
 const MUTE_STORAGE_KEY = "notificationsMuted";
 
@@ -13,6 +15,7 @@ type Notification = {
   type: string;
   message: string;
   read_at: string | null;
+  created_at?: string;
   lead_id: number | null;
   related_user_id: number | null;
 };
@@ -173,9 +176,21 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
           <button
             type="button"
             onClick={() => handleClick(n)}
-            className={`block flex-1 px-4 py-2 text-left text-sm ${n.read_at ? "text-zinc-400" : "font-medium text-zinc-900"}`}
+            className="flex min-w-0 flex-1 items-start gap-3 px-4 py-2.5 text-left"
           >
-            {n.message}
+            <NotificationIcon type={n.type} />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                {notificationDisplay(n.type).label}
+                {n.created_at && (
+                  <time className="font-normal normal-case tracking-normal">
+                    · {new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                  </time>
+                )}
+              </span>
+              <span className={`block text-sm ${n.read_at ? "text-zinc-400" : "font-medium text-zinc-900"}`}>{n.message}</span>
+            </span>
+            {!n.read_at && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-label="Unread" />}
           </button>
           <button
             type="button"

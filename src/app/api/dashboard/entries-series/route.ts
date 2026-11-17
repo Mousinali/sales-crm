@@ -25,7 +25,8 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // The Accountant only gets the money series; lead/sale counts stay with Super Admin and Marketing Head.
-  const isOwnScoped = user.role === "SALESPERSON" || user.role === "PRE_SALES";
+  // Everyone but Super Admin and Accountant sees only their own leads (incl. shared) and sales.
+  const isOwnScoped = user.role === "SALESPERSON" || user.role === "PRE_SALES" || user.role === "MARKETING_HEAD";
   const allowed =
     user.role === "SUPER_ADMIN" ||
     user.role === "MARKETING_HEAD" ||

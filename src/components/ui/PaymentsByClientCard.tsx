@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import BarChart from "@/components/ui/BarChart";
 import { useSuperAdminPeriod } from "@/components/ui/SuperAdminPeriodContext";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
@@ -41,7 +42,7 @@ export default function PaymentsByClientCard() {
       {error ? (
         <p className="text-sm text-rose-600">{error}</p>
       ) : clients === null ? (
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <Skeleton className="h-44 w-full" />
       ) : clients.length === 0 ? (
         <p className="text-sm text-zinc-500">No payments received yet.</p>
       ) : (

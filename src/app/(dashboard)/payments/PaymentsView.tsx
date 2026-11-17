@@ -1,5 +1,6 @@
 "use client";
 
+import BalanceText from "@/components/ui/BalanceText";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { SALE_PAYMENT_METHODS, type SalePaymentRow, type SalePaymentMethod } from "@/lib/sales/types";
@@ -224,7 +225,6 @@ export default function PaymentsView({
             {payments.map((payment) => {
               const budget = Number(payment.budget_amount ?? 0);
               const paid = Number(payment.paid_amount ?? 0);
-              const due = Math.max(budget - paid, 0);
               return (
                 <tr key={payment.id} className="border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50/80">
                   <td data-label="Payment" className="px-4 py-3 font-medium text-zinc-900">{payment.payment_number}</td>
@@ -237,7 +237,7 @@ export default function PaymentsView({
                   <td data-label="Amount" className="px-4 py-3 font-medium text-emerald-700">{formatCurrency(Number(payment.amount))}</td>
                   <td data-label="Sale amount / Due" className="px-4 py-3">
                     <span className="text-zinc-900">{formatCurrency(budget)}</span>
-                    <p className="text-xs text-amber-700">{formatCurrency(due)} due</p>
+                    <p><BalanceText budget={budget} paid={paid} /></p>
                   </td>
                   <td data-label="Method" className="px-4 py-3 text-zinc-700">
                     {PAYMENT_METHOD_LABELS[payment.payment_method]}

@@ -3,9 +3,12 @@
 import DateField from "@/components/ui/DateField";
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { saleBalance } from "@/lib/sales/balance";
 import StatTile from "@/components/ui/StatTile";
 import Modal from "@/components/ui/Modal";
 import { FormattedText } from "@/components/ui/RichTextField";
@@ -67,6 +70,7 @@ export default function SaleDetailView({
   soldByName: string | null;
   recordedByName: string | null;
 }) {
+  const router = useRouter();
   const [payments, setPayments] = useState<SalePaymentRow[]>(initialPayments);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -93,7 +97,7 @@ export default function SaleDetailView({
 
   const budgetAmount = Number(sale.budget_amount);
   const paidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const remaining = budgetAmount - paidAmount;
+  const { due: remaining, excess } = saleBalance(budgetAmount, paidAmount);
 
   async function refreshPayments() {
     setRefreshing(true);
@@ -140,8 +144,11 @@ export default function SaleDetailView({
         setSubmitting(false);
         return;
       }
-      const created = await response.json();
-      setPayments((current) => [created, ...current]);
+      // Re-read the list (rather than prepending the POST result) so the new row
+      // carries who recorded it, and router.refresh() drops the cached copies of
+      // the Payments/Sales lists, which would otherwise be up to 4 minutes stale.
+      await refreshPayments();
+      router.refresh();
       setAmount("");
       setReceiptNumber("");
       setAccountNumber("");
@@ -156,13 +163,15 @@ export default function SaleDetailView({
     }
   }
 
-  const percent = budgetAmount > 0 ? Math.min(100, Math.round((paidAmount / budgetAmount) * 100)) : 0;
+  const percent = budgetAmount > 0 ? Math.round((paidAmount / budgetAmount) * 100) : 0;
   const status =
     paidAmount <= 0
       ? { label: "Unpaid", classes: "bg-rose-50 text-rose-700" }
-      : remaining > 0
-        ? { label: "Partially paid", classes: "bg-amber-50 text-amber-700" }
-        : { label: "Paid in full", classes: "bg-emerald-50 text-emerald-700" };
+      : excess > 0
+        ? { label: "Overpaid", classes: "bg-violet-50 text-violet-700" }
+        : remaining > 0
+          ? { label: "Partially paid", classes: "bg-amber-50 text-amber-700" }
+          : { label: "Paid in full", classes: "bg-emerald-50 text-emerald-700" };
 
   return (
     <div className="flex flex-col gap-4">
@@ -214,7 +223,7 @@ export default function SaleDetailView({
             <span className="font-medium text-zinc-700">{percent}% collected</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-amber-100">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${percent}%` }} />
+            <div className={`h-full rounded-full transition-all ${excess > 0 ? "bg-violet-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(percent, 100)}%` }} />
           </div>
         </div>
       </div>
@@ -222,7 +231,11 @@ export default function SaleDetailView({
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile label="Budget" value={formatCurrency(budgetAmount)} icon="ri-money-rupee-circle-line" tone="brand" />
         <StatTile label="Paid so far" value={formatCurrency(paidAmount)} icon="ri-hand-coin-line" tone="emerald" />
-        <StatTile label="Remaining" value={formatCurrency(Math.max(remaining, 0))} icon="ri-time-line" tone="amber" />
+        {excess > 0 ? (
+          <StatTile label="Excess paid" value={formatCurrency(excess)} icon="ri-add-circle-line" tone="violet" />
+        ) : (
+          <StatTile label="Remaining" value={formatCurrency(remaining)} icon="ri-time-line" tone="amber" />
+        )}
         <StatTile label="Payments" value={payments.length} icon="ri-receipt-line" tone="sky" />
       </div>
 
@@ -234,7 +247,9 @@ export default function SaleDetailView({
           </div>
           <div className="mt-3 overflow-x-auto">
             {refreshing && payments.length === 0 ? (
-              <p className="px-5 pb-5 text-sm text-zinc-500">Loading…</p>
+              <div className="px-5 pb-5">
+                <Skeleton className="h-24 w-full" />
+              </div>
             ) : payments.length === 0 ? (
               <div className="px-5 pb-8 pt-4 text-center">
                 <i className="ri-wallet-3-line text-3xl text-zinc-300" aria-hidden="true" />

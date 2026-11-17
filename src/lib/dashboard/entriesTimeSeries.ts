@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 
 export const ENTRIES_PERIODS = ["TODAY", "WEEK", "MONTH"] as const;
 export type EntriesPeriod = (typeof ENTRIES_PERIODS)[number];
@@ -33,9 +34,8 @@ const PERIOD_CONFIG: Record<EntriesPeriod, { bucketTrunc: "hour" | "day"; genera
   },
 };
 
-// Marketing Head (the only viewer of this chart today) already sees every
-// lead/sale with no per-owner scoping elsewhere on their dashboard — the
-// join condition keeps that, and lives in the ON clause (not a trailing
+// Without ownerId (Super Admin, Accountant) the chart covers every record. The
+// join condition lives in the ON clause (not a trailing
 // WHERE) so a bucket with zero matching rows still comes back as a real
 // zero instead of being dropped by the join.
 async function entriesSeries(pool: Pool, metric: EntriesMetric, period: EntriesPeriod, ownerId?: number): Promise<EntriesPoint[]> {
@@ -46,7 +46,7 @@ async function entriesSeries(pool: Pool, metric: EntriesMetric, period: EntriesP
     ownerId === undefined
       ? ""
       : metric === "LEADS"
-        ? ` AND (t.created_by = $1 OR t.pre_sales_owner_id = $1 OR t.salesperson_owner_id = $1)`
+        ? ` AND ${leadVisibleSql("t", "$1")}`
         : isPayments(metric)
           ? ` AND t.recorded_by = $1`
           : ` AND (t.created_by = $1 OR t.sold_by_user_id = $1)`;

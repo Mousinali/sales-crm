@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Pagination from "@/components/ui/Pagination";
+import RankBadge from "@/components/ui/RankBadge";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import StatTile from "@/components/ui/StatTile";
 import Tabs from "@/components/ui/Tabs";
 import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import type { Dimension, Metric } from "@/lib/analysis/performance";
 
-type Row = { label: string; key: string; sales: number; paid: number; due: number; count: number };
-type Result = { items: Row[]; page: number; pageSize: number; total: number; totalPages: number; grandSales: number; grandPaid: number; grandDue: number; grandCount: number };
+type Row = { label: string; key: string; sales: number; paid: number; due: number; excess: number; count: number };
+type Result = { items: Row[]; page: number; pageSize: number; total: number; totalPages: number; grandSales: number; grandPaid: number; grandDue: number; grandExcess: number; grandCount: number };
 
 const DIMENSIONS: { id: Dimension; label: string; icon: string; plural: string }[] = [
   { id: "client", label: "Client performance", icon: "ri-building-line", plural: "Clients" },
@@ -30,16 +32,6 @@ const PAGE_SIZE = 10;
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-const RANK_BADGE = ["bg-amber-100 text-amber-700", "bg-zinc-200 text-zinc-700", "bg-orange-100 text-orange-700"];
-
-function Rank({ n }: { n: number }) {
-  return (
-    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${RANK_BADGE[n - 1] ?? "text-zinc-400"}`}>
-      {n}
-    </span>
-  );
-}
-
 // Share of the amount actually collected, as a bar + percentage.
 function Collected({ paid, sales }: { paid: number; sales: number }) {
   const pct = sales ? Math.min(100, (paid / sales) * 100) : 0;
@@ -51,18 +43,6 @@ function Collected({ paid, sales }: { paid: number; sales: number }) {
       <span className="w-9 text-right text-xs tabular-nums text-zinc-500">{Math.round(pct)}%</span>
     </div>
   );
-}
-
-function SkeletonRows({ cols }: { cols: number }) {
-  return Array.from({ length: 6 }, (_, i) => (
-    <tr key={i}>
-      {Array.from({ length: cols }, (_, j) => (
-        <td key={j} className="px-3 py-3">
-          <div className="h-4 animate-pulse rounded bg-zinc-100" />
-        </td>
-      ))}
-    </tr>
-  ));
 }
 
 export default function AnalysisView({ metric }: { metric: Metric }) {
@@ -101,17 +81,18 @@ export default function AnalysisView({ metric }: { metric: Metric }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isSales ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-        <StatTile label="Total sales" value={rupees(result?.grandSales ?? 0)} icon="ri-money-rupee-circle-line" tone="brand" />
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isSales ? "lg:grid-cols-3" : result?.grandExcess ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        <StatTile loading={result === null} label="Total sales" value={rupees(result?.grandSales ?? 0)} icon="ri-money-rupee-circle-line" tone="brand" />
         {isSales ? (
-          <StatTile label="Number of sales" value={result?.grandCount ?? 0} icon="ri-file-list-3-line" tone="sky" />
+          <StatTile loading={result === null} label="Number of sales" value={result?.grandCount ?? 0} icon="ri-file-list-3-line" tone="sky" />
         ) : (
           <>
-            <StatTile label="Total paid" value={rupees(result?.grandPaid ?? 0)} icon="ri-hand-coin-line" tone="violet" />
-            <StatTile label="Total due" value={rupees(result?.grandDue ?? 0)} icon="ri-time-line" tone="amber" />
+            <StatTile loading={result === null} label="Total paid" value={rupees(result?.grandPaid ?? 0)} icon="ri-hand-coin-line" tone="violet" />
+            <StatTile loading={result === null} label="Total due" value={rupees(result?.grandDue ?? 0)} icon="ri-time-line" tone="amber" />
+            {(result?.grandExcess ?? 0) > 0 && <StatTile label="Excess paid" value={rupees(result!.grandExcess)} icon="ri-add-circle-line" tone="violet" />}
           </>
         )}
-        <StatTile label={current.plural} value={result?.total ?? 0} icon={current.icon} tone="teal" />
+        <StatTile loading={result === null} label={current.plural} value={result?.total ?? 0} icon={current.icon} tone="teal" />
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white">
@@ -153,19 +134,20 @@ export default function AnalysisView({ metric }: { metric: Metric }) {
                       <th className="px-3 py-2.5 text-right">Sales</th>
                       {!isSales && <th className="px-3 py-2.5 text-right">Paid</th>}
                       {!isSales && <th className="px-3 py-2.5 text-right">Due</th>}
+                      {!isSales && <th className="px-3 py-2.5 text-right">Excess</th>}
                       {!isSales && <th className="px-3 py-2.5 text-right">Collected</th>}
                       <th className="px-3 py-2.5 text-right">No. of sales</th>
                       <th className="w-8 px-3 py-2.5" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {result === null && <SkeletonRows cols={isSales ? 5 : 8} />}
+                    {result === null && <SkeletonTableRows cols={isSales ? 5 : 9} />}
                     {items.map((r, i) => {
                       const href = `/analysis/${metric}/group?${new URLSearchParams({ dimension, key: r.key, name: r.label, range })}`;
                       return (
                         <tr key={`${r.key}-${i}`} onClick={() => router.push(href)} className="cursor-pointer hover:bg-zinc-50">
                           <td className="px-4 py-3">
-                            <Rank n={rankOffset + i + 1} />
+                            <RankBadge n={rankOffset + i + 1} />
                           </td>
                           <td className="px-3 py-3">
                             <Link href={href} onClick={(e) => e.stopPropagation()} className="font-medium text-zinc-900 hover:text-brand-700 hover:underline">
@@ -175,6 +157,7 @@ export default function AnalysisView({ metric }: { metric: Metric }) {
                           <td className="px-3 py-3 text-right font-medium text-zinc-900">{rupees(r.sales)}</td>
                           {!isSales && <td className="px-3 py-3 text-right text-violet-700">{rupees(r.paid)}</td>}
                           {!isSales && <td className={`px-3 py-3 text-right ${r.due > 0 ? "text-amber-600" : "text-zinc-400"}`}>{rupees(r.due)}</td>}
+                          {!isSales && <td className={`px-3 py-3 text-right ${r.excess > 0 ? "font-medium text-violet-700" : "text-zinc-400"}`}>{r.excess > 0 ? rupees(r.excess) : "—"}</td>}
                           {!isSales && (
                             <td className="px-3 py-3">
                               <Collected paid={r.paid} sales={r.sales} />
@@ -189,7 +172,7 @@ export default function AnalysisView({ metric }: { metric: Metric }) {
                     })}
                     {result !== null && items.length === 0 && (
                       <tr>
-                        <td colSpan={isSales ? 5 : 8} className="px-4 py-10 text-center text-zinc-500">
+                        <td colSpan={isSales ? 5 : 9} className="px-4 py-10 text-center text-zinc-500">
                           No sales in this period.
                         </td>
                       </tr>

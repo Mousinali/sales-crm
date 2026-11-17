@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
-import { getUnreadMessageCount } from "@/lib/chat/crud";
 import DashboardShell, { type NavSection } from "./DashboardShell";
 import pkg from "../../../package.json";
 
@@ -31,14 +30,12 @@ export default async function DashboardLayout({
     redirect("/change-password");
   }
 
-  const unreadMessages = await getUnreadMessageCount(pool, user.id);
-
   const NAV_SECTIONS: NavSection[] = [
     {
       items: [
         { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
         { href: "/calendar", label: "Calendar", icon: "ri-calendar-line" },
-        { href: "/chat", label: "Chat", icon: "ri-chat-3-line", badge: unreadMessages },
+        { href: "/chat", label: "Chat", icon: "ri-chat-3-line" },
         { href: "/notifications", label: "Notifications", icon: "ri-notification-3-line" },
       ],
     },

@@ -48,14 +48,14 @@ export default function SalespersonSummaryTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      <StatTile label="My sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
-      <StatTile label="My payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
-      <StatTile label="Assigned leads" value={summary?.assignedLeads ?? 0} icon="ri-briefcase-line" tone="brand" />
-      <StatTile label="Upcoming visits" value={summary?.upcomingVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
-      <StatTile label="Due today" value={summary?.dueToday ?? 0} icon="ri-time-line" tone="sky" />
-      <StatTile label="Overdue" value={summary?.overdue ?? 0} icon="ri-alarm-warning-line" tone="rose" />
-      <StatTile label="Won" value={summary?.wonCount ?? 0} icon="ri-trophy-line" tone="emerald" />
-      <StatTile label="Lost" value={summary?.lostCount ?? 0} icon="ri-close-circle-line" tone="rose" />
+      <StatTile loading={summary === null} label="My sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+      <StatTile loading={summary === null} label="My payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
+      <StatTile loading={summary === null} label="Assigned leads" value={summary?.assignedLeads ?? 0} icon="ri-briefcase-line" tone="brand" />
+      <StatTile loading={summary === null} label="Upcoming visits" value={summary?.upcomingVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
+      <StatTile loading={summary === null} label="Due today" value={summary?.dueToday ?? 0} icon="ri-time-line" tone="sky" />
+      <StatTile loading={summary === null} label="Overdue" value={summary?.overdue ?? 0} icon="ri-alarm-warning-line" tone="rose" />
+      <StatTile loading={summary === null} label="Won" value={summary?.wonCount ?? 0} icon="ri-trophy-line" tone="emerald" />
+      <StatTile loading={summary === null} label="Lost" value={summary?.lostCount ?? 0} icon="ri-close-circle-line" tone="rose" />
     </div>
   );
 }

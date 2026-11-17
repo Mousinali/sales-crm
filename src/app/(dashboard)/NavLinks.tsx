@@ -1,5 +1,6 @@
 "use client";
 
+import NavBadge from "./NavBadge";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,15 +26,6 @@ const ROW_INACTIVE = "text-sidebar-muted hover:bg-sidebar-elevated hover:text-si
 // different x position — pinning the icon to one width is what makes the
 // whole list actually line up into a column.
 const ICON_BOX = "inline-flex w-5 shrink-0 justify-center";
-
-function Badge({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sidebar-elevated px-1.5 py-0.5 text-xs font-medium text-sidebar-muted">
-      {count}
-    </span>
-  );
-}
 
 export default function NavLinks({ navItems, onNavigate }: { navItems: NavItem[]; onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -87,7 +79,7 @@ export default function NavLinks({ navItems, onNavigate }: { navItems: NavItem[]
               <i className={`${item.icon} ${ICON_BOX} text-lg transition-colors duration-150 ${iconClasses(item.href)}`} aria-hidden="true" />
               {item.label}
             </span>
-            {item.badge != null && <Badge count={item.badge} />}
+            {item.badge != null && <NavBadge count={item.badge} />}
           </Link>
         ),
       )}
@@ -137,7 +129,7 @@ function NavGroup({
           {item.label}
         </span>
         <span className="flex items-center gap-2">
-          {item.badge != null && <Badge count={item.badge} />}
+          {item.badge != null && <NavBadge count={item.badge} />}
           <i
             className={`ri-arrow-down-s-line text-base text-sidebar-muted transition-transform duration-150 group-hover:text-sidebar-foreground ${open ? "rotate-180" : ""}`}
             aria-hidden="true"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import type { EntriesMetric, EntriesPeriod, EntriesPoint } from "@/lib/dashboard/entriesTimeSeries";
 
@@ -134,7 +135,7 @@ export default function EntriesChartCard({ metrics = DEFAULT_METRICS }: { metric
         {error ? (
           <p className="text-sm text-rose-600">{error}</p>
         ) : loading ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <Skeleton className="h-64 w-full" />
         ) : (
           <BarChart
             data={toEmphasisBarData(points, showAmount)}

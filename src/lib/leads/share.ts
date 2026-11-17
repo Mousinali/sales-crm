@@ -35,3 +35,37 @@ export async function unshareLead(pool: Pool, actor: { id: number; role: Role },
   await assertLeadVisible(pool, actor, leadId, { requireOwner: true });
   await pool.query("DELETE FROM lead_shares WHERE lead_id = $1 AND user_id = $2", [leadId, userId]);
 }
+
+const MAX_BULK_SHARE_LEADS = 200;
+
+// Shares every lead in `leadIds` with every user in `userIds`. All-or-nothing
+// on permissions: if the actor doesn't own one of the leads, none are shared.
+// Already-shared pairs are left alone.
+export async function bulkShareLeads(
+  pool: Pool,
+  actor: { id: number; role: Role },
+  leadIds: number[],
+  userIds: number[],
+): Promise<{ leads: number; users: number }> {
+  const leads = [...new Set(leadIds)];
+  const users = [...new Set(userIds)];
+  if (leads.length === 0 || users.length === 0 || leads.length > MAX_BULK_SHARE_LEADS) {
+    throw new LeadActionNotAllowedError(`Choose 1 to ${MAX_BULK_SHARE_LEADS} leads and at least one person`);
+  }
+  for (const leadId of leads) await assertLeadVisible(pool, actor, leadId, { requireOwner: true });
+
+  const { rows } = await pool.query<{ id: number }>(
+    "SELECT id FROM users WHERE id = ANY($1) AND status = 'ACTIVE' AND role IN ('MARKETING_HEAD', 'PRE_SALES', 'SALESPERSON')",
+    [users],
+  );
+  if (rows.length !== users.length) {
+    throw new LeadActionNotAllowedError("Every person must be an active user who can view leads");
+  }
+  await pool.query(
+    `INSERT INTO lead_shares (lead_id, user_id, shared_by)
+     SELECT l, u, $3 FROM unnest($1::bigint[]) AS l CROSS JOIN unnest($2::bigint[]) AS u
+     ON CONFLICT DO NOTHING`,
+    [leads, users, actor.id],
+  );
+  return { leads: leads.length, users: users.length };
+}

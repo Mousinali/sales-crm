@@ -45,6 +45,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import CustomSelect from "@/components/ui/CustomSelect";
+import BulkShareModal from "./BulkShareModal";
 
 type SimpleUser = { id: number; name: string };
 
@@ -218,6 +219,7 @@ export default function LeadsView({
   const [salespersonOptions, setSalespersonOptions] = useState<SimpleUser[]>(
     [],
   );
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
   const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
   const [bulkTransferPreSales, setBulkTransferPreSales] = useState("");
   const [bulkTransferSalesperson, setBulkTransferSalesperson] = useState("");
@@ -479,6 +481,15 @@ export default function LeadsView({
                 </>
               )}
             </div>
+            {selectedLeadIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkShareOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-300 px-4 py-1 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-brand-400"
+              >
+                Share selected ({selectedLeadIds.size})
+              </button>
+            )}
             {canBulkTransfer && selectedLeadIds.size > 0 && (
               <button
                 type="button"
@@ -1136,6 +1147,18 @@ export default function LeadsView({
           pending={archiving}
           onConfirm={confirmArchive}
           onCancel={() => setArchiveTarget(null)}
+        />
+      )}
+
+      {bulkShareOpen && (
+        <BulkShareModal
+          leadIds={Array.from(selectedLeadIds)}
+          viewerId={viewerId}
+          onClose={() => setBulkShareOpen(false)}
+          onDone={() => {
+            setBulkShareOpen(false);
+            setSelectedLeadIds(new Set());
+          }}
         />
       )}
 

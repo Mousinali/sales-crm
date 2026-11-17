@@ -1,5 +1,6 @@
 "use client";
 
+import BalanceText from "@/components/ui/BalanceText";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { SALE_BUDGET_TYPES, type SaleRow, type SaleBudgetType } from "@/lib/sales/types";
@@ -215,7 +216,6 @@ export default function SalesView({
             {sales.map((sale) => {
               const budget = Number(sale.budget_amount);
               const paid = Number(sale.paid_amount ?? 0);
-              const remaining = Math.max(budget - paid, 0);
               return (
                 <tr key={sale.id} className="border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50/80">
                   <td data-label="Company" className="px-4 py-3">
@@ -230,7 +230,7 @@ export default function SalesView({
                   </td>
                   <td data-label="Paid / Remaining" className="px-4 py-3">
                     <span className="font-medium text-emerald-700">₹{paid.toLocaleString("en-IN")}</span>
-                    <p className="text-xs text-amber-700">₹{remaining.toLocaleString("en-IN")} remaining</p>
+                    <p><BalanceText budget={budget} paid={paid} dueLabel="remaining" /></p>
                   </td>
                   <td data-label="Date" className="px-4 py-3 text-zinc-700">{sale.sale_date}</td>
                   <td data-label="Sold by" className="px-4 py-3">

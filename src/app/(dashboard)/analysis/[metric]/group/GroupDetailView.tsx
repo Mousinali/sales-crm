@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Pagination from "@/components/ui/Pagination";
+import BalanceText from "@/components/ui/BalanceText";
 import StatTile from "@/components/ui/StatTile";
 import Timeline, { type TimelineEntry } from "@/components/ui/Timeline";
 import type { Dimension, getGroupDetail } from "@/lib/analysis/performance";
@@ -41,10 +42,11 @@ export default function GroupDetailView({ detail, range }: { detail: Awaited<Ret
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-zinc-500">Sales made {RANGE_LABELS[range].toLowerCase()}, and what has been paid against them.</p>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-4 ${totals.excess > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <StatTile label="Total sales" value={rupees(totals.sales)} icon="ri-money-rupee-circle-line" tone="brand" />
         <StatTile label="Paid" value={rupees(totals.paid)} icon="ri-hand-coin-line" tone="violet" />
         <StatTile label="Due" value={rupees(totals.due)} icon="ri-time-line" tone="amber" />
+        {totals.excess > 0 && <StatTile label="Excess paid" value={rupees(totals.excess)} icon="ri-add-circle-line" tone="violet" />}
         <StatTile label="Number of sales" value={totals.count} icon="ri-file-list-3-line" tone="sky" />
       </div>
 
@@ -61,7 +63,7 @@ export default function GroupDetailView({ detail, range }: { detail: Awaited<Ret
                   <th className="px-3 py-2">Sold by</th>
                   <th className="px-3 py-2 text-right">Amount</th>
                   <th className="px-3 py-2 text-right">Paid</th>
-                  <th className="px-4 py-2 text-right">Due</th>
+                  <th className="px-4 py-2 text-right">Due / Excess</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -77,7 +79,7 @@ export default function GroupDetailView({ detail, range }: { detail: Awaited<Ret
                     <td className="px-3 py-2 text-zinc-500">{s.owner ?? "—"}</td>
                     <td className="px-3 py-2 text-right font-medium text-zinc-900">{rupees(s.amount)}</td>
                     <td className="px-3 py-2 text-right text-violet-700">{rupees(s.paid)}</td>
-                    <td className={`px-4 py-2 text-right ${s.amount - s.paid > 0 ? "text-amber-600" : "text-zinc-400"}`}>{rupees(s.amount - s.paid)}</td>
+                    <td className="px-4 py-2 text-right"><BalanceText budget={s.amount} paid={s.paid} className="text-sm" /></td>
                   </tr>
                 ))}
                 {sales.items.length === 0 && (

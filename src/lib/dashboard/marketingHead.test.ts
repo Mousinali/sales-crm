@@ -36,9 +36,10 @@ afterAll(async () => {
 });
 
 describe("getMarketingHeadDashboard", () => {
-  it("returns company-wide lead/visit/task/transfer aggregates", async () => {
-    const dashboard = await getMarketingHeadDashboard(pool);
-    expect(dashboard.totalLeads).toEqual(expect.any(Number));
+  it("returns lead/visit/task/transfer aggregates for the leads the viewer can see", async () => {
+    const dashboard = await getMarketingHeadDashboard(pool, -1);
+    // -1 is nobody: a viewer with no created/owned/shared leads sees none of the company's leads.
+    expect(dashboard.totalLeads).toBe(0);
     expect(dashboard.pendingReviewLeads).toEqual(expect.any(Number));
     expect(dashboard.leadsByPriority).toEqual(expect.any(Object));
     expect(dashboard.leadsByPreSalesOwner).toEqual(expect.any(Object));
@@ -66,7 +67,7 @@ describe("getMarketingHeadDashboard", () => {
     const lead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Dash MH Reschedule Co", phone: "1", leadSource: "OTHER" });
     leadIds.push(lead.id);
     await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [lead.id]);
-    await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId });
+    await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, preSalesOwnerId: preSalesId, salespersonId });
     const visit = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-12-15", startTime: "10:00", objective: "Demo" });
 
     await rescheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", visitId: visit.id, visitDate: "2026-12-20", startTime: "11:00" });
@@ -82,7 +83,7 @@ describe("getMarketingHeadDashboard", () => {
     );
     expect(Number(rows[0].count)).toBe(1);
 
-    const after = await getMarketingHeadDashboard(pool);
+    const after = await getMarketingHeadDashboard(pool, mhId);
     expect(after.upcomingVisits).toBeGreaterThanOrEqual(1);
     expect(after.leadsByPreSalesOwner["PS"]).toBeGreaterThanOrEqual(1);
     expect(after.leadsBySalespersonOwner["SP"]).toBeGreaterThanOrEqual(1);

@@ -1,5 +1,6 @@
 "use client";
 
+import BalanceText from "@/components/ui/BalanceText";
 import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -834,8 +835,8 @@ export default function LeadDetailView({
                         ₹{Number(lead.latest_sale_paid_amount ?? 0).toLocaleString("en-IN")} paid of ₹
                         {Number(lead.latest_sale_budget_amount ?? 0).toLocaleString("en-IN")}
                       </Link>
-                      <span className="ml-1 block text-xs text-amber-700">
-                        (₹{Math.max(Number(lead.latest_sale_budget_amount ?? 0) - Number(lead.latest_sale_paid_amount ?? 0), 0).toLocaleString("en-IN")} remaining)
+                      <span className="ml-1 block">
+                        <BalanceText budget={Number(lead.latest_sale_budget_amount ?? 0)} paid={Number(lead.latest_sale_paid_amount ?? 0)} dueLabel="remaining" />
                       </span>
                     </dd>
                   </div>

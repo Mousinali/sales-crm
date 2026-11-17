@@ -225,6 +225,7 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
       const created = await response.json();
       toast.success("Lead created", companyName.trim());
       router.push(`/leads/${created.id}`);
+      router.refresh(); // drop cached list pages so the new record shows up
     } catch {
       setCreateError("Could not create the lead.");
       toast.error("Could not create lead");
