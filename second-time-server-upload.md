@@ -13,7 +13,7 @@ Steps for pushing an update to an **already-running** server — assumes the ser
 - [ ] Confirm what's changing: `git log <deployed-commit>..HEAD --oneline` — especially whether any file under `migrations/` is new (you'll need step 4).
 - [ ] If the update includes schema changes, consider whether a quick `pg_dump` backup of the production database is warranted first. Non-destructive migrations (new column, new index) are low-risk; anything that drops/renames a column is not — check the migration files themselves.
 
-## 2. Pull and install
+## 2. Pull and installl
 
 ```bash
 git pull origin main
