@@ -48,10 +48,10 @@ export default async function DashboardLayout({
         ...(user.role === "SUPER_ADMIN" || user.role === "HR" || user.role === "MARKETING_HEAD"
           ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]
           : []),
-        ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
+        ...(user.role !== "HR"
           ? [{ href: "/companies", label: "Companies", icon: "ri-building-line" }]
           : []),
-        ...(user.role !== "HR"
+        ...(user.role !== "HR" && user.role !== "ACCOUNTANT"
           ? [
               {
                 href: "/leads",
@@ -62,7 +62,10 @@ export default async function DashboardLayout({
                   // SALESPERSON only) — /leads/new redirects anyone else straight
                   // back to /leads, so there's no point offering the link to them here.
                   ...(user.role === "PRE_SALES" || user.role === "MARKETING_HEAD" || user.role === "SALESPERSON"
-                    ? [{ href: "/leads/new", label: "Add Lead", icon: "ri-add-line" }]
+                    ? [
+                        { href: "/leads/new", label: "Add Lead", icon: "ri-add-line" },
+                        { href: "/leads/bulk", label: "Bulk Upload Lead", icon: "ri-upload-2-line" },
+                      ]
                     : []),
                   { href: "/leads", label: "Lead List", icon: "ri-list-check" },
                 ],
@@ -75,7 +78,7 @@ export default async function DashboardLayout({
     {
       label: "Revenue",
       items: [
-        ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON"
+        ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON" || user.role === "ACCOUNTANT"
           ? [
               {
                 href: "/sales",
@@ -103,13 +106,29 @@ export default async function DashboardLayout({
         ...(user.role === "SUPER_ADMIN" ? [{ href: "/payments", label: "Payments", icon: "ri-bill-line" }] : []),
       ],
     },
+    ...(user.role === "SUPER_ADMIN"
+      ? [
+          {
+            label: "Analysis",
+            items: [
+              {
+                href: "/analysis/sales",
+                label: "Analysis",
+                icon: "ri-bar-chart-box-line",
+                children: [
+                  { href: "/analysis/sales", label: "Sales Analysis", icon: "ri-money-dollar-circle-line" },
+                  { href: "/analysis/payments", label: "Payment Analysis", icon: "ri-bill-line" },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
     {
       label: "Workflow",
       items: [
-        ...(user.role !== "HR" ? [{ href: "/tasks", label: "Tasks", icon: "ri-list-check-2" }] : []),
-        ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD"
-          ? [{ href: "/announcements", label: "Announcements", icon: "ri-mail-send-line" }]
-          : []),
+        { href: "/tasks", label: "Tasks", icon: "ri-list-check-2" },
+        // Announcements menu hidden for now; re-add the item to bring it back.
       ],
     },
     {
@@ -128,8 +147,8 @@ export default async function DashboardLayout({
   // Sales of its own (SUPER_ADMIN, HR), so the bar is never just one tab.
   const BOTTOM_NAV_ITEMS = [
     { href: "/dashboard", label: "Dashboard", icon: "ri-dashboard-line" },
-    ...(user.role !== "HR" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
-    ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON"
+    ...(user.role !== "HR" && user.role !== "ACCOUNTANT" ? [{ href: "/leads", label: "Leads", icon: "ri-contacts-line" }] : []),
+    ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON" || user.role === "ACCOUNTANT"
       ? [{ href: "/sales", label: "Sales", icon: "ri-money-dollar-circle-line" }]
       : user.role === "SUPER_ADMIN" || user.role === "HR"
         ? [{ href: "/team", label: "Team", icon: "ri-team-line" }]

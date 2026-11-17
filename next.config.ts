@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   // rejects cross-origin dev requests from hosts not listed here.
   // allowedDevOrigins: ["192.168.0.45"],
   experimental: {
+    agentUpgrade: "security",
     // Default is 0s for dynamic routes, so every page every switch
     // re-hits the server even seconds after the last visit. 4 min matches
     // the list views' own useAutoRefresh interval — router.refresh() and

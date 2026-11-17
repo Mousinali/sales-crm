@@ -31,7 +31,7 @@ const pendingLead: LeadRow = {
   priority: "MEDIUM",
   status: "PENDING_REVIEW",
   status_reason: null,
-  pre_sales_owner_id: 2,
+  pre_sales_owner_id: null,
   salesperson_owner_id: null,
   next_follow_up_at: null,
   notes: null,
@@ -42,7 +42,7 @@ const pendingLead: LeadRow = {
   instagram_url: null,
   linkedin_url: null,
   archived_at: null,
-  created_by: 2,
+  created_by: 10,
   created_at: "2026-01-01T00:00:00Z" as unknown as Date,
   updated_at: "2026-01-01T00:00:00Z" as unknown as Date,
 };
@@ -79,24 +79,28 @@ describe("LeadDetailView", () => {
     );
   });
 
-  it("shows qualify/reject/return actions only for Marketing Head on a Pending Review lead", () => {
+  it("shows the status control to the lead's owner, whatever their role", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
-    expect(screen.getByRole("button", { name: /qualify/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /change status/i })).toBeInTheDocument();
   });
 
-  it("hides review actions for a Pre-sales viewer", () => {
+  it("shows the status control to a viewer the lead was shared with, but not the owner-only Edit link", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
-    expect(screen.queryByRole("button", { name: /qualify/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /change status/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^edit$/i })).not.toBeInTheDocument();
   });
 
-  it("requires a reason before submitting a reject", async () => {
+  it("requires a reason before marking a lead lost", async () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="MARKETING_HEAD" viewerId={mhId} />);
-    fireEvent.click(screen.getByRole("button", { name: /reject/i }));
+    // CustomSelect is a button + listbox, not a native <select>, so the value
+    // is chosen by opening it and clicking the option.
+    fireEvent.click(screen.getByRole("combobox", { name: /change status/i }));
+    fireEvent.click(screen.getByRole("option", { name: /closed.*lost/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
     expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
   });
 
-  it("shows the assignment panel for Marketing Head even on a Pending Review lead, fetching only active users", async () => {
+  it("shows the assignment panel for the lead's owner, loading the roster", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ users: [], visits: [] }))));
@@ -104,12 +108,10 @@ describe("LeadDetailView", () => {
     fireEvent.click(screen.getByRole("tab", { name: /assignment/i }));
     fireEvent.click(screen.getByRole("button", { name: /^assign$/i }));
     expect(screen.getByLabelText(/pre-sales owner/i)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("role=PRE_SALES"));
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=PRE_SALES.*status=ACTIVE|status=ACTIVE.*role=PRE_SALES/));
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/role=SALESPERSON.*status=ACTIVE|status=ACTIVE.*role=SALESPERSON/));
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/roster");
   });
 
-  it("hides the assignment tab for a non-Marketing-Head viewer", () => {
+  it("hides the assignment tab for a viewer who doesn't own the lead", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByRole("tab", { name: /assignment/i })).not.toBeInTheDocument();
   });
@@ -122,7 +124,7 @@ describe("LeadDetailView", () => {
     expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
   });
 
-  it("hides the Transfer button for a non-Marketing-Head viewer", () => {
+  it("hides the Transfer button for a viewer who doesn't own the lead", () => {
     render(<LeadDetailView lead={pendingLead} activities={[]} services={[]} viewerRole="PRE_SALES" viewerId={preSalesId} />);
     expect(screen.queryByRole("button", { name: /transfer/i })).not.toBeInTheDocument();
   });
@@ -141,7 +143,7 @@ describe("LeadDetailView", () => {
   it("shows a 'Schedule anyway' option on a 409 conflict, and succeeds once confirmed", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
-      if (url.includes("role=SALESPERSON")) return Promise.resolve(new Response(JSON.stringify({ users: [{ id: salespersonId, name: "Sam Salesperson" }] })));
+      if (url.includes("/api/users/roster")) return Promise.resolve(new Response(JSON.stringify({ users: [{ id: salespersonId, name: "Sam Salesperson", role: "SALESPERSON" }] })));
       if (url.includes("/visits") && init?.method === "POST") {
         const body = JSON.parse(String(init.body));
         return Promise.resolve(
@@ -156,10 +158,14 @@ describe("LeadDetailView", () => {
     fireEvent.click(screen.getByRole("tab", { name: /visits/i }));
     fireEvent.click(screen.getByRole("button", { name: /schedule visit/i }));
 
-    const visitSalespersonSelect = screen.getByLabelText(/salesperson/i, { selector: "#visitSalesperson" });
-    await waitFor(() => expect(screen.getByText("Sam Salesperson", { selector: "#visitSalesperson option" })).toBeInTheDocument());
-    fireEvent.change(visitSalespersonSelect, { target: { value: String(salespersonId) } });
-    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: "2026-12-01" } });
+    // CustomSelect renders a button that opens a listbox, so the roster is
+    // picked by opening it and clicking the option rather than setting a value.
+    const visitSalespersonSelect = document.querySelector("#visitSalesperson") as HTMLElement;
+    fireEvent.click(visitSalespersonSelect);
+    fireEvent.click(await screen.findByRole("option", { name: "Sam Salesperson" }));
+    fireEvent.click(screen.getByLabelText(/^date$/i));
+    fireEvent.click(screen.getByRole("button", { name: /next month/i }));
+    fireEvent.click(screen.getByRole("button", { name: /December 1st, 2026/i }));
     fireEvent.change(screen.getByLabelText(/^time$/i), { target: { value: "10:00" } });
     fireEvent.change(screen.getByLabelText(/objective/i), { target: { value: "Demo" } });
     const scheduleButtons = screen.getAllByRole("button", { name: /^schedule visit$/i });

@@ -63,7 +63,7 @@ describe("getMarketingHeadDashboard", () => {
     salespersonId = sp.id;
     createdEmails.push(hr.email, mh.email, ps.email, sp.email);
 
-    const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Dash MH Reschedule Co", phone: "1", leadSource: "OTHER" });
+    const lead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Dash MH Reschedule Co", phone: "1", leadSource: "OTHER" });
     leadIds.push(lead.id);
     await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [lead.id]);
     await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId });

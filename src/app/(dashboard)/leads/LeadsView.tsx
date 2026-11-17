@@ -44,6 +44,7 @@ import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import PageHeading from "@/components/ui/PageHeading";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 type SimpleUser = { id: number; name: string };
 
@@ -116,9 +117,10 @@ export default function LeadsView({
     viewerRole === "MARKETING_HEAD" ||
     viewerRole === "SALESPERSON";
   const canEditLead = (lead: LeadWithSale) =>
-    viewerRole === "MARKETING_HEAD" ||
-    (viewerRole === "PRE_SALES" &&
-      (lead.pre_sales_owner_id === viewerId || lead.created_by === viewerId));
+    viewerRole === "SUPER_ADMIN" ||
+    lead.created_by === viewerId ||
+    lead.pre_sales_owner_id === viewerId ||
+    lead.salesperson_owner_id === viewerId;
 
   function toggleSort(column: LeadSortColumn) {
     if (sortBy === column) {
@@ -205,7 +207,7 @@ export default function LeadsView({
   });
 
   // Bulk transfer
-  const canBulkTransfer = viewerRole === "MARKETING_HEAD";
+  const canBulkTransfer = true; // server still requires owner access on every selected lead
   // Selection is also used for export, so every role that can see this list
   // gets the checkbox column, not just roles that can bulk-transfer.
   const canSelectLeads = true;
@@ -233,13 +235,13 @@ export default function LeadsView({
   function loadTransferRoster() {
     if (transferRosterLoaded.current || !canBulkTransfer) return;
     transferRosterLoaded.current = true;
-    fetch("/api/users?role=PRE_SALES&status=ACTIVE")
+    fetch("/api/users/roster")
       .then((res) => (res.ok ? res.json() : { users: [] }))
-      .then((body) => setPreSalesOptions(body.users ?? []))
-      .catch(() => {});
-    fetch("/api/users?role=SALESPERSON&status=ACTIVE")
-      .then((res) => (res.ok ? res.json() : { users: [] }))
-      .then((body) => setSalespersonOptions(body.users ?? []))
+      .then((body) => {
+        const users: { id: number; name: string; role: string }[] = body.users ?? [];
+        setPreSalesOptions(users.filter((u) => u.role === "PRE_SALES"));
+        setSalespersonOptions(users.filter((u) => u.role === "SALESPERSON"));
+      })
       .catch(() => {});
   }
 
@@ -1156,21 +1158,15 @@ export default function LeadsView({
                 >
                   New Pre-sales owner
                 </label>
-                <select
+                <CustomSelect
                   id="bulkTransferPreSales"
                   value={bulkTransferPreSales}
-                  onChange={(event) =>
-                    setBulkTransferPreSales(event.target.value)
-                  }
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  <option value="">Unchanged</option>
-                  {preSalesOptions.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setBulkTransferPreSales}
+                  options={[
+                    { value: "", label: "Unchanged" },
+                    ...preSalesOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label
@@ -1179,21 +1175,15 @@ export default function LeadsView({
                 >
                   New Salesperson
                 </label>
-                <select
+                <CustomSelect
                   id="bulkTransferSalesperson"
                   value={bulkTransferSalesperson}
-                  onChange={(event) =>
-                    setBulkTransferSalesperson(event.target.value)
-                  }
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  <option value="">Unchanged</option>
-                  {salespersonOptions.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setBulkTransferSalesperson}
+                  options={[
+                    { value: "", label: "Unchanged" },
+                    ...salespersonOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label

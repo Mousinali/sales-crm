@@ -119,24 +119,28 @@ describe("createTask authorization", () => {
     expect(task.assigned_user_id).toBe(salespersonId);
   });
 
-  it("rejects a non-MH/SA actor assigning a task to someone else", async () => {
-    await expect(
-      createTask(pool, {
-        creatorId: salespersonId,
-        actorRole: "SALESPERSON",
-        assignedUserId: otherSalespersonId,
-        title: "Delegated",
-        dueAt: new Date(),
-      }),
-    ).rejects.toThrow(TaskActionNotAllowedError);
+  it("lets anyone assign a task to any other active user, and the creator still sees it", async () => {
+    const task = await createTask(pool, {
+      creatorId: salespersonId,
+      actorRole: "SALESPERSON",
+      assignedUserId: hrId,
+      title: "Delegated",
+      dueAt: new Date(),
+    });
+    taskIds.push(task.id);
+    expect(task.assigned_user_id).toBe(hrId);
+    const mine = await listTasks(pool, { id: salespersonId, role: "SALESPERSON" }, {});
+    expect(mine.some((t) => t.id === task.id)).toBe(true);
+    const mineOnly = await listTasks(pool, { id: mhId, role: "MARKETING_HEAD" }, { mineOnly: true });
+    expect(mineOnly.some((t) => t.id === task.id)).toBe(false);
   });
 
-  it("rejects a Marketing Head assigning a task to a non-Pre-sales/Salesperson user", async () => {
+  it("rejects assigning a task to a user that does not exist", async () => {
     await expect(
       createTask(pool, {
         creatorId: mhId,
         actorRole: "MARKETING_HEAD",
-        assignedUserId: hrId,
+        assignedUserId: 2_000_000_000,
         title: "Should not work",
         dueAt: new Date(),
       }),

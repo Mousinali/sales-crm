@@ -87,14 +87,6 @@ export default function RichTextField({
         >
           <i className="ri-italic" aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          onClick={() => wrapSelection("`")}
-          title="Code"
-          className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-        >
-          <i className="ri-code-line" aria-hidden="true" />
-        </button>
       </div>
     </div>
   );

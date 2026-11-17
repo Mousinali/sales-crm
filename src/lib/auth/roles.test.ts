@@ -40,8 +40,8 @@ describe("canManage", () => {
 
 describe("creatableRolesFor", () => {
   it("returns the exact creatable set per role", () => {
-    expect(creatableRolesFor("SUPER_ADMIN")).toEqual(["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
-    expect(creatableRolesFor("HR")).toEqual(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+    expect(creatableRolesFor("SUPER_ADMIN")).toEqual(["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
+    expect(creatableRolesFor("HR")).toEqual(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
     expect(creatableRolesFor("MARKETING_HEAD")).toEqual(["PRE_SALES", "SALESPERSON"]);
     expect(creatableRolesFor("PRE_SALES")).toEqual([]);
     expect(creatableRolesFor("SALESPERSON")).toEqual([]);

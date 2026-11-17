@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/rbac";
 import { pool } from "@/lib/db";
 import { listTasksPage } from "@/lib/tasks/crud";
@@ -8,9 +7,6 @@ import TasksView from "./TasksView";
 
 export default async function TasksPage() {
   const user = await requireUser();
-  if (user.role === "HR") {
-    redirect("/dashboard");
-  }
 
   const result = await listTasksPage(pool, user, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 
@@ -22,7 +18,6 @@ export default async function TasksPage() {
         initialTotal={result.total}
         initialTotalPages={result.totalPages}
         viewerId={user.id}
-        viewerRole={user.role}
       />
     </div>
   );

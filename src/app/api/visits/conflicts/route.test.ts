@@ -36,7 +36,7 @@ beforeAll(async () => {
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
 
-  const lead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Visit Conflict Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  const lead = await createLead(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", companyName: "Visit Conflict Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
   await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId, visitDate: "2026-12-01", startTime: "10:00", objective: "x" });
 });

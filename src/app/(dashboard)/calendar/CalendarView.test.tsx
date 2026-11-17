@@ -19,6 +19,9 @@ describe("CalendarView invite picker", () => {
     render(<CalendarView initialEvents={[]} viewerId={1} />);
 
     fireEvent.click(screen.getByRole("button", { name: /new event/i }));
+    // The invite picker is a dropdown now — open it to see the roster.
+    await screen.findByLabelText(/^title$/i);
+    fireEvent.click(document.getElementById("attendeeSearch")!);
     await screen.findByText("Bikash");
     expect(screen.getByText("Mimi Roy")).toBeInTheDocument();
 

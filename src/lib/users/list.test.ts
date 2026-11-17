@@ -43,7 +43,7 @@ describe("listUsers", () => {
     expect(rows.every((row) => row.role === "PRE_SALES" || row.role === "SALESPERSON")).toBe(true);
   });
 
-  it("HR sees MARKETING_HEAD, PRE_SALES and SALESPERSON, never SUPER_ADMIN or HR", async () => {
+  it("HR sees MARKETING_HEAD, PRE_SALES, SALESPERSON and ACCOUNTANT, never SUPER_ADMIN or HR", async () => {
     const email = `shared-hr-${Date.now()}@example.com`;
     createdEmails.push(email);
     const created = await createUser(pool, {
@@ -55,7 +55,7 @@ describe("listUsers", () => {
     });
 
     const rows = await listUsers(pool, "HR", {});
-    expect(rows.every((row) => row.role === "MARKETING_HEAD" || row.role === "PRE_SALES" || row.role === "SALESPERSON")).toBe(true);
+    expect(rows.every((row) => row.role === "MARKETING_HEAD" || row.role === "PRE_SALES" || row.role === "SALESPERSON" || row.role === "ACCOUNTANT")).toBe(true);
     expect(rows.some((row) => row.id === created.id)).toBe(false);
   });
 

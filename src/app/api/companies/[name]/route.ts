@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { getCompany } from "@/lib/companies/get";
+import { viewerScope } from "@/lib/companies/list";
 import { archiveCompany, restoreCompany } from "@/lib/companies/archive";
 import { CompanyNotFoundError } from "@/lib/companies/errors";
 
@@ -16,15 +17,16 @@ export async function GET(
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+  if (user.role === "HR") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { name } = await params;
 
   try {
-    const company = await getCompany(pool, name);
-    return NextResponse.json(company);
+    const company = await getCompany(pool, name, viewerScope(user));
+    // An Accountant sees the company's details and sales, never its leads.
+    return NextResponse.json(user.role === "ACCOUNTANT" ? { ...company, leads: [] } : company);
   } catch (error) {
     if (error instanceof CompanyNotFoundError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -44,7 +46,7 @@ export async function DELETE(
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+  if (user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -72,7 +74,7 @@ export async function PATCH(
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+  if (user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

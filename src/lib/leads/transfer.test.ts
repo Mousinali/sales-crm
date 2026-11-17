@@ -7,7 +7,7 @@ import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { assignLead } from "./assign";
 import { transferLead, bulkTransferLeads } from "./transfer";
-import { InvalidLeadReasonError, LeadActionNotAllowedError } from "./errors";
+import { InvalidLeadReasonError, LeadActionNotAllowedError, LeadNotAccessibleError } from "./errors";
 import { listNotifications } from "@/lib/notifications/record";
 import { scheduleVisit, recordVisitOutcome } from "@/lib/visits/schedule";
 
@@ -44,12 +44,12 @@ beforeAll(async () => {
   inactiveSalespersonId = inactiveSp.id;
   createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email);
 
-  assignedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Transfer Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  assignedLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Transfer Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [assignedLead.id]);
   await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: assignedLead.id, salespersonId: originalSalespersonId });
 
-  leadA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Bulk Co A", phone: "2", serviceRequirements: "x", leadSource: "OTHER" });
-  leadB = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Bulk Co B", phone: "3", serviceRequirements: "x", leadSource: "OTHER" });
+  leadA = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Bulk Co A", phone: "2", serviceRequirements: "x", leadSource: "OTHER" });
+  leadB = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Bulk Co B", phone: "3", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = ANY($1)", [[leadA.id, leadB.id]]);
   leadIds.push(assignedLead.id, leadA.id, leadB.id);
 });
@@ -90,10 +90,10 @@ describe("transferLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects a Pre-sales user calling transfer", async () => {
+  it("rejects a Pre-sales user transferring a lead they don't own", async () => {
     await expect(
       transferLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: assignedLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+    ).rejects.toThrow(LeadNotAccessibleError);
   });
 
   it("rejects HR calling transfer", async () => {
@@ -102,22 +102,22 @@ describe("transferLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects Super Admin calling transfer", async () => {
+  it("rejects Accountant calling transfer", async () => {
     await expect(
-      transferLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: assignedLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
+      transferLead(pool, { actorId: superAdminId, actorRole: "ACCOUNTANT", leadId: assignedLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects transferring a Salesperson owner onto a lead that hasn't been qualified yet", async () => {
-    const pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Transfer Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
+  it("transfers a Salesperson owner onto a lead whatever its status", async () => {
+    const pendingLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Pending Transfer Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(pendingLead.id);
     await expect(
       transferLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, newSalespersonOwnerId: otherSalespersonId, reason: "x" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+    ).resolves.toMatchObject({ salesperson_owner_id: otherSalespersonId });
   });
 
   it("reassigns the lead's upcoming visits to the new Salesperson, leaving completed visits alone", async () => {
-    const visitLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Visit Transfer Co", phone: "8", serviceRequirements: "x", leadSource: "OTHER" });
+    const visitLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Visit Transfer Co", phone: "8", serviceRequirements: "x", leadSource: "OTHER" });
     await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [visitLead.id]);
     leadIds.push(visitLead.id);
     const upcoming = await scheduleVisit(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: visitLead.id, salespersonId: originalSalespersonId, visitDate: "2026-12-05", startTime: "09:00", objective: "x" });
@@ -145,7 +145,7 @@ describe("transferLead", () => {
   });
 
   it("leaves exactly one consistent owner and one history row per race when two transfers race on the same lead", async () => {
-    const raceLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Transfer Race Co", phone: "98", serviceRequirements: "x", leadSource: "OTHER" });
+    const raceLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Transfer Race Co", phone: "98", serviceRequirements: "x", leadSource: "OTHER" });
     await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [raceLead.id]);
     leadIds.push(raceLead.id);
 

@@ -9,12 +9,13 @@ import { listSalesPage } from "./list";
 
 const adminEmail = `sale-list-admin-${Date.now()}@example.com`;
 let marketingHeadId: number;
+let superAdminId: number;
 let preSalesId: number;
 const saleIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
-  const superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
   const mh = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "MARKETING_HEAD", name: "MH", email: `sale-list-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `sale-list-ps-${Date.now()}@example.com` });
   marketingHeadId = mh.id;
@@ -40,7 +41,7 @@ describe("listSalesPage filters", () => {
     });
     saleIds.push(monthly.id, oneTime.id);
 
-    const viewer = { id: marketingHeadId, role: "MARKETING_HEAD" as const };
+    const viewer = { id: superAdminId, role: "SUPER_ADMIN" as const };
     const pageParams = { page: 1, pageSize: 50 };
     const idsOf = (result: { items: { id: number }[] }) => result.items.map((s) => s.id);
 

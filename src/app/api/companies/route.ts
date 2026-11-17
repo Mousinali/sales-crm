@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
-import { listCompaniesPage } from "@/lib/companies/list";
+import { listCompaniesPage, viewerScope } from "@/lib/companies/list";
 import { parsePageParams } from "@/lib/pagination";
 
 const listQuerySchema = z.object({
@@ -18,10 +18,9 @@ export async function GET(request: Request): Promise<Response> {
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  // Companies rolls up every lead's contact/company details company-wide —
-  // broader visibility than any individual lead a Pre-sales/Salesperson
-  // owns, so it's restricted the same way Team and Announcements are.
-  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD") {
+  // Super Admin and Accountant see every company; Marketing Head, Pre-sales and
+  // Salesperson see the ones behind leads they can see. HR sees none.
+  if (user.role === "HR") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -40,6 +39,6 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const page = parsePageParams(url.searchParams);
-  const result = await listCompaniesPage(pool, { q: parsed.data.q, archivedOnly: parsed.data.archived === "true" }, page);
+  const result = await listCompaniesPage(pool, { q: parsed.data.q, archivedOnly: parsed.data.archived === "true" }, page, viewerScope(user));
   return NextResponse.json({ companies: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
 }

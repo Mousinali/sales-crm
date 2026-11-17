@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { getMySalesAndPayments } from "@/lib/dashboard/mySales";
 import { PERIOD_SINCE_SQL, type SummaryPeriod } from "@/lib/dashboard/superAdminSummary";
 
 // "Upcoming" visits look forward from today rather than back from it, so
@@ -13,43 +14,20 @@ export const PERIOD_UNTIL_SQL: Record<SummaryPeriod, string> = {
   ALL_TIME: "'infinity'::date",
 };
 
-// The period-scoped counterpart to marketingHead.ts's all-time dashboard
-// query — same 8 numbers the welcome row's stat tiles show, but filtered
-// to the period picked in SuperAdminPeriodDropdown. Qualified/Converted/
-// Awaiting review are scoped by when the lead was *created* (leads have
-// no per-status-change timestamp to scope by instead), matching how
-// superAdminSummary.ts already scopes its own lead counts.
-export async function getMarketingHeadPeriodSummary(pool: Pool, period: SummaryPeriod) {
+// Period-scoped numbers for the Marketing Head welcome row's 4 stat tiles.
+// Leads are scoped by when the lead was created, visits by visit date.
+export async function getMarketingHeadPeriodSummary(pool: Pool, userId: number, period: SummaryPeriod) {
   const since = PERIOD_SINCE_SQL[period];
-  const until = PERIOD_UNTIL_SQL[period];
 
-  const [total, pendingReview, qualified, converted, visits, transfers] = await Promise.all([
+  const [total, visits, money] = await Promise.all([
     pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE created_at >= ${since} AND archived_at IS NULL`),
-    pool.query<{ count: string }>(
-      `SELECT count(*) FROM leads WHERE status = 'PENDING_REVIEW' AND created_at >= ${since} AND archived_at IS NULL`,
-    ),
-    pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE status = 'QUALIFIED' AND created_at >= ${since}`),
-    pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE status = 'CONVERTED' AND created_at >= ${since}`),
-    pool.query<{ upcoming: string; missed: string }>(
-      `SELECT
-         count(*) FILTER (WHERE status IN ('SCHEDULED', 'RESCHEDULED') AND visit_date >= current_date AND visit_date <= ${until}) AS upcoming,
-         count(*) FILTER (WHERE status = 'MISSED' AND visit_date >= ${since}) AS missed
-       FROM client_visits`,
-    ),
-    pool.query<{ count: string }>(`SELECT count(*) FROM lead_transfer_history WHERE transferred_at >= ${since}`),
+    pool.query<{ count: string }>(`SELECT count(*) FROM client_visits WHERE visit_date >= ${since}`),
+    getMySalesAndPayments(pool, userId, period),
   ]);
 
-  const totalLeads = Number(total.rows[0].count);
-  const convertedLeads = Number(converted.rows[0].count);
-
   return {
-    totalLeads,
-    pendingReviewLeads: Number(pendingReview.rows[0].count),
-    qualifiedLeads: Number(qualified.rows[0].count),
-    convertedLeads,
-    upcomingVisits: Number(visits.rows[0].upcoming),
-    missedVisits: Number(visits.rows[0].missed),
-    transferHistoryCount: Number(transfers.rows[0].count),
-    conversionRate: totalLeads === 0 ? 0 : convertedLeads / totalLeads,
+    totalLeads: Number(total.rows[0].count),
+    totalVisits: Number(visits.rows[0].count),
+    ...money,
   };
 }

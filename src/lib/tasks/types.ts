@@ -17,4 +17,6 @@ export type TaskRow = {
   created_by: number;
   created_at: Date;
   completed_at: Date | null;
+  // Only on rows from listTasks/listTasksPage.
+  assigned_user_name?: string;
 };

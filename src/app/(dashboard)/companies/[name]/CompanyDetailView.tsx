@@ -16,7 +16,7 @@ const SALE_BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
   ADVANCE: "Advance",
 };
 
-export default function CompanyDetailView({ company }: { company: CompanyDetail }) {
+export default function CompanyDetailView({ company, showLeads, canDelete }: { company: CompanyDetail; showLeads: boolean; canDelete: boolean }) {
   const { profile, leads, sales } = company;
 
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -49,16 +49,18 @@ export default function CompanyDetailView({ company }: { company: CompanyDetail 
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
         <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-lg font-semibold text-zinc-900">{profile.company_name}</h1>
-          <button
-            type="button"
-            onClick={() => {
-              setArchiveError(null);
-              setArchiveOpen(true);
-            }}
-            className="rounded-md px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
-          >
-            Delete
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setArchiveError(null);
+                setArchiveOpen(true);
+              }}
+              className="rounded-md px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
+            >
+              Delete
+            </button>
+          )}
         </div>
         <p className="text-sm text-zinc-500">{profile.lead_count} lead{profile.lead_count === 1 ? "" : "s"} recorded</p>
 
@@ -105,7 +107,7 @@ export default function CompanyDetailView({ company }: { company: CompanyDetail 
         </dl>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6">
+      {showLeads && <div className="rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-zinc-900">Leads ({leads.length})</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -135,7 +137,7 @@ export default function CompanyDetailView({ company }: { company: CompanyDetail 
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       {sales.length > 0 && (
         <div className="rounded-lg border border-zinc-200 bg-white p-6">

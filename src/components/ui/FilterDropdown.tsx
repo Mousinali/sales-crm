@@ -10,7 +10,7 @@ function OptionIcon({ icon }: { icon: string }) {
     // eslint-disable-next-line @next/next/no-img-element -- a small fixed icon asset, not a user image next/image would optimize.
     return <img src={icon} alt="" className="h-4 w-4 shrink-0" aria-hidden="true" />;
   }
-  return <i className={`${icon} shrink-0 text-base`} aria-hidden="true" />;
+  return <i className={`${icon} shrink-0 text-base text-brand-600`} aria-hidden="true" />;
 }
 
 // A pill button + menu, same shape as the dashboard's period dropdown —

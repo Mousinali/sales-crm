@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 import type { LeadRow } from "@/lib/leads/types";
 import type { SaleRow } from "@/lib/sales/types";
 import { CompanyNotFoundError } from "./errors";
@@ -13,10 +14,11 @@ export type CompanyDetail = {
 // Everything under one normalized company name: every lead ever recorded
 // for it (profile = the most recent one), plus every sale against any of
 // those leads — the same rollup listCompaniesPage summarizes, expanded.
-export async function getCompany(pool: Pool, companyNameNormalized: string): Promise<CompanyDetail> {
+export async function getCompany(pool: Pool, companyNameNormalized: string, viewerId?: number): Promise<CompanyDetail> {
+  // With a viewerId, only the leads that user can see (their own plus shared) count.
   const { rows: leads } = await pool.query<LeadRow>(
-    `SELECT * FROM leads WHERE company_name_normalized = $1 ORDER BY created_at DESC`,
-    [companyNameNormalized],
+    `SELECT * FROM leads WHERE company_name_normalized = $1 ${viewerId === undefined ? "" : `AND ${leadVisibleSql("leads", "$2")}`} ORDER BY created_at DESC`,
+    viewerId === undefined ? [companyNameNormalized] : [companyNameNormalized, viewerId],
   );
   if (leads.length === 0) {
     throw new CompanyNotFoundError(`No company "${companyNameNormalized}"`);

@@ -22,6 +22,6 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
-  const summary = await getMarketingHeadPeriodSummary(pool, parsed.data.period);
+  const summary = await getMarketingHeadPeriodSummary(pool, user.id, parsed.data.period);
   return NextResponse.json(summary);
 }

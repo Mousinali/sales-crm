@@ -105,17 +105,21 @@ export default function NotificationsView({
 
   useAutoRefresh(() => void refetch(page));
 
-  async function markRead(id: number) {
-    setNotifications((current) => current.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
+  async function markRead(id: number, read = true) {
+    setNotifications((current) => current.map((n) => (n.id === id ? { ...n, read_at: read ? new Date().toISOString() : null } : n)));
     try {
-      await fetch(`/api/notifications/${id}`, { method: "PATCH" });
+      await fetch(`/api/notifications/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ read }),
+      });
     } catch {
       // Best-effort: a failed PATCH just means it reappears as unread on next load.
     }
   }
 
   function handleClick(notification: NotificationItem) {
-    void markRead(notification.id);
+    if (!notification.read_at) void markRead(notification.id);
     if (notification.type === "CHAT_MESSAGE" && notification.related_user_id !== null) {
       router.push(`/chat?with=${notification.related_user_id}`);
     } else if (LEAD_NOTIFICATION_TYPES.has(notification.type) && notification.lead_id !== null) {
@@ -219,11 +223,23 @@ export default function NotificationsView({
         ) : (
           notifications.map((n) => (
             <div key={n.id} className="group flex items-center gap-3 border-b border-zinc-100 px-4 py-3 last:border-0 hover:bg-zinc-50">
+              <button
+                type="button"
+                onClick={() => markRead(n.id, !n.read_at)}
+                aria-label={n.read_at ? "Mark as unread" : "Mark as read"}
+                title={n.read_at ? "Mark as unread" : "Mark as read"}
+                className="group/dot flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-zinc-200"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full transition ${
+                    n.read_at ? "border border-zinc-300 group-hover/dot:border-brand-500" : "bg-brand-500 ring-4 ring-brand-100"
+                  }`}
+                />
+              </button>
               <button type="button" onClick={() => handleClick(n)} className="flex flex-1 items-center gap-3 text-left">
                 <Badge icon={NOTIFICATION_TYPE_ICONS[n.type]} className={NOTIFICATION_TYPE_BADGE_CLASSES[n.type]}>
                   {NOTIFICATION_TYPE_LABELS[n.type]}
                 </Badge>
-                {!n.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-hidden="true" title="Unread" />}
                 <p className={`flex-1 text-sm ${n.read_at ? "text-zinc-500" : "font-medium text-zinc-900"}`}>{n.message}</p>
                 <time className="shrink-0 text-xs text-zinc-400">{formatTimestamp(n.created_at)}</time>
               </button>

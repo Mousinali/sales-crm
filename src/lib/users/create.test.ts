@@ -20,11 +20,26 @@ afterAll(async () => {
   // createUser's audit log rows reference superAdminId as actor_user_id (FK,
   // no cascade), so they must be deleted before the users themselves or the
   // DELETE below violates that foreign key — same pattern as audit/log.test.ts.
-  await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [superAdminId]);
+  await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1 OR actor_user_id IN (SELECT id FROM users WHERE email = ANY($2))", [superAdminId, createdEmails]);
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, superAdminEmail]]);
 });
 
 describe("createUser", () => {
+  it("lets SUPER_ADMIN and HR create an ACCOUNTANT, but not a MARKETING_HEAD", async () => {
+    const hrEmail = `acc-hr-${Date.now()}@example.com`;
+    const accEmail = `acc-${Date.now()}@example.com`;
+    const mhEmail = `acc-mh-${Date.now()}@example.com`;
+    createdEmails.push(hrEmail, accEmail, mhEmail);
+    const hr = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "HR", name: "HR", email: hrEmail });
+    const mh = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "MARKETING_HEAD", name: "MH", email: mhEmail });
+    await createUser(pool, { creatorId: hr.id, creatorRole: "HR", role: "ACCOUNTANT", name: "Acc", email: accEmail });
+    const { rows } = await pool.query("SELECT role FROM users WHERE email = $1", [accEmail]);
+    expect(rows[0].role).toBe("ACCOUNTANT");
+    await expect(
+      createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "ACCOUNTANT", name: "Acc2", email: `acc2-${Date.now()}@example.com` }),
+    ).rejects.toThrow(RoleNotManageableError);
+  });
+
   it("lets SUPER_ADMIN create a MARKETING_HEAD with a hashed one-time temp password", async () => {
     const email = `mh-${Date.now()}@example.com`;
     createdEmails.push(email);

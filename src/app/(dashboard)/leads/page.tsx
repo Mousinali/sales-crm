@@ -6,8 +6,8 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import LeadsView from "./LeadsView";
 
 export default async function LeadsPage() {
-  const user = await requireRole(["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
-  if (user.role === "HR") {
+  const user = await requireRole(["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
+  if (user.role === "HR" || user.role === "ACCOUNTANT") {
     redirect("/dashboard");
   }
 

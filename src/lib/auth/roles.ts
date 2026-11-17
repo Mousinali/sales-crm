@@ -1,12 +1,13 @@
-export const ROLES = ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"] as const;
+export const ROLES = ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"] as const;
 export type Role = typeof ROLES[number];
 
 const MANAGEABLE_ROLES: Record<Role, readonly Role[]> = {
-  SUPER_ADMIN: ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
-  HR: ["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"],
+  SUPER_ADMIN: ["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"],
+  HR: ["MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"],
   MARKETING_HEAD: ["PRE_SALES", "SALESPERSON"],
   PRE_SALES: [],
   SALESPERSON: [],
+  ACCOUNTANT: [],
 };
 
 export function creatableRolesFor(viewerRole: Role): readonly Role[] {

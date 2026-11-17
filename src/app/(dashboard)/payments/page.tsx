@@ -6,7 +6,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import PaymentsView from "./PaymentsView";
 
 export default async function PaymentsPage() {
-  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
 
   const result = await listPaymentsPage(pool, user, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 

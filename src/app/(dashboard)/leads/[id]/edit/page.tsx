@@ -27,8 +27,10 @@ export default async function EditLeadPage({ params }: { params: Promise<{ id: s
   // Mirrors LeadDetailView's `canEdit` check — the page re-enforces it
   // rather than trusting that nobody navigates here directly.
   const canEdit =
-    user.role === "MARKETING_HEAD" ||
-    (user.role === "PRE_SALES" && (lead.pre_sales_owner_id === user.id || lead.created_by === user.id));
+    user.role === "SUPER_ADMIN" ||
+    lead.created_by === user.id ||
+    lead.pre_sales_owner_id === user.id ||
+    lead.salesperson_owner_id === user.id;
   if (!canEdit) {
     redirect(`/leads/${lead.id}`);
   }

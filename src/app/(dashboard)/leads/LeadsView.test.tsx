@@ -67,11 +67,11 @@ describe("LeadsView", () => {
     expect(screen.getByRole("link", { name: /new lead/i })).toHaveAttribute("href", "/leads/new");
   });
 
-  it("allows row selection for export but hides bulk transfer for a non-Marketing-Head viewer", () => {
+  it("allows row selection for export and bulk transfer for any viewer", () => {
     render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="PRE_SALES" />);
     expect(screen.getAllByLabelText(/select sample co/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByLabelText(/select sample co/i)[0]);
-    expect(screen.queryByText(/transfer selected/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/transfer selected/i)).toBeInTheDocument();
   });
 
   it("builds an export link with the selected lead ids and chosen format", () => {
@@ -91,18 +91,19 @@ describe("LeadsView", () => {
 
   it("lets a Marketing Head select leads and bulk-transfer them with a confirmation step", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
-      if (String(url).includes("role=SALESPERSON")) return new Response(JSON.stringify({ users: [{ id: 9, name: "Sam Salesperson" }] }));
-      if (String(url).includes("/api/users")) return new Response(JSON.stringify({ users: [] }));
+      if (String(url).includes("/api/users/roster")) return new Response(JSON.stringify({ users: [{ id: 9, name: "Sam Salesperson", role: "SALESPERSON" }] }));
       if (String(url).includes("/transfer-bulk")) return new Response(JSON.stringify({ leads: [] }));
       return new Response(JSON.stringify({ leads: sampleLeads }));
     });
-    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" viewerId={2} />);
 
     fireEvent.click(screen.getAllByLabelText(/select sample co/i)[0]);
     fireEvent.click(screen.getByRole("button", { name: /transfer selected/i }));
 
-    await screen.findByText("Sam Salesperson");
-    fireEvent.change(screen.getByLabelText(/new salesperson/i), { target: { value: "9" } });
+    // CustomSelect is a button + listbox, so the salesperson is chosen by
+    // opening it and clicking the option rather than setting a value.
+    fireEvent.click(document.querySelector("#bulkTransferSalesperson") as HTMLElement);
+    fireEvent.click(await screen.findByRole("option", { name: "Sam Salesperson" }));
     fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: "Realignment" } });
     fireEvent.click(screen.getByRole("button", { name: /review transfer/i }));
     expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
@@ -115,7 +116,7 @@ describe("LeadsView", () => {
 
   it("lets a Marketing Head delete (archive) a lead via the row menu, with a confirmation step", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" viewerId={2} />);
 
     fireEvent.click(screen.getAllByLabelText(/actions for sample co/i)[0]);
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
@@ -138,7 +139,7 @@ describe("LeadsView", () => {
       // Simulate a filter change: the refetch comes back without the lead that was selected.
       return new Response(JSON.stringify({ leads: [] }));
     });
-    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" />);
+    render(<LeadsView initialLeads={sampleLeads} initialTotal={sampleLeads.length} initialTotalPages={1} viewerRole="MARKETING_HEAD" viewerId={2} />);
 
     fireEvent.click(screen.getAllByLabelText(/select sample co/i)[0]);
     expect(screen.getByRole("button", { name: /transfer selected \(1\)/i })).toBeInTheDocument();

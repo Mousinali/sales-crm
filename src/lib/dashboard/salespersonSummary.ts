@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import { listLeads } from "@/lib/leads/list";
 import { listTasks } from "@/lib/tasks/crud";
 import type { SummaryPeriod } from "@/lib/dashboard/superAdminSummary";
+import { getMySalesAndPayments } from "@/lib/dashboard/mySales";
 import { periodSinceDate, periodUntilDate } from "@/lib/dashboard/periodDates";
 
 // The period-scoped counterpart to salesperson.ts's all-time dashboard
@@ -14,7 +15,8 @@ export async function getSalespersonPeriodSummary(pool: Pool, userId: number, pe
   const since = periodSinceDate(period);
   const until = periodUntilDate(period);
 
-  const [leads, upcomingVisits, dueToday, overdueTasks] = await Promise.all([
+  const [money, leads, upcomingVisits, dueToday, overdueTasks] = await Promise.all([
+    getMySalesAndPayments(pool, userId, period),
     listLeads(pool, { id: userId, role: "SALESPERSON" }, { dateFrom: since }),
     pool.query<{ count: string }>(
       `SELECT count(*) FROM client_visits
@@ -32,6 +34,7 @@ export async function getSalespersonPeriodSummary(pool: Pool, userId: number, pe
   }
 
   return {
+    ...money,
     assignedLeads: leads.length,
     upcomingVisits: Number(upcomingVisits.rows[0].count),
     dueToday: dueToday.length,

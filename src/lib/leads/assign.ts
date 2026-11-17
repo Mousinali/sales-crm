@@ -6,10 +6,11 @@ import { LeadActionNotAllowedError } from "./errors";
 import type { LeadRow } from "./types";
 import { recordNotification } from "@/lib/notifications/record";
 
-// Shared with transfer.ts's identical gate — a Salesperson can only be
-// (re)assigned once a lead has actually been vetted, through to either
-// closed outcome.
-export const ASSIGNABLE_STATUSES = new Set(["QUALIFIED", "CONVERTED", "CLOSED_WON", "CLOSED_LOST"]);
+// Anyone who owns a lead (and a Super Admin) can assign/transfer/re-status
+// it; HR and Accountant never touch leads.
+export function canActOnLeads(role: Role): boolean {
+  return role !== "HR" && role !== "ACCOUNTANT";
+}
 
 // A readable "who changed to whom" sentence for the lead's Activity tab —
 // the previous notes just dumped the new owner IDs (and only the new
@@ -78,24 +79,11 @@ export async function assignLead(
     preSalesOwnerId?: number;
   },
 ): Promise<LeadRow> {
-  if (input.actorRole !== "MARKETING_HEAD") {
+  if (!canActOnLeads(input.actorRole)) {
     throw new LeadActionNotAllowedError(`${input.actorRole} cannot assign leads`);
   }
 
-  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
-  // Only a Salesperson assignment is gated (req.md §6.1 step 5) — a lead
-  // has to have been vetted before it's handed to a Salesperson at all.
-  // Once it has (Qualified/Converted, or further on to a closed outcome —
-  // a won/lost deal can still need its Salesperson corrected or handed
-  // over), it stays assignable. Changing the Pre-sales owner has no such
-  // gate — §3.3/§6.2 let a Marketing Head "change the Pre-sales owner when
-  // needed" at any point, including on a lead that's still Pending Review.
-  const requiresQualified = input.salespersonId !== undefined;
-  if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
-    throw new LeadActionNotAllowedError(
-      `Lead ${input.leadId} must be qualified, converted, or closed before it can be assigned a Salesperson (status: ${lead.status})`,
-    );
-  }
+  await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId, { requireOwner: true });
 
   if (input.salespersonId !== undefined) {
     await assertActiveUserWithRole(pool, input.salespersonId, "SALESPERSON");
@@ -123,7 +111,7 @@ export async function assignLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
+       WHERE id = $3
        RETURNING *`,
       [input.salespersonId ?? null, input.preSalesOwnerId ?? null, input.leadId],
     );

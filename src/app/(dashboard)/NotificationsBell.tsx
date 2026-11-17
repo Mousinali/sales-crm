@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "@/lib/toast";
@@ -33,6 +33,7 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const desktopRef = useRef<HTMLDivElement>(null);
   // Muting only silences the unread badge (so it stops demanding attention)
   // — notifications still arrive and list normally, nothing is suppressed
   // server-side. Per-browser, not per-account, since it's "stop pinging me
@@ -101,6 +102,16 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
       document.body.style.overflow = previousOverflow;
     };
   }, [variant, open, setOverlayOpen]);
+
+  // Desktop dropdown has no backdrop, so close on any click/tap outside it.
+  useEffect(() => {
+    if (variant === "mobile" || !open) return;
+    function handleMouseDown(event: globalThis.MouseEvent) {
+      if (!desktopRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [variant, open]);
 
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
@@ -230,7 +241,7 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
   }
 
   return (
-    <div className="relative">
+    <div ref={desktopRef} className="relative">
       {bellButton}
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-80 rounded-md border border-zinc-200 bg-white py-1 shadow-lg">

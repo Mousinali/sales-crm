@@ -5,9 +5,9 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
-import { reviewLead } from "./review";
+import { setLeadStatus } from "./review";
 import { listLeadActivities } from "./activities";
-import { LeadActionNotAllowedError, InvalidLeadReasonError } from "./errors";
+import { LeadActionNotAllowedError, LeadNotAccessibleError, InvalidLeadReasonError } from "./errors";
 
 const adminEmail = `review-admin-${Date.now()}@example.com`;
 let superAdminId: number;
@@ -18,7 +18,6 @@ const createdEmails: string[] = [];
 const leadIds: number[] = [];
 
 let pendingLead: { id: number };
-let alreadyQualifiedLead: { id: number };
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
@@ -35,9 +34,7 @@ beforeAll(async () => {
   createdEmails.push(hr.email, mh.email, ps.email, sp.email);
 
   pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Review Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
-  alreadyQualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Qualified Co", phone: "2", serviceRequirements: "x", leadSource: "OTHER" });
-  await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [alreadyQualifiedLead.id]);
-  leadIds.push(pendingLead.id, alreadyQualifiedLead.id);
+  leadIds.push(pendingLead.id);
 });
 
 afterAll(async () => {
@@ -50,62 +47,51 @@ afterAll(async () => {
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [[...createdEmails, adminEmail]]);
 });
 
-describe("reviewLead", () => {
-  it("lets Marketing Head qualify a Pending Review lead", async () => {
-    const updated = await reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, action: "QUALIFY" });
+describe("setLeadStatus", () => {
+  it("lets the Pre-sales owner qualify their own lead — no Marketing Head review step", async () => {
+    const updated = await setLeadStatus(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: pendingLead.id, status: "QUALIFIED" });
     expect(updated.status).toBe("QUALIFIED");
   });
 
-  it("requires a reason to reject, and records it", async () => {
-    await pool.query("UPDATE leads SET status = 'PENDING_REVIEW' WHERE id = $1", [pendingLead.id]);
+  it("requires a reason to mark a lead lost, and records it", async () => {
     await expect(
-      reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, action: "REJECT" }),
+      setLeadStatus(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: pendingLead.id, status: "CLOSED_LOST" }),
     ).rejects.toThrow(InvalidLeadReasonError);
-    const updated = await reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, action: "REJECT", reason: "Out of budget" });
-    expect(updated).toMatchObject({ status: "REJECTED", status_reason: "Out of budget" });
+    const updated = await setLeadStatus(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: pendingLead.id, status: "CLOSED_LOST", reason: "Out of budget" });
+    expect(updated).toMatchObject({ status: "CLOSED_LOST", status_reason: "Out of budget" });
   });
 
-  it("requires a reason to return for more information", async () => {
-    await pool.query("UPDATE leads SET status = 'PENDING_REVIEW' WHERE id = $1", [pendingLead.id]);
+  it("records a STATUS_CHANGE activity", async () => {
+    const activities = await listLeadActivities(pool, { id: preSalesId, role: "PRE_SALES" }, pendingLead.id);
+    expect(activities.some((a) => a.type === "STATUS_CHANGE" && a.notes === "Out of budget")).toBe(true);
+  });
+
+  it("lets a Salesperson move a lead they own", async () => {
+    await pool.query("UPDATE leads SET salesperson_owner_id = $1 WHERE id = $2", [salespersonId, pendingLead.id]);
+    const updated = await setLeadStatus(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: pendingLead.id, status: "ON_HOLD" });
+    expect(updated.status).toBe("ON_HOLD");
+  });
+
+  it("rejects a Marketing Head who doesn't own the lead", async () => {
     await expect(
-      reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, action: "RETURN" }),
-    ).rejects.toThrow(InvalidLeadReasonError);
+      setLeadStatus(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, status: "QUALIFIED" }),
+    ).rejects.toThrow(LeadNotAccessibleError);
   });
 
-  it("rejects a Pre-sales user calling review at all", async () => {
-    await expect(
-      reviewLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: pendingLead.id, action: "QUALIFY" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+  it("lets a user the lead is shared with change its status", async () => {
+    const other = await createUser(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "Other", email: `review-other-${Date.now()}@example.com` });
+    createdEmails.push(other.email);
+    await pool.query("INSERT INTO lead_shares (lead_id, user_id, shared_by) VALUES ($1, $2, $3)", [pendingLead.id, other.id, preSalesId]);
+    const updated = await setLeadStatus(pool, { actorId: other.id, actorRole: "PRE_SALES", leadId: pendingLead.id, status: "QUALIFIED" });
+    expect(updated.status).toBe("QUALIFIED");
+    await pool.query("DELETE FROM lead_shares WHERE lead_id = $1", [pendingLead.id]);
   });
 
-  it("rejects reviewing a lead that isn't Pending Review or More Info Required", async () => {
-    await expect(
-      reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: alreadyQualifiedLead.id, action: "QUALIFY" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
-  });
-
-  it("rejects a Salesperson calling review", async () => {
-    await expect(
-      reviewLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: pendingLead.id, action: "QUALIFY" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
-  });
-
-  it("rejects HR calling review", async () => {
-    await expect(
-      reviewLead(pool, { actorId: superAdminId, actorRole: "HR", leadId: pendingLead.id, action: "QUALIFY" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
-  });
-
-  it("rejects Super Admin calling review", async () => {
-    await expect(
-      reviewLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: pendingLead.id, action: "QUALIFY" }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
-  });
-
-  it("records a STATUS_CHANGE activity for every review action", async () => {
-    await pool.query("UPDATE leads SET status = 'PENDING_REVIEW' WHERE id = $1", [pendingLead.id]);
-    await reviewLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, action: "QUALIFY" });
-    const rows = await listLeadActivities(pool, { id: mhId, role: "MARKETING_HEAD" }, pendingLead.id);
-    expect(rows[0].type).toBe("STATUS_CHANGE");
+  it("rejects HR and Accountant", async () => {
+    for (const role of ["HR", "ACCOUNTANT"] as const) {
+      await expect(
+        setLeadStatus(pool, { actorId: superAdminId, actorRole: role, leadId: pendingLead.id, status: "QUALIFIED" }),
+      ).rejects.toThrow(LeadActionNotAllowedError);
+    }
   });
 });

@@ -2,12 +2,19 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "@/lib/leads/guard";
 import { recordLeadActivity } from "@/lib/leads/activities";
+import type { LeadRow } from "@/lib/leads/types";
 import { LeadNotFoundError, LeadNotAccessibleError } from "@/lib/leads/errors";
 import { setSaleServices } from "./services";
 import { insertSalePayment } from "./payments";
 import { nextSaleNumber, financialYearCode } from "./saleNumber";
 import { SaleActionNotAllowedError, SaleNotFoundError, SaleNotAccessibleError } from "./errors";
 import type { SaleRow, SaleBudgetType, SaleSoldByType, SalePaymentMethod } from "./types";
+
+async function fetchLead(pool: Pool, leadId: number): Promise<LeadRow> {
+  const { rows } = await pool.query<LeadRow>("SELECT * FROM leads WHERE id = $1", [leadId]);
+  if (!rows[0]) throw new LeadNotFoundError(`No lead with id ${leadId}`);
+  return rows[0];
+}
 
 export async function createSale(pool: Pool, input: {
   creatorId: number;
@@ -31,7 +38,7 @@ export async function createSale(pool: Pool, input: {
   initialPaymentMethod?: SalePaymentMethod;
   notes?: string;
 }): Promise<SaleRow> {
-  if (input.creatorRole !== "MARKETING_HEAD" && input.creatorRole !== "PRE_SALES" && input.creatorRole !== "SALESPERSON") {
+  if (input.creatorRole === "HR" || input.creatorRole === "SUPER_ADMIN") {
     throw new SaleActionNotAllowedError(`${input.creatorRole} cannot record sales`);
   }
 
@@ -46,7 +53,8 @@ export async function createSale(pool: Pool, input: {
   let address = input.address ?? null;
 
   if (input.leadId != null) {
-    const lead = await assertLeadVisible(pool, { id: input.creatorId, role: input.creatorRole }, input.leadId).catch((error) => {
+    // An Accountant can't view leads, but may record a sale against any of them.
+    const lead = await (input.creatorRole === "ACCOUNTANT" ? fetchLead(pool, input.leadId) : assertLeadVisible(pool, { id: input.creatorId, role: input.creatorRole }, input.leadId)).catch((error) => {
       if (error instanceof LeadNotFoundError) throw new SaleNotFoundError(error.message);
       if (error instanceof LeadNotAccessibleError) throw new SaleNotAccessibleError(error.message);
       throw error;
@@ -72,7 +80,7 @@ export async function createSale(pool: Pool, input: {
   let soldByCustomName: string | null = null;
 
   if (input.soldByType === undefined) {
-    soldByType = input.creatorRole === "MARKETING_HEAD" ? "SELF" : input.creatorRole;
+    soldByType = input.creatorRole === "PRE_SALES" || input.creatorRole === "SALESPERSON" ? input.creatorRole : "SELF";
     soldByUserId = input.creatorId;
   } else {
     soldByType = input.soldByType;

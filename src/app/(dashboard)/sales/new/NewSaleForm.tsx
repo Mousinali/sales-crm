@@ -1,13 +1,17 @@
 "use client";
 
+import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import { SALE_BUDGET_TYPES, type SaleBudgetType, type SaleSoldByType } from "@/lib/sales/types";
+import CustomSelect from "@/components/ui/CustomSelect";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
 import RichTextField from "@/components/ui/RichTextField";
+import MoneyInput from "@/components/ui/MoneyInput";
 import type { ServiceRow } from "@/lib/services/types";
+import type { SaleLeadOption } from "@/lib/sales/leadOptions";
 
 const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
   ONE_TIME: "One time",
@@ -23,12 +27,14 @@ function todayDateInput(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function NewSaleForm({ serviceOptions }: { serviceOptions: ServiceRow[] }) {
+export default function NewSaleForm({ serviceOptions, isAccountant }: { serviceOptions: ServiceRow[]; isAccountant: boolean }) {
   const router = useRouter();
 
   // Company: either chosen from the lead list (which fills the fields below
   // from that lead, still editable for this sale) or typed fresh.
   const [leadOptions, setLeadOptions] = useState<SimpleLead[]>([]);
+  // An Accountant can't open leads, so their picker (and prefill) comes from this instead.
+  const [accountantLeads, setAccountantLeads] = useState<SaleLeadOption[]>([]);
   const [leadId, setLeadId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
@@ -56,11 +62,11 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
   useEffect(() => {
     // shortcut: a flat page of up to 100 leads, no search box; fine for a
     // small-to-mid lead list — switch to a type-ahead search if it grows.
-    fetch("/api/leads?pageSize=100")
+    fetch(isAccountant ? "/api/sales/lead-options" : "/api/leads?pageSize=100")
       .then((res) => (res.ok ? res.json() : { leads: [] }))
-      .then((body) => setLeadOptions(((body.leads ?? []) as (SimpleLead & { status: string })[]).filter((l) => l.status !== "REJECTED" && l.status !== "CLOSED_LOST")))
+      .then((body) => (isAccountant ? (setAccountantLeads(body.leads ?? []), setLeadOptions(body.leads ?? [])) : setLeadOptions(((body.leads ?? []) as (SimpleLead & { status: string })[]).filter((l) => l.status !== "REJECTED" && l.status !== "CLOSED_LOST"))))
       .catch(() => {});
-  }, []);
+  }, [isAccountant]);
 
   useEffect(() => {
     fetch("/api/users?role=PRE_SALES&status=ACTIVE")
@@ -78,8 +84,11 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
   // more services can be added on top, without changing the lead itself.
   useEffect(() => {
     if (!leadId) return;
-    fetch(`/api/leads/${leadId}`)
-      .then((res) => (res.ok ? res.json() : null))
+    const accountantLead = accountantLeads.find((l) => String(l.id) === leadId);
+    (isAccountant
+      ? Promise.resolve(accountantLead ? { ...accountantLead, services: accountantLead.service_ids.map((id) => ({ id })) } : null)
+      : fetch(`/api/leads/${leadId}`).then((res) => (res.ok ? res.json() : null))
+    )
       .then(
         (
           lead: {
@@ -90,7 +99,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             address: string | null;
             estimated_budget: string | null;
             budget_type: SaleBudgetType | null;
-            services?: ServiceRow[];
+            services?: { id: number }[];
           } | null,
         ) => {
           if (!lead) return;
@@ -105,6 +114,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
         },
       )
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
 
   async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
@@ -175,24 +185,17 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-6">
-      <form onSubmit={handleCreateSubmit} className="grid grid-cols-3 gap-4" noValidate>
-        <div className="col-span-3 flex flex-col gap-1.5">
+      <form onSubmit={handleCreateSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" noValidate>
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="leadId" className="text-sm font-medium text-zinc-700">
             Company from lead list
           </label>
-          <select
+          <CustomSelect
             id="leadId"
             value={leadId}
-            onChange={(event) => setLeadId(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            <option value="">— Enter company details manually —</option>
-            {leadOptions.map((lead) => (
-              <option key={lead.id} value={lead.id}>
-                {lead.company_name}
-              </option>
-            ))}
-          </select>
+            onChange={setLeadId}
+            options={[{ value: "", label: "— Enter company details manually —" }, ...leadOptions.map((lead) => ({ value: String(lead.id), label: lead.company_name }))]}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -204,7 +207,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             type="text"
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
@@ -217,7 +220,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             type="text"
             value={contactPerson}
             onChange={(event) => setContactPerson(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
@@ -230,7 +233,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             type="text"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
@@ -243,24 +246,11 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             type="text"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="address" className="text-sm font-medium text-zinc-700">
-            Address
-          </label>
-          <input
-            id="address"
-            type="text"
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <div className="col-span-3 flex flex-col gap-1.5">
           <label htmlFor="serviceInterested" className="text-sm font-medium text-zinc-700">
             Service interested
           </label>
@@ -273,18 +263,35 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
           />
         </div>
 
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <label htmlFor="address" className="text-sm font-medium text-zinc-700">
+            Address
+          </label>
+          <input
+            id="address"
+            type="text"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="saleDate" className="text-sm font-medium text-zinc-700">
+            Date
+          </label>
+          <DateField id="saleDate" value={saleDate} onChange={setSaleDate} />
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label htmlFor="budgetAmount" className="text-sm font-medium text-zinc-700">
             Budget
           </label>
-          <input
+          <MoneyInput
             id="budgetAmount"
-            type="number"
-            min="0"
-            step="any"
             value={budgetAmount}
-            onChange={(event) => setBudgetAmount(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            onValueChange={setBudgetAmount}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
 
@@ -292,30 +299,11 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
           <label htmlFor="budgetType" className="text-sm font-medium text-zinc-700">
             Payment type
           </label>
-          <select
+          <CustomSelect
             id="budgetType"
             value={budgetType}
-            onChange={(event) => setBudgetType(event.target.value as SaleBudgetType)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            {SALE_BUDGET_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {BUDGET_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="saleDate" className="text-sm font-medium text-zinc-700">
-            Date
-          </label>
-          <input
-            id="saleDate"
-            type="date"
-            value={saleDate}
-            onChange={(event) => setSaleDate(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            onChange={(value) => setBudgetType(value as SaleBudgetType)}
+            options={SALE_BUDGET_TYPES.map((type) => ({ value: type, label: BUDGET_TYPE_LABELS[type] }))}
           />
         </div>
 
@@ -323,21 +311,21 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
           <label htmlFor="soldByType" className="text-sm font-medium text-zinc-700">
             Sold by
           </label>
-          <select
+          <CustomSelect
             id="soldByType"
             value={soldByType}
-            onChange={(event) => {
-              setSoldByType(event.target.value as SaleSoldByType);
+            onChange={(value) => {
+              setSoldByType(value as SaleSoldByType);
               setSoldByUserId("");
               setSoldByCustomName("");
             }}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            <option value="SELF">Myself</option>
-            <option value="CUSTOM">Custom name</option>
-            <option value="PRE_SALES">Pre-sales user</option>
-            <option value="SALESPERSON">Salesperson</option>
-          </select>
+            options={[
+              { value: "SELF", label: "Myself" },
+              { value: "CUSTOM", label: "Custom name" },
+              { value: "PRE_SALES", label: "Pre-sales user" },
+              { value: "SALESPERSON", label: "Salesperson" },
+            ]}
+          />
         </div>
 
         {soldByType === "CUSTOM" && (
@@ -350,7 +338,7 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
               type="text"
               value={soldByCustomName}
               onChange={(event) => setSoldByCustomName(event.target.value)}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
         )}
@@ -360,23 +348,17 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
             <label htmlFor="soldByUserId" className="text-sm font-medium text-zinc-700">
               {soldByType === "PRE_SALES" ? "Pre-sales user" : "Salesperson"}
             </label>
-            <select
+            <CustomSelect
               id="soldByUserId"
               value={soldByUserId}
-              onChange={(event) => setSoldByUserId(event.target.value)}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            >
-              <option value="">Select…</option>
-              {(soldByType === "PRE_SALES" ? preSalesOptions : salespersonOptions).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSoldByUserId}
+              placeholder="Select…"
+              options={(soldByType === "PRE_SALES" ? preSalesOptions : salespersonOptions).map((u) => ({ value: String(u.id), label: u.name }))}
+            />
           </div>
         )}
 
-        <div className="col-span-3 flex flex-col gap-1.5">
+        <div className="col-span-full flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-medium text-zinc-700">
             Notes
           </label>
@@ -384,23 +366,23 @@ export default function NewSaleForm({ serviceOptions }: { serviceOptions: Servic
         </div>
 
         {createError && (
-          <p role="alert" className="col-span-3 text-sm text-red-600">
+          <p role="alert" className="col-span-full text-sm text-red-600">
             {createError}
           </p>
         )}
 
-        <div className="col-span-3 mt-2 flex justify-end gap-3">
+        <div className="col-span-full mt-2 flex justify-end gap-3">
           <button
             type="button"
             onClick={() => router.push("/sales")}
-            className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={creating}
-            className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Save
           </button>

@@ -4,6 +4,7 @@ import { assertSaleVisible } from "./guard";
 import { financialYearCode } from "./saleNumber";
 import { nextPaymentNumber } from "./paymentNumber";
 import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 import type { SalePaymentRow, SalePaymentMethod } from "./types";
 
 // Shared by recordSalePayment (guard-checked, API-facing) and createSale's
@@ -121,9 +122,12 @@ export async function listPaymentsPage(
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  if (viewer.role === "PRE_SALES" || viewer.role === "SALESPERSON") {
+  if (viewer.role === "MARKETING_HEAD" || viewer.role === "PRE_SALES" || viewer.role === "SALESPERSON") {
     params.push(viewer.id);
-    conditions.push(`(sales.created_by = $${params.length} OR sales.sold_by_user_id = $${params.length})`);
+    conditions.push(
+      `(sales.created_by = $${params.length} OR sales.sold_by_user_id = $${params.length}
+        OR EXISTS (SELECT 1 FROM leads l WHERE l.id = sales.lead_id AND ${leadVisibleSql("l", `$${params.length}`)}))`,
+    );
   }
   if (filters.q) {
     // Company name alone missed the identifiers people actually read off a

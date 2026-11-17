@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useFloatingMenu } from "./useFloatingMenu";
 
 export type SelectOption = { value: string; label: string; icon?: string };
 
@@ -18,16 +20,23 @@ export default function CustomSelect({
   onChange,
   options,
   placeholder = "—",
+  "aria-label": ariaLabel,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
   placeholder?: string;
+  // Filter dropdowns have no visible <label>, so without this a screen reader
+  // announces them by whichever option happens to be selected and nothing else.
+  "aria-label"?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const position = useFloatingMenu(open, triggerRef);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const selectedOptionRef = useRef<HTMLButtonElement>(null);
   const searchable = options.length > SEARCH_THRESHOLD;
@@ -36,15 +45,19 @@ export default function CustomSelect({
   // long enough that it might start off scrolled out of view) instead of
   // always opening at the top of the list regardless of where the current
   // value sits in it.
+  const positioned = position !== null;
   useEffect(() => {
     // jsdom (unit tests) doesn't implement scrollIntoView at all.
-    if (open) selectedOptionRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [open]);
+    // `position`: the portaled menu only exists once it has been measured.
+    if (open && positioned) selectedOptionRef.current?.scrollIntoView?.({ block: "nearest" });
+  // `positioned`, not `position`: scrolling the list re-measures position, which would snap back to the selection.
+  }, [open, positioned]);
 
   useEffect(() => {
     if (!open) return;
     function handleMouseDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
@@ -70,11 +83,16 @@ export default function CustomSelect({
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         onClick={() => (open ? setOpen(false) : openMenu())}
+        // combobox is the role for a control that expands a listbox; without it
+        // this reads to assistive tech as a plain button.
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={ariaLabel}
         className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-left text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -87,8 +105,12 @@ export default function CustomSelect({
         <i className={`ri-arrow-down-s-line shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-zinc-200 bg-white shadow-lg">
+      {open && position && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", left: position.left, width: position.width, top: position.top, bottom: position.bottom }}
+          className="z-[100] overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+        >
           {searchable && (
             <div className="relative border-b border-zinc-200">
               <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
@@ -103,7 +125,7 @@ export default function CustomSelect({
               />
             </div>
           )}
-          <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
+          <ul role="listbox" style={{ maxHeight: Math.min(position.maxHeight - 50, 280) }} className="overflow-y-auto overscroll-contain py-1">
             {filtered.length === 0 && <li className="px-3 py-2 text-sm text-zinc-500">No matches.</li>}
             {filtered.map((o) => (
               <li key={o.value}>
@@ -129,7 +151,8 @@ export default function CustomSelect({
               </li>
             ))}
           </ul>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

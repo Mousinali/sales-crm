@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import Modal from "@/components/ui/Modal";
+import CustomSelect from "@/components/ui/CustomSelect";
+import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
 import Pagination from "@/components/ui/Pagination";
 import RefreshButton from "@/components/ui/RefreshButton";
 import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
@@ -69,7 +72,18 @@ function chunk<T>(items: T[], size: number): T[][] {
   return result;
 }
 
-export default function CalendarView({ initialEvents, viewerId }: { initialEvents: CalendarEvent[]; viewerId: number }) {
+// A task due on a day, shown on the grid beside that day's events.
+export type CalendarTask = { id: number; title: string; due_at: string; status: string; assigned_user_name: string | null };
+
+export default function CalendarView({
+  initialEvents,
+  initialTasks = [],
+  viewerId,
+}: {
+  initialEvents: CalendarEvent[];
+  initialTasks?: CalendarTask[];
+  viewerId: number;
+}) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -102,10 +116,9 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
       .catch(() => {});
   }, [debouncedRosterSearch]);
   const rosterById = new Map(roster.map((u) => [u.id, u]));
-  const rosterSearchLower = rosterSearch.trim().toLowerCase();
-  const filteredRoster = roster.filter(
-    (u) => u.id !== viewerId && (!rosterSearchLower || u.name.toLowerCase().includes(rosterSearchLower)),
-  );
+  const attendeeOptions = roster
+    .filter((u) => u.id !== viewerId)
+    .map((u) => ({ id: u.id, name: u.name, description: formatRoleLabel(u.role) }));
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -135,16 +148,17 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const monthWeeks = chunk(buildMonthCells(monthStart), 7);
+  const tasksByDay = new Map<string, CalendarTask[]>();
+  for (const task of initialTasks) {
+    const key = dateKey(new Date(task.due_at));
+    tasksByDay.set(key, [...(tasksByDay.get(key) ?? []), task]);
+  }
   const eventsByDay = new Map<string, CalendarEvent[]>();
   for (const event of events) {
     const key = dateKey(new Date(event.starts_at));
     const list = eventsByDay.get(key) ?? [];
     list.push(event);
     eventsByDay.set(key, list);
-  }
-
-  function toggleAttendee(userId: number) {
-    setAttendeeIds((current) => (current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]));
   }
 
   function applyAttendeeUpdate(eventId: number, updated: CalendarEventAttendee) {
@@ -345,8 +359,11 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
               const inMonth = date.getMonth() === monthStart.getMonth();
               const isToday = dateKey(date) === dateKey(new Date());
               const dayEvents = eventsByDay.get(dateKey(date)) ?? [];
-              const visible = dayEvents.slice(0, 3);
-              const overflow = dayEvents.length - visible.length;
+              const dayTasks = tasksByDay.get(dateKey(date)) ?? [];
+              // Events first, then tasks, sharing the 3 visible slots.
+              const visibleEvents = dayEvents.slice(0, 3);
+              const visibleTasks = dayTasks.slice(0, 3 - visibleEvents.length);
+              const overflow = dayEvents.length + dayTasks.length - visibleEvents.length - visibleTasks.length;
               return (
                 <div
                   key={i}
@@ -373,7 +390,7 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                     {date.getDate()}
                   </span>
                   <div className="flex flex-col gap-1">
-                    {visible.map((event) => (
+                    {visibleEvents.map((event) => (
                       <button
                         key={event.id}
                         type="button"
@@ -385,6 +402,20 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                       >
                         {event.title}
                       </button>
+                    ))}
+                    {visibleTasks.map((task) => (
+                      <Link
+                        key={`task-${task.id}`}
+                        href="/tasks"
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Task: ${task.title}${task.assigned_user_name ? ` · ${task.assigned_user_name}` : ""}`}
+                        className={`flex items-center gap-1 truncate rounded border border-dashed border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 ${
+                          task.status === "COMPLETED" ? "text-zinc-400 line-through" : ""
+                        }`}
+                      >
+                        <i className={task.status === "COMPLETED" ? "ri-checkbox-circle-line" : "ri-checkbox-blank-circle-line"} aria-hidden="true" />
+                        <span className="truncate">{task.title}</span>
+                      </Link>
                     ))}
                     {/* shortcut: "+N more" is static, not a day-detail popover; upgrade if days routinely exceed 3 events */}
                     {overflow > 0 && <span className="px-1.5 text-[11px] text-zinc-400">+{overflow} more</span>}
@@ -414,22 +445,18 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
                 className="rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
             </div>
-            <select
+            <CustomSelect
               value={eventsTypeFilter}
-              onChange={(event) => {
-                setEventsTypeFilter(event.target.value as CalendarEventType | "ALL");
+              onChange={(value) => {
+                setEventsTypeFilter(value as CalendarEventType | "ALL");
                 setEventsPage(1);
               }}
               aria-label="Filter by type"
-              className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="ALL">All types</option>
-              {CALENDAR_EVENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "ALL", label: "All types" },
+                ...CALENDAR_EVENT_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] })),
+              ]}
+            />
           </div>
         </div>
 
@@ -571,88 +598,83 @@ export default function CalendarView({ initialEvents, viewerId }: { initialEvent
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-base font-semibold text-zinc-900">{editingId ? "Edit event" : "New event"}</h2>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label htmlFor="eventTitle" className="text-sm font-medium text-zinc-700">
-                  Title
-                </label>
-                <input
-                  id="eventTitle"
-                  type="text"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label htmlFor="eventDescription" className="text-sm font-medium text-zinc-700">
-                  Description
-                </label>
-                <RichTextField id="eventDescription" value={description} onChange={setDescription} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="eventStartsAt" className="text-sm font-medium text-zinc-700">
-                  Date &amp; time
-                </label>
-                <input
-                  id="eventStartsAt"
-                  type="datetime-local"
-                  value={startsAt}
-                  onChange={(event) => setStartsAt(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="eventType" className="text-sm font-medium text-zinc-700">
-                  Type
-                </label>
-                <select
-                  id="eventType"
-                  value={type}
-                  onChange={(event) => setType(event.target.value as CalendarEventType)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  {CALENDAR_EVENT_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label htmlFor="attendeeSearch" className="text-sm font-medium text-zinc-700">
-                  Invite
-                </label>
-                <input
-                  id="attendeeSearch"
-                  type="text"
-                  value={rosterSearch}
-                  onChange={(event) => setRosterSearch(event.target.value)}
-                  placeholder="Search people by name..."
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
-                <div className="max-h-36 overflow-y-auto rounded-md border border-zinc-300 p-2">
-                  {filteredRoster.length === 0 && (
-                    <p className="px-1 py-1 text-sm text-zinc-500">No matching people.</p>
-                  )}
-                  {filteredRoster.map((u) => (
-                    <label key={u.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm text-zinc-700 hover:bg-zinc-50">
-                      <input type="checkbox" checked={attendeeIds.includes(u.id)} onChange={() => toggleAttendee(u.id)} />
-                      {u.name} <span className="text-xs text-zinc-400">({formatRoleLabel(u.role)})</span>
-                    </label>
-                  ))}
+          <div role="dialog" aria-modal="true" aria-label={editingId ? "Edit event" : "New event"} className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
+              <h2 className="text-base font-semibold text-zinc-900">{editingId ? "Edit event" : "New event"}</h2>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                aria-label="Close"
+                className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                <i className="ri-close-line text-lg" aria-hidden="true" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+              <div className="slim-scrollbar grid grid-cols-1 gap-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="eventTitle" className="text-sm font-medium text-zinc-700">
+                    Title
+                  </label>
+                  <input
+                    id="eventTitle"
+                    type="text"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                  />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="eventStartsAt" className="text-sm font-medium text-zinc-700">
+                    Date &amp; time
+                  </label>
+                  <input
+                    id="eventStartsAt"
+                    type="datetime-local"
+                    value={startsAt}
+                    onChange={(event) => setStartsAt(event.target.value)}
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="eventType" className="text-sm font-medium text-zinc-700">
+                    Type
+                  </label>
+                  <CustomSelect
+                    id="eventType"
+                    value={type}
+                    onChange={(value) => setType(value as CalendarEventType)}
+                    options={CALENDAR_EVENT_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="eventDescription" className="text-sm font-medium text-zinc-700">
+                    Description
+                  </label>
+                  <RichTextField id="eventDescription" value={description} onChange={setDescription} />
+                </div>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="attendeeSearch" className="text-sm font-medium text-zinc-700">
+                    Invite
+                  </label>
+                  <MultiSelectSearch
+                    id="attendeeSearch"
+                    options={attendeeOptions}
+                    selectedIds={attendeeIds}
+                    onChange={setAttendeeIds}
+                    onSearchChange={setRosterSearch}
+                    placeholder="Search people by name…"
+                  />
+                </div>
+
+                {formError && (
+                  <p role="alert" className="text-sm text-red-600 sm:col-span-2">
+                    {formError}
+                  </p>
+                )}
               </div>
 
-              {formError && (
-                <p role="alert" className="text-sm text-red-600 sm:col-span-2">
-                  {formError}
-                </p>
-              )}
-
-              <div className="mt-2 flex justify-end gap-3 sm:col-span-2">
+              <div className="flex justify-end gap-3 border-t border-zinc-200 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setFormOpen(false)}

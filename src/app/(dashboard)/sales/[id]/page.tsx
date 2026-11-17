@@ -28,5 +28,20 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
     listSalePayments(pool, user, sale.id),
   ]);
 
-  return <SaleDetailView sale={sale} services={services} initialPayments={payments} />;
+  // The guard returns the bare sales row, so resolve the display names here.
+  const { rows } = await pool.query<{ sold_by: string | null; recorded_by: string | null }>(
+    `SELECT CASE s.sold_by_type WHEN 'CUSTOM' THEN s.sold_by_custom_name ELSE COALESCE(su.name, cu.name) END AS sold_by, cu.name AS recorded_by
+     FROM sales s LEFT JOIN users su ON su.id = s.sold_by_user_id LEFT JOIN users cu ON cu.id = s.created_by WHERE s.id = $1`,
+    [sale.id],
+  );
+
+  return (
+    <SaleDetailView
+      sale={sale}
+      services={services}
+      initialPayments={payments}
+      soldByName={rows[0]?.sold_by ?? null}
+      recordedByName={rows[0]?.recorded_by ?? null}
+    />
+  );
 }

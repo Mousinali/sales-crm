@@ -62,7 +62,8 @@ describe("EditLeadForm", () => {
     const existingService = { id: 7, name: "Web Development", description: null, status: "ACTIVE" as const, created_at: new Date(), updated_at: new Date() };
     render(<EditLeadForm lead={lead} serviceOptions={[existingService]} initialServiceIds={[7]} />);
 
-    fireEvent.change(screen.getByLabelText(/industry type/i), { target: { value: "Manufacturing" } });
+    fireEvent.click(screen.getByLabelText(/industry type/i));
+    fireEvent.click(screen.getByRole("option", { name: "Engineering & Manufacturing" }));
     fireEvent.change(screen.getByLabelText(/business type/i), { target: { value: "Wholesale" } });
     fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: "Plot 9" } });
     fireEvent.click(screen.getByLabelText(/^state$/i));
@@ -77,7 +78,7 @@ describe("EditLeadForm", () => {
     const call = fetchSpy.mock.calls.find(([url, init]) => url === `/api/leads/${lead.id}` && (init as RequestInit)?.method === "PATCH");
     const body = JSON.parse((call?.[1] as RequestInit).body as string);
     expect(body).toMatchObject({
-      industry: "Manufacturing",
+      industry: "Engineering & Manufacturing",
       businessType: "Wholesale",
       address: "Plot 9",
       state: "Gujarat",

@@ -32,14 +32,15 @@ export default function Pagination({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 text-sm text-zinc-600">
-      <span>{total} total</span>
+      {/* Grouped: "300000 total" is hard to read at a glance. */}
+      <span className="tabular-nums">{total.toLocaleString("en-IN")} total</span>
       <div className="flex items-center gap-1">
         <button
           type="button"
           aria-label="Previous page"
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <i className="ri-arrow-left-s-line" aria-hidden="true" />
         </button>
@@ -54,7 +55,10 @@ export default function Pagination({
               type="button"
               aria-current={entry === page ? "page" : undefined}
               onClick={() => onChange(entry)}
-              className={`flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium transition-colors ${
+              // min-w rather than a fixed w-8: a five-digit page number (300k
+              // rows is 15,000 pages) overflowed the fixed pill and rendered
+              // clipped. tabular-nums keeps the digits from jittering.
+              className={`flex h-8 min-w-8 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium tabular-nums transition-colors ${
                 entry === page ? "bg-brand-600 text-white" : "text-zinc-700 hover:bg-zinc-100"
               }`}
             >
@@ -67,7 +71,7 @@ export default function Pagination({
           aria-label="Next page"
           disabled={page >= totalPages}
           onClick={() => onChange(page + 1)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <i className="ri-arrow-right-s-line" aria-hidden="true" />
         </button>

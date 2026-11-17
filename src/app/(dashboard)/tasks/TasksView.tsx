@@ -5,8 +5,8 @@ import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import RefreshButton from "@/components/ui/RefreshButton";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
+import CustomSelect from "@/components/ui/CustomSelect";
 import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
-import type { Role } from "@/lib/auth/roles";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/tasks/types";
 import { LEAD_PRIORITIES, type LeadPriority } from "@/lib/leads/types";
 import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES, LEAD_PRIORITY_ICONS } from "@/app/(dashboard)/leadDisplay";
@@ -23,6 +23,7 @@ type Task = {
   priority: LeadPriority;
   status: TaskStatus;
   assigned_user_id: number;
+  assigned_user_name?: string;
 };
 
 const STATUS_BADGE_CLASSES: Record<TaskStatus, string> = {
@@ -44,13 +45,11 @@ export default function TasksView({
   initialTotal,
   initialTotalPages,
   viewerId,
-  viewerRole,
 }: {
   initialTasks: Task[];
   initialTotal: number;
   initialTotalPages: number;
   viewerId: number;
-  viewerRole: Role;
 }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [total, setTotal] = useState(initialTotal);
@@ -62,21 +61,24 @@ export default function TasksView({
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const activeFilterCount = [statusFilter, dueFilter].filter(Boolean).length;
 
-  const canAssignOthers = viewerRole === "MARKETING_HEAD" || viewerRole === "SUPER_ADMIN";
   const [assignableUsers, setAssignableUsers] = useState<{ id: number; name: string }[]>([]);
 
   // Only the create-task form's "Assign to" picker needs this roster —
-  // deferred to when that form actually opens, instead of fetching it for
-  // everyone on every page load.
+  // deferred to when that form actually opens. Results merge in as the user
+  // searches (the roster endpoint caps at 50, so a name search narrows it).
   const assignableRosterLoaded = useRef(false);
-  function loadAssignableRoster() {
-    if (assignableRosterLoaded.current || !canAssignOthers) return;
-    assignableRosterLoaded.current = true;
-    Promise.all([
-      fetch("/api/users?role=PRE_SALES&status=ACTIVE").then((r) => (r.ok ? r.json() : { users: [] })),
-      fetch("/api/users?role=SALESPERSON&status=ACTIVE").then((r) => (r.ok ? r.json() : { users: [] })),
-    ])
-      .then(([ps, sp]) => setAssignableUsers([...(ps.users ?? []), ...(sp.users ?? [])]))
+  function loadAssignableRoster(q = "") {
+    if (!q && assignableRosterLoaded.current) return;
+    if (!q) assignableRosterLoaded.current = true;
+    fetch(`/api/users/roster${q ? `?q=${encodeURIComponent(q)}` : ""}`)
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((body: { users?: { id: number; name: string }[] }) =>
+        setAssignableUsers((current) => {
+          const byId = new Map(current.map((u) => [u.id, u]));
+          for (const u of body.users ?? []) if (u.id !== viewerId) byId.set(u.id, { id: u.id, name: u.name });
+          return [...byId.values()];
+        }),
+      )
       .catch(() => {});
   }
 
@@ -188,32 +190,28 @@ export default function TasksView({
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 sm:flex-row sm:items-end sm:justify-between">
           <form onSubmit={handleFilterSubmit} className="hidden flex-wrap items-center gap-3 sm:flex">
-            <select
+            <CustomSelect
               id="statusFilter"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as TaskStatus | "")}
               aria-label="Filter by status"
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="">All statuses</option>
-              {TASK_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-            <select
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as TaskStatus | "")}
+              options={[
+                { value: "", label: "All statuses" },
+                ...TASK_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+              ]}
+            />
+            <CustomSelect
               id="dueFilter"
-              value={dueFilter}
-              onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
               aria-label="Filter by due date"
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="">Any time</option>
-              <option value="OVERDUE">Overdue</option>
-              <option value="TODAY">Due today</option>
-              <option value="UPCOMING">Upcoming</option>
-            </select>
+              value={dueFilter}
+              onChange={(value) => setDueFilter(value as typeof dueFilter)}
+              options={[
+                { value: "", label: "Any time" },
+                { value: "OVERDUE", label: "Overdue" },
+                { value: "TODAY", label: "Due today" },
+                { value: "UPCOMING", label: "Upcoming" },
+              ]}
+            />
             <button
               type="submit"
               className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
@@ -259,33 +257,29 @@ export default function TasksView({
         >
           <div>
             <p className="mb-1.5 text-sm font-medium text-zinc-700">Status</p>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as TaskStatus | "")}
+            <CustomSelect
               aria-label="Filter by status"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="">All statuses</option>
-              {TASK_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as TaskStatus | "")}
+              options={[
+                { value: "", label: "All statuses" },
+                ...TASK_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+              ]}
+            />
           </div>
           <div>
             <p className="mb-1.5 text-sm font-medium text-zinc-700">Due</p>
-            <select
-              value={dueFilter}
-              onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
+            <CustomSelect
               aria-label="Filter by due date"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="">Any time</option>
-              <option value="OVERDUE">Overdue</option>
-              <option value="TODAY">Due today</option>
-              <option value="UPCOMING">Upcoming</option>
-            </select>
+              value={dueFilter}
+              onChange={(value) => setDueFilter(value as typeof dueFilter)}
+              options={[
+                { value: "", label: "Any time" },
+                { value: "OVERDUE", label: "Overdue" },
+                { value: "TODAY", label: "Due today" },
+                { value: "UPCOMING", label: "Upcoming" },
+              ]}
+            />
           </div>
         </FilterBottomSheet>
 
@@ -303,6 +297,9 @@ export default function TasksView({
                   Title
                 </th>
                 <th scope="col" className="px-4 py-3 text-left">
+                  Assigned to
+                </th>
+                <th scope="col" className="px-4 py-3 text-left">
                   Due
                 </th>
                 <th scope="col" className="px-4 py-3 text-left">
@@ -317,7 +314,7 @@ export default function TasksView({
             <tbody className="divide-y divide-zinc-100">
               {tasks.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
                     No tasks found.
                   </td>
                 </tr>
@@ -327,6 +324,9 @@ export default function TasksView({
                   <td data-label="Title" className="px-4 py-3">
                     <p className="font-medium text-zinc-900">{task.title}</p>
                     {task.description && <FormattedText text={task.description} className="text-xs text-zinc-500" />}
+                  </td>
+                  <td data-label="Assigned to" className="px-4 py-3 text-zinc-600">
+                    {task.assigned_user_id === viewerId ? "You" : (task.assigned_user_name ?? "—")}
                   </td>
                   <td data-label="Due" className="px-4 py-3 text-zinc-600">{new Date(task.due_at).toLocaleString("en-US")}</td>
                   <td data-label="Priority" className="px-4 py-3">
@@ -417,34 +417,27 @@ export default function TasksView({
                 <label htmlFor="taskPriority" className="text-sm font-medium text-zinc-700">
                   Priority
                 </label>
-                <select
+                <CustomSelect
                   id="taskPriority"
                   value={priority}
-                  onChange={(event) => setPriority(event.target.value as LeadPriority)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  {LEAD_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {LEAD_PRIORITY_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setPriority(value as LeadPriority)}
+                  options={LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }))}
+                />
               </div>
-              {canAssignOthers && (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="taskAssignedTo" className="text-sm font-medium text-zinc-700">
-                    Assign to
-                  </label>
-                  <MultiSelectSearch
-                    id="taskAssignedTo"
-                    multiple={false}
-                    options={[{ id: viewerId, name: "Myself" }, ...assignableUsers]}
-                    selectedIds={[assignedUserId ? Number(assignedUserId) : viewerId]}
-                    onChange={([id]) => setAssignedUserId(id === viewerId ? "" : String(id))}
-                    placeholder="Search people…"
-                  />
-                </div>
-              )}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="taskAssignedTo" className="text-sm font-medium text-zinc-700">
+                  Assign to
+                </label>
+                <MultiSelectSearch
+                  id="taskAssignedTo"
+                  multiple={false}
+                  options={[{ id: viewerId, name: "Myself" }, ...assignableUsers]}
+                  selectedIds={[assignedUserId ? Number(assignedUserId) : viewerId]}
+                  onChange={([id]) => setAssignedUserId(id === viewerId ? "" : String(id))}
+                  placeholder="Search people…"
+                  onSearchChange={(q) => q.trim().length >= 3 && loadAssignableRoster(q.trim())}
+                />
+              </div>
 
               {createError && (
                 <p role="alert" className="text-sm text-red-600">

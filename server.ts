@@ -21,8 +21,9 @@ config({ path: ".env.local" });
 
 const { pool } = await import("@/lib/db");
 const { getSessionUser, sessionTokenFromCookieHeader } = await import("@/lib/auth/session");
-const { sendMessage, markDelivered } = await import("@/lib/chat/crud");
-const { ChatRecipientNotFoundError, ChatMessageNotFoundError } = await import("@/lib/chat/errors");
+const { sendMessage, markDelivered, isMuted } = await import("@/lib/chat/crud");
+const { listMyGroupIds } = await import("@/lib/chat/groups");
+const { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError } = await import("@/lib/chat/errors");
 const { recordNotification } = await import("@/lib/notifications/record");
 const { setIO } = await import("@/lib/socket");
 
@@ -104,6 +105,8 @@ app.prepare().then(() => {
     // the user has open, and so the sender's other tabs also see their own
     // just-sent message.
     socket.join(`user:${user.id}`);
+    // Team chats this user belongs to, so group messages reach every tab live.
+    void listMyGroupIds(pool, user.id).then((ids) => socket.join(ids.map((id) => `group:${id}`)));
 
     // Catches up any message sent while this user was offline — otherwise
     // it would stay a single tick (sent, never delivered) until they
@@ -126,12 +129,14 @@ app.prepare().then(() => {
 
         try {
           let message = await sendMessage(pool, { senderId: user.id, recipientId, body, replyToMessageId });
-          await recordNotification(pool, {
-            recipientUserId: recipientId,
-            type: "CHAT_MESSAGE",
-            relatedUserId: user.id,
-            message: `${user.name} sent you a message`,
-          });
+          if (!(await isMuted(pool, recipientId, user.id))) {
+            await recordNotification(pool, {
+              recipientUserId: recipientId,
+              type: "CHAT_MESSAGE",
+              relatedUserId: user.id,
+              message: `${user.name} sent you a message`,
+            });
+          }
 
           // The recipient's bell/chat socket is already connected (even if
           // they're not on this conversation) — mark it delivered right
@@ -148,7 +153,7 @@ app.prepare().then(() => {
           ack?.({ message });
         } catch (error) {
           const errorMessage =
-            error instanceof ChatRecipientNotFoundError || error instanceof ChatMessageNotFoundError
+            error instanceof ChatRecipientNotFoundError || error instanceof ChatMessageNotFoundError || error instanceof ChatBlockedError
               ? error.message
               : "Could not send message";
           ack?.({ error: errorMessage });

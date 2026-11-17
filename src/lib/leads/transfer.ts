@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "./guard";
 import { recordLeadActivity } from "./activities";
-import { assertActiveUserWithRole, ASSIGNABLE_STATUSES } from "./assign";
+import { assertActiveUserWithRole, canActOnLeads } from "./assign";
 import { LeadActionNotAllowedError, InvalidLeadReasonError } from "./errors";
 import type { LeadRow } from "./types";
 import { recordNotification } from "@/lib/notifications/record";
@@ -38,21 +38,14 @@ export async function transferLead(
     reason: string;
   },
 ): Promise<LeadRow> {
-  if (input.actorRole !== "MARKETING_HEAD") {
+  if (!canActOnLeads(input.actorRole)) {
     throw new LeadActionNotAllowedError(`${input.actorRole} cannot transfer leads`);
   }
   if (!input.reason.trim()) {
     throw new InvalidLeadReasonError("A reason is required to transfer a lead");
   }
 
-  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
-
-  const requiresQualified = input.newSalespersonOwnerId !== undefined;
-  if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
-    throw new LeadActionNotAllowedError(
-      `Lead ${input.leadId} must be qualified, converted, or closed before its Salesperson owner can be transferred (status: ${lead.status})`,
-    );
-  }
+  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId, { requireOwner: true });
 
   if (input.newSalespersonOwnerId !== undefined) {
     await assertActiveUserWithRole(pool, input.newSalespersonOwnerId, "SALESPERSON");
@@ -84,7 +77,7 @@ export async function transferLead(
        SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
            pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
            updated_at = now()
-       WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
+       WHERE id = $3
        RETURNING *`,
       [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, input.leadId],
     );
@@ -145,7 +138,7 @@ export async function bulkTransferLeads(
     reason: string;
   },
 ): Promise<LeadRow[]> {
-  if (input.actorRole !== "MARKETING_HEAD") {
+  if (!canActOnLeads(input.actorRole)) {
     throw new LeadActionNotAllowedError(`${input.actorRole} cannot transfer leads`);
   }
   if (!input.reason.trim()) {
@@ -159,15 +152,9 @@ export async function bulkTransferLeads(
     await assertActiveUserWithRole(pool, input.newPreSalesOwnerId, "PRE_SALES");
   }
 
-  const requiresQualified = input.newSalespersonOwnerId !== undefined;
   const previousLeads: LeadRow[] = [];
   for (const leadId of input.leadIds) {
-    const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, leadId);
-    if (requiresQualified && !ASSIGNABLE_STATUSES.has(lead.status)) {
-      throw new LeadActionNotAllowedError(
-        `Lead ${leadId} must be qualified, converted, or closed before its Salesperson owner can be transferred (status: ${lead.status})`,
-      );
-    }
+    const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, leadId, { requireOwner: true });
     previousLeads.push(lead);
   }
 
@@ -182,7 +169,7 @@ export async function bulkTransferLeads(
          SET salesperson_owner_id = COALESCE($1, salesperson_owner_id),
              pre_sales_owner_id = COALESCE($2, pre_sales_owner_id),
              updated_at = now()
-         WHERE id = $3 ${requiresQualified ? "AND status IN ('QUALIFIED', 'CONVERTED', 'CLOSED_WON', 'CLOSED_LOST')" : ""}
+         WHERE id = $3
          RETURNING *`,
         [input.newSalespersonOwnerId ?? null, input.newPreSalesOwnerId ?? null, lead.id],
       );

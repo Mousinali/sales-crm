@@ -1,6 +1,12 @@
 import type { Pool } from "pg";
 import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 import type { CompanySummary } from "./types";
+
+// Roles that see every company get no scope; the rest are scoped to their visible leads.
+export function viewerScope(user: { id: number; role: string }): number | undefined {
+  return user.role === "SUPER_ADMIN" || user.role === "ACCOUNTANT" ? undefined : user.id;
+}
 
 type CompanyFilters = {
   q?: string;
@@ -12,12 +18,19 @@ type CompanyFilters = {
 // each company, picks that company's most recent lead as its profile —
 // same normalized key leads/duplicates.ts already uses to recognize the
 // same company across separately-entered leads.
-export async function listCompaniesPage(pool: Pool, filters: CompanyFilters, page: PageParams): Promise<PagedResult<CompanySummary>> {
+// `viewerId` narrows the roll-up to leads that user can see (their own plus shared
+// ones); omit it for the roles that see every company (Super Admin, Accountant).
+export async function listCompaniesPage(pool: Pool, filters: CompanyFilters, page: PageParams, viewerId?: number): Promise<PagedResult<CompanySummary>> {
   const params: unknown[] = [];
   let searchClause = "";
   if (filters.q) {
     params.push(`%${filters.q}%`);
     searchClause = `AND company_name ILIKE $${params.length}`;
+  }
+
+  if (viewerId !== undefined) {
+    params.push(viewerId);
+    searchClause += ` AND ${leadVisibleSql("leads", `$${params.length}`)}`;
   }
 
   // "Archived" is a property of the whole company, not any one lead: a

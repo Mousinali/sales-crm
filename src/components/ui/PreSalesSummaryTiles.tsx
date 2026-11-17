@@ -11,6 +11,8 @@ import { parseErrorMessage } from "@/lib/parseErrorMessage";
 export default function PreSalesSummaryTiles() {
   const { period } = useSuperAdminPeriod();
   const [summary, setSummary] = useState<{
+    mySales: number;
+    myPayments: number;
     leadsCreated: number;
     leadsAwaitingReview: number;
     followUpsDueToday: number;
@@ -44,6 +46,8 @@ export default function PreSalesSummaryTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <StatTile label="My sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+      <StatTile label="My payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
       <StatTile label="Leads created" value={summary?.leadsCreated ?? 0} icon="ri-add-circle-line" tone="brand" />
       <StatTile label="Awaiting review" value={summary?.leadsAwaitingReview ?? 0} icon="ri-time-line" tone="amber" />
       <StatTile label="Follow-ups due today" value={summary?.followUpsDueToday ?? 0} icon="ri-calendar-check-line" tone="sky" />

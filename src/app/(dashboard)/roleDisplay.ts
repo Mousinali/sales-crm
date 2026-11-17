@@ -6,6 +6,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   MARKETING_HEAD: "Marketing Head",
   PRE_SALES: "Pre-sales",
   SALESPERSON: "Salesperson",
+  ACCOUNTANT: "Accountant",
 };
 
 // Each role gets one consistent accent wherever it's shown (sidebar, table,
@@ -16,6 +17,7 @@ export const ROLE_BADGE_CLASSES: Record<Role, string> = {
   MARKETING_HEAD: "bg-sky-50 text-sky-700",
   PRE_SALES: "bg-teal-50 text-teal-700",
   SALESPERSON: "bg-rose-50 text-rose-700",
+  ACCOUNTANT: "bg-emerald-50 text-emerald-700",
 };
 
 // Falls back to a Title Case conversion (e.g. "BUSINESS_DEV_LEAD" ->

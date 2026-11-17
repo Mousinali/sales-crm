@@ -5,11 +5,12 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "@/lib/leads/create";
-import { reviewLead } from "@/lib/leads/review";
+import { setLeadStatus } from "@/lib/leads/review";
 import { createService } from "@/lib/services/create";
 import { createSale } from "./create";
 import { listSaleServices } from "./services";
-import { listSalePayments } from "./payments";
+import { listSalePayments, recordSalePayment } from "./payments";
+import { listSalesPage } from "./list";
 import { SaleActionNotAllowedError } from "./errors";
 
 const adminEmail = `sale-create-admin-${Date.now()}@example.com`;
@@ -54,6 +55,20 @@ describe("createSale", () => {
     await expect(
       createSale(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", companyName: "X", budgetAmount: 100, budgetType: "ONE_TIME" }),
     ).rejects.toThrow(SaleActionNotAllowedError);
+  });
+
+  it("lets an Accountant record a sale from a lead they can't otherwise view", async () => {
+    const accountant = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "ACCOUNTANT", name: "Acc", email: `sale-create-acc-${Date.now()}@example.com` });
+    const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Acc Lead Co", phone: "777", serviceRequirements: "x", leadSource: "OTHER" });
+    leadIds.push(lead.id);
+
+    const sale = await createSale(pool, { creatorId: accountant.id, creatorRole: "ACCOUNTANT", leadId: lead.id, budgetAmount: 900, budgetType: "ONE_TIME" });
+    saleIds.push(sale.id);
+    expect(sale).toMatchObject({ lead_id: lead.id, company_name: "Acc Lead Co", sold_by_type: "SELF" });
+
+    const payments = await recordSalePayment(pool, { actorId: accountant.id, actorRole: "ACCOUNTANT", saleId: sale.id, amount: 100, paymentMethod: "CASH" });
+    expect(payments.sale_id).toBe(sale.id);
+    expect((await listSalesPage(pool, { id: accountant.id, role: "ACCOUNTANT" }, {}, { page: 1, pageSize: 100 })).items.some((s) => s.id === sale.id)).toBe(true);
   });
 
   it("requires a company name or a lead when no lead is chosen", async () => {
@@ -132,7 +147,7 @@ describe("createSale", () => {
   it("refuses to record a sale against a Rejected lead", async () => {
     const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Rejected Co", phone: "556", serviceRequirements: "z", leadSource: "OTHER" });
     leadIds.push(lead.id);
-    await reviewLead(pool, { actorId: marketingHeadId, actorRole: "MARKETING_HEAD", leadId: lead.id, action: "REJECT", reason: "Not a fit" });
+    await setLeadStatus(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: lead.id, status: "REJECTED", reason: "Not a fit" });
 
     await expect(
       createSale(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", leadId: lead.id, budgetAmount: 500, budgetType: "ONE_TIME" }),

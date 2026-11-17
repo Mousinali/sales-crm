@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
-import { listMessages, sendMessage } from "@/lib/chat/crud";
+import { listMessages, sendMessage, getChatState, isMuted } from "@/lib/chat/crud";
 import { recordNotification } from "@/lib/notifications/record";
-import { ChatRecipientNotFoundError, ChatMessageNotFoundError } from "@/lib/chat/errors";
+import { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError } from "@/lib/chat/errors";
 
 const sendSchema = z.object({
   recipientId: z.number().int(),
@@ -31,7 +31,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const messages = await listMessages(pool, { viewerId: user.id, withUserId });
-  return NextResponse.json({ messages });
+  return NextResponse.json({ messages, state: await getChatState(pool, user.id, withUserId) });
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -56,14 +56,19 @@ export async function POST(request: Request): Promise<Response> {
       body: parsed.data.body,
       replyToMessageId: parsed.data.replyToMessageId,
     });
-    await recordNotification(pool, {
-      recipientUserId: message.recipient_id,
-      type: "CHAT_MESSAGE",
-      relatedUserId: user.id,
-      message: `${user.name} sent you a message`,
-    });
+    if (!(await isMuted(pool, message.recipient_id, user.id))) {
+      await recordNotification(pool, {
+        recipientUserId: message.recipient_id,
+        type: "CHAT_MESSAGE",
+        relatedUserId: user.id,
+        message: `${user.name} sent you a message`,
+      });
+    }
     return NextResponse.json(message, { status: 201 });
   } catch (error) {
+    if (error instanceof ChatBlockedError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     if (error instanceof ChatRecipientNotFoundError) {
       return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
     }

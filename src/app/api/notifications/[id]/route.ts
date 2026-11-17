@@ -21,8 +21,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
+  // Body is optional: a bare PATCH marks read, {"read": false} marks unread again.
+  const body = await request.json().catch(() => ({}));
+  const read = body?.read !== false;
+
   try {
-    await markNotificationRead(pool, { viewerId: user.id, notificationId });
+    await markNotificationRead(pool, { viewerId: user.id, notificationId, read });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

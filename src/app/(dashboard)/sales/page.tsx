@@ -6,7 +6,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import SalesView from "./SalesView";
 
 export default async function SalesPage() {
-  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
 
   const result = await listSalesPage(pool, user, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 

@@ -41,7 +41,7 @@ beforeAll(async () => {
   inactiveSalespersonId = inactiveSp.id;
   createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email);
 
-  lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Visit Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  lead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Visit Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
 });
 
@@ -101,8 +101,8 @@ describe("scheduleVisit", () => {
   });
 
   it("never double-books a Salesperson when two schedule calls race on the same slot", async () => {
-    const leadA = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Visit Co A", phone: "97", serviceRequirements: "x", leadSource: "OTHER" });
-    const leadB = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Visit Co B", phone: "96", serviceRequirements: "x", leadSource: "OTHER" });
+    const leadA = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Race Visit Co A", phone: "97", serviceRequirements: "x", leadSource: "OTHER" });
+    const leadB = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Race Visit Co B", phone: "96", serviceRequirements: "x", leadSource: "OTHER" });
     leadIds.push(leadA.id, leadB.id);
 
     const results = await Promise.allSettled([

@@ -1,5 +1,6 @@
 "use client";
 
+import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { toast } from "@/lib/toast";
@@ -11,11 +12,12 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import { InfoRow, InfoTile } from "@/components/ui/InfoCard";
 import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
-import type { LeadRow } from "@/lib/leads/types";
+import { LEAD_STATUSES, type LeadRow, type LeadStatus } from "@/lib/leads/types";
 import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
 import type { VisitRow } from "@/lib/visits/types";
 import type { ServiceRow } from "@/lib/services/types";
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE_CLASSES,
@@ -29,7 +31,10 @@ import {
   LEAD_ACTIVITY_DISPLAY,
 } from "@/app/(dashboard)/leadDisplay";
 
-type ReviewAction = "QUALIFY" | "REJECT" | "RETURN";
+type ReviewAction = LeadStatus;
+// Statuses that need a reason before the change is saved (mirrors setLeadStatus).
+const REASON_REQUIRED_STATUSES: LeadStatus[] = ["REJECTED", "CLOSED_LOST", "MORE_INFO_REQUIRED"];
+type ShareUser = { id: number; name: string; role: Role };
 type SimpleUser = { id: number; name: string };
 
 const SOCIAL_PLATFORMS: { key: "youtube_url" | "facebook_url" | "instagram_url" | "linkedin_url"; label: string; icon: string }[] = [
@@ -59,15 +64,6 @@ type LeadWithSale = LeadRow & {
   salesperson_owner_name?: string | null;
   created_by_name?: string | null;
 };
-
-async function copyToClipboard(value: string, label: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success(`${label} copied`);
-  } catch {
-    toast.error(`Could not copy ${label.toLowerCase()}`);
-  }
-}
 
 export default function LeadDetailView({
   lead: initialLead,
@@ -134,15 +130,18 @@ export default function LeadDetailView({
     await Promise.all([refreshLead(), refreshActivities(), refreshVisits()]);
   }
 
+  // Only a lead's owner (and a Super Admin) can change it; someone it was
+  // merely shared with gets a read-only view.
+  const fullAddress = [lead.address, lead.state, lead.pincode, lead.country].filter(Boolean).join(", ") || null;
+
   const canEdit =
-    viewerRole === "MARKETING_HEAD" ||
-    (viewerRole === "PRE_SALES" && (lead.pre_sales_owner_id === viewerId || lead.created_by === viewerId));
-  const canReview =
-    viewerRole === "MARKETING_HEAD" && (lead.status === "PENDING_REVIEW" || lead.status === "MORE_INFO_REQUIRED");
-  // No status gate here: a Marketing Head can change the Pre-sales owner at
-  // any point (req.md §3.3/§6.2); only assigning a Salesperson is itself
-  // gated on Qualified/Converted, enforced server-side in assignLead.
-  const canAssign = viewerRole === "MARKETING_HEAD";
+    viewerRole === "SUPER_ADMIN" ||
+    lead.created_by === viewerId ||
+    lead.pre_sales_owner_id === viewerId ||
+    lead.salesperson_owner_id === viewerId;
+  // Anyone who can open the lead (owner or shared) can move its status.
+  const canReview = true;
+  const canAssign = canEdit;
 
   // Tabbed panel below the header card: Activity / Assignment / Visits.
   const [activeTab, setActiveTab] = useState("activity");
@@ -158,10 +157,10 @@ export default function LeadDetailView({
   function startReview(action: ReviewAction) {
     setReviewError(null);
     setReviewReason("");
-    if (action === "QUALIFY") {
-      void submitReview(action);
-    } else {
+    if (REASON_REQUIRED_STATUSES.includes(action)) {
       setReviewPrompt(action);
+    } else {
+      void submitReview(action);
     }
   }
 
@@ -172,7 +171,7 @@ export default function LeadDetailView({
       const response = await fetch(`/api/leads/${lead.id}/review`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ status: action, reason }),
       });
       if (!response.ok) {
         const message = await parseErrorMessage(response, "Could not update the lead's status.");
@@ -197,7 +196,7 @@ export default function LeadDetailView({
   function confirmReviewPrompt() {
     if (!reviewPrompt) return;
     if (!reviewReason.trim()) {
-      setReviewError(`A reason is required to ${reviewPrompt === "REJECT" ? "reject" : "return"} a lead`);
+      setReviewError(`A reason is required to mark a lead ${LEAD_STATUS_LABELS[reviewPrompt].toLowerCase()}`);
       return;
     }
     void submitReview(reviewPrompt, reviewReason.trim());
@@ -208,21 +207,51 @@ export default function LeadDetailView({
   const [salespersonOptions, setSalespersonOptions] = useState<SimpleUser[]>([]);
   const [selectedPreSales, setSelectedPreSales] = useState<string>("");
   const [selectedSalesperson, setSelectedSalesperson] = useState<string>("");
+  const [shareOptions, setShareOptions] = useState<ShareUser[]>([]);
+  const [shares, setShares] = useState<{ user_id: number; name: string }[]>([]);
+  const [shareUserId, setShareUserId] = useState("");
+  const [shareError, setShareError] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   useEffect(() => {
     if (!canAssign) return;
-    fetch("/api/users?role=PRE_SALES&status=ACTIVE")
+    // shortcut: the roster is capped at 50 users, no search box; fine for a small team.
+    fetch("/api/users/roster")
       .then((res) => (res.ok ? res.json() : { users: [] }))
-      .then((body) => setPreSalesOptions(body.users ?? []))
+      .then((body) => {
+        const users: ShareUser[] = body.users ?? [];
+        setPreSalesOptions(users.filter((u) => u.role === "PRE_SALES"));
+        setSalespersonOptions(users.filter((u) => u.role === "SALESPERSON"));
+        setShareOptions(users.filter((u) => u.id !== viewerId && (u.role === "MARKETING_HEAD" || u.role === "PRE_SALES" || u.role === "SALESPERSON")));
+      })
       .catch(() => {});
-    fetch("/api/users?role=SALESPERSON&status=ACTIVE")
-      .then((res) => (res.ok ? res.json() : { users: [] }))
-      .then((body) => setSalespersonOptions(body.users ?? []))
+    fetch(`/api/leads/${lead.id}/share`)
+      .then((res) => (res.ok ? res.json() : { shares: [] }))
+      .then((body) => setShares(body.shares ?? []))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAssign]);
+
+  async function changeShare(method: "POST" | "DELETE", userId: number) {
+    setShareError(null);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}/share`, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!response.ok) {
+        setShareError(await parseErrorMessage(response, "Could not update sharing."));
+        return;
+      }
+      const refreshed = await fetch(`/api/leads/${lead.id}/share`);
+      if (refreshed.ok) setShares((await refreshed.json()).shares ?? []);
+      setShareUserId("");
+    } catch {
+      setShareError("Could not update sharing.");
+    }
+  }
 
   function openAssign() {
     setSelectedPreSales("");
@@ -599,35 +628,15 @@ export default function LeadDetailView({
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
             <div className="flex flex-wrap items-center gap-2">
               {canReview && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => startReview("QUALIFY")}
-                    disabled={reviewSubmitting}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <i className="ri-checkbox-circle-line text-sm" aria-hidden="true" />
-                    Qualify
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startReview("REJECT")}
-                    disabled={reviewSubmitting}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <i className="ri-close-circle-line text-sm" aria-hidden="true" />
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startReview("RETURN")}
-                    disabled={reviewSubmitting}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <i className="ri-information-line text-sm" aria-hidden="true" />
-                    Return for more info
-                  </button>
-                </>
+                <CustomSelect
+                  aria-label="Change status"
+                  value={lead.status}
+                  onChange={(value) => startReview(value as LeadStatus)}
+                  options={LEAD_STATUSES.map((status) => ({
+                    value: status,
+                    label: LEAD_STATUS_LABELS[status],
+                  }))}
+                />
               )}
             </div>
 
@@ -713,18 +722,7 @@ export default function LeadDetailView({
                 icon="ri-mail-line"
                 iconClass="bg-sky-100 text-sky-600"
                 label="Email"
-                action={
-                  lead.email && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(lead.email!, "Email")}
-                      aria-label="Copy email"
-                      className="shrink-0 rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-                    >
-                      <i className="ri-file-copy-line text-sm" aria-hidden="true" />
-                    </button>
-                  )
-                }
+                copyText={lead.email}
               >
                 {lead.email ?? "—"}
               </InfoRow>
@@ -732,16 +730,7 @@ export default function LeadDetailView({
                 icon="ri-phone-line"
                 iconClass="bg-sky-100 text-sky-600"
                 label="Phone"
-                action={
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(lead.phone, "Phone")}
-                    aria-label="Copy phone"
-                    className="shrink-0 rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-                  >
-                    <i className="ri-file-copy-line text-sm" aria-hidden="true" />
-                  </button>
-                }
+                copyText={lead.phone}
               >
                 {lead.phone}
               </InfoRow>
@@ -750,6 +739,7 @@ export default function LeadDetailView({
                   icon="ri-whatsapp-line"
                   iconClass="bg-emerald-100 text-emerald-600"
                   label="WhatsApp"
+                  copyText={lead.whatsapp_number}
                   action={
                     <a
                       href={`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`}
@@ -765,18 +755,18 @@ export default function LeadDetailView({
                   {lead.whatsapp_number}
                 </InfoRow>
               )}
-              <InfoRow icon="ri-map-pin-line" iconClass="bg-violet-100 text-violet-600" label="Address">
-                {[lead.address, lead.state, lead.pincode, lead.country].filter(Boolean).join(", ") || "—"}
+              <InfoRow icon="ri-map-pin-line" iconClass="bg-violet-100 text-violet-600" label="Address" copyText={fullAddress}>
+                {fullAddress ?? "—"}
               </InfoRow>
               {lead.gst_number && (
-                <InfoRow icon="ri-bill-line" iconClass="bg-amber-100 text-amber-600" label="GST Number">
+                <InfoRow icon="ri-bill-line" iconClass="bg-amber-100 text-amber-600" label="GST Number" copyText={lead.gst_number}>
                   {lead.gst_number}
                 </InfoRow>
               )}
-              <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on">
+              <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on" copyText={new Date(lead.created_at).toLocaleString()}>
                 {new Date(lead.created_at).toLocaleString()}
               </InfoRow>
-              <InfoRow icon="ri-user-line" iconClass="bg-indigo-100 text-indigo-600" label="Created by">
+              <InfoRow icon="ri-user-line" iconClass="bg-indigo-100 text-indigo-600" label="Created by" copyText={lead.created_by_name}>
                 {lead.created_by_name ?? "—"}
               </InfoRow>
             </div>
@@ -784,23 +774,23 @@ export default function LeadDetailView({
 
           <div className="rounded-lg border border-zinc-200 bg-white p-5">
             <div className="space-y-3">
-              <InfoTile icon="ri-building-2-line" iconClass="bg-violet-200 text-violet-700" tileClass="bg-violet-50" label="Industry type">
+              <InfoTile icon="ri-building-2-line" iconClass="bg-violet-200 text-violet-700" tileClass="bg-violet-50" label="Industry type" copyText={lead.industry}>
                 {lead.industry ?? "—"}
               </InfoTile>
-              <InfoTile icon="ri-stack-line" iconClass="bg-sky-200 text-sky-700" tileClass="bg-sky-50" label="Business type">
+              <InfoTile icon="ri-stack-line" iconClass="bg-sky-200 text-sky-700" tileClass="bg-sky-50" label="Business type" copyText={lead.business_type}>
                 {lead.business_type ?? "—"}
               </InfoTile>
-              <InfoTile icon="ri-global-line" iconClass="bg-emerald-200 text-emerald-700" tileClass="bg-emerald-50" label="Website">
+              <InfoTile icon="ri-global-line" iconClass="bg-emerald-200 text-emerald-700" tileClass="bg-emerald-50" label="Website" copyText={lead.website}>
                 {lead.website ? (
-                  <a href={lead.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                    {lead.website}
-                    <i className="ri-external-link-line text-xs" aria-hidden="true" />
+                  <a href={lead.website} target="_blank" rel="noopener noreferrer" title={lead.website} className="inline-flex max-w-full items-center gap-1 hover:underline">
+                    <span className="truncate">{lead.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</span>
+                    <i className="ri-external-link-line shrink-0 text-xs" aria-hidden="true" />
                   </a>
                 ) : (
                   "—"
                 )}
               </InfoTile>
-              <InfoTile icon="ri-wallet-3-line" iconClass="bg-amber-200 text-amber-700" tileClass="bg-amber-50" label="Estimated budget">
+              <InfoTile icon="ri-wallet-3-line" iconClass="bg-amber-200 text-amber-700" tileClass="bg-amber-50" label="Estimated budget" copyText={lead.estimated_budget != null ? `₹${Number(lead.estimated_budget).toLocaleString("en-IN")}` : null}>
                 {lead.estimated_budget != null ? `₹${Number(lead.estimated_budget).toLocaleString("en-IN")}` : "—"}
                 {lead.budget_type && (
                   <span className="ml-1.5 inline-flex items-center rounded-full bg-white/70 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
@@ -812,19 +802,24 @@ export default function LeadDetailView({
                 icon="ri-price-tag-3-line"
                 iconClass="bg-rose-200 text-rose-700"
                 tileClass="bg-rose-50"
-                label="Service interested"
+                label={`Service interested${leadServices.length > 1 ? ` (${leadServices.length})` : ""}`}
                 className="col-span-2"
               >
                 {leadServices.length === 0 ? (
                   "—"
                 ) : (
-                  <div className="flex flex-wrap gap-1.5">
+                  <ul className="mt-1.5 flex flex-wrap gap-2">
                     {leadServices.map((s) => (
-                      <span key={s.id} className="inline-flex items-center rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-rose-800">
+                      <li
+                        key={s.id}
+                        title={s.description ?? s.name}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-800 shadow-sm"
+                      >
+                        <i className="ri-checkbox-circle-fill text-sm text-rose-500" aria-hidden="true" />
                         {s.name}
-                      </span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
               </InfoTile>
             </div>
@@ -922,17 +917,17 @@ export default function LeadDetailView({
                 <label htmlFor="activityType" className="text-sm font-medium text-zinc-700">
                   Type
                 </label>
-                <select
+                <CustomSelect
                   id="activityType"
                   value={activityType}
-                  onChange={(event) => setActivityType(event.target.value as typeof activityType)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  <option value="NOTE">Note</option>
-                  <option value="CALL">Call</option>
-                  <option value="MEETING">Meeting</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  onChange={(value) => setActivityType(value as typeof activityType)}
+                  options={[
+                    { value: "NOTE", label: "Note" },
+                    { value: "CALL", label: "Call" },
+                    { value: "MEETING", label: "Meeting" },
+                    { value: "OTHER", label: "Other" },
+                  ]}
+                />
               </div>
               <div className="flex flex-1 flex-col gap-1.5">
                 <label htmlFor="activityNotes" className="text-sm font-medium text-zinc-700">
@@ -984,12 +979,50 @@ export default function LeadDetailView({
                 Assign
               </button>
             </div>
+            <div className="mt-6 border-t border-zinc-200 pt-4">
+              <h3 className="text-sm font-medium text-zinc-900">Shared with (view only)</h3>
+              <ul className="mt-2 flex flex-col gap-1 text-sm text-zinc-700">
+                {shares.length === 0 && <li className="text-zinc-500">Not shared with anyone.</li>}
+                {shares.map((share) => (
+                  <li key={share.user_id} className="flex items-center justify-between gap-3">
+                    {share.name}
+                    <button type="button" onClick={() => void changeShare("DELETE", share.user_id)} className="text-xs text-rose-700 hover:underline">
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex gap-2">
+                <CustomSelect
+                  aria-label="Share with"
+                  value={shareUserId}
+                  onChange={setShareUserId}
+                  options={[
+                    { value: "", label: "Choose a user…" },
+                    ...shareOptions.filter((u) => !shares.some((s) => s.user_id === u.id)).map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                />
+                <button
+                  type="button"
+                  disabled={!shareUserId}
+                  onClick={() => void changeShare("POST", Number(shareUserId))}
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  Share
+                </button>
+              </div>
+              {shareError && (
+                <p role="alert" className="mt-2 text-sm text-red-600">
+                  {shareError}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === "visits" && (
           <div className="p-6">
-            {canAssign && (
+            {canAssign && viewerRole === "MARKETING_HEAD" && (
               <button
                 type="button"
                 onClick={openScheduleVisit}
@@ -1018,7 +1051,7 @@ export default function LeadDetailView({
               {visit.outcome_notes && <p className="mt-1 text-zinc-500">Outcome: {visit.outcome_notes}</p>}
               {visit.next_action && <p className="mt-1 text-zinc-500">Next action: {visit.next_action}</p>}
 
-              {canAssign && (visit.status === "SCHEDULED" || visit.status === "RESCHEDULED") && (
+              {canAssign && viewerRole === "MARKETING_HEAD" && (visit.status === "SCHEDULED" || visit.status === "RESCHEDULED") && (
                 <div className="mt-2 flex gap-2">
                   <button
                     type="button"
@@ -1057,13 +1090,7 @@ export default function LeadDetailView({
                     <label htmlFor={`rescheduleDate-${visit.id}`} className="text-xs font-medium text-zinc-700">
                       New date
                     </label>
-                    <input
-                      id={`rescheduleDate-${visit.id}`}
-                      type="date"
-                      value={rescheduleDate}
-                      onChange={(event) => setRescheduleDate(event.target.value)}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                    />
+                    <DateField id={`rescheduleDate-${visit.id}`} value={rescheduleDate} onChange={setRescheduleDate} compact />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor={`rescheduleTime-${visit.id}`} className="text-xs font-medium text-zinc-700">
@@ -1179,37 +1206,29 @@ export default function LeadDetailView({
               <label htmlFor="preSalesOwner" className="text-sm font-medium text-zinc-700">
                 Pre-sales owner
               </label>
-              <select
+              <CustomSelect
                 id="preSalesOwner"
                 value={selectedPreSales}
-                onChange={(event) => setSelectedPreSales(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              >
-                <option value="">Unchanged</option>
-                {preSalesOptions.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedPreSales}
+                options={[
+                  { value: "", label: "Unchanged" },
+                  ...preSalesOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                ]}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="salesperson" className="text-sm font-medium text-zinc-700">
                 Salesperson
               </label>
-              <select
+              <CustomSelect
                 id="salesperson"
                 value={selectedSalesperson}
-                onChange={(event) => setSelectedSalesperson(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              >
-                <option value="">Unchanged</option>
-                {salespersonOptions.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedSalesperson}
+                options={[
+                  { value: "", label: "Unchanged" },
+                  ...salespersonOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                ]}
+              />
             </div>
             {assignError && (
               <p role="alert" className="text-sm text-red-600">
@@ -1243,32 +1262,22 @@ export default function LeadDetailView({
               <label htmlFor="visitSalesperson" className="text-sm font-medium text-zinc-700">
                 Salesperson
               </label>
-              <select
+              <CustomSelect
                 id="visitSalesperson"
                 value={visitSalesperson}
-                onChange={(event) => setVisitSalesperson(event.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              >
-                <option value="">Choose…</option>
-                {salespersonOptions.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setVisitSalesperson}
+                options={[
+                  { value: "", label: "Choose…" },
+                  ...salespersonOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                ]}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="visitDate" className="text-sm font-medium text-zinc-700">
                   Date
                 </label>
-                <input
-                  id="visitDate"
-                  type="date"
-                  value={visitDate}
-                  onChange={(event) => setVisitDate(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <DateField id="visitDate" value={visitDate} onChange={setVisitDate} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="visitStartTime" className="text-sm font-medium text-zinc-700">
@@ -1349,37 +1358,29 @@ export default function LeadDetailView({
                 <label htmlFor="transferPreSales" className="text-sm font-medium text-zinc-700">
                   New Pre-sales owner
                 </label>
-                <select
+                <CustomSelect
                   id="transferPreSales"
                   value={transferPreSales}
-                  onChange={(event) => setTransferPreSales(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  <option value="">Unchanged</option>
-                  {preSalesOptions.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTransferPreSales}
+                  options={[
+                    { value: "", label: "Unchanged" },
+                    ...preSalesOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="transferSalesperson" className="text-sm font-medium text-zinc-700">
                   New Salesperson
                 </label>
-                <select
+                <CustomSelect
                   id="transferSalesperson"
                   value={transferSalesperson}
-                  onChange={(event) => setTransferSalesperson(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  <option value="">Unchanged</option>
-                  {salespersonOptions.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTransferSalesperson}
+                  options={[
+                    { value: "", label: "Unchanged" },
+                    ...salespersonOptions.map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="transferReason" className="text-sm font-medium text-zinc-700">
@@ -1415,7 +1416,7 @@ export default function LeadDetailView({
       )}
 
       {reviewPrompt && (
-        <Modal title={reviewPrompt === "REJECT" ? "Reject lead" : "Return for more information"} onClose={() => setReviewPrompt(null)} maxWidth="max-w-sm">
+        <Modal title={`Mark lead ${LEAD_STATUS_LABELS[reviewPrompt].toLowerCase()}`} onClose={() => setReviewPrompt(null)} maxWidth="max-w-sm">
             <label htmlFor="reviewReason" className="mb-1.5 block text-sm font-medium text-zinc-700">
               Reason
             </label>

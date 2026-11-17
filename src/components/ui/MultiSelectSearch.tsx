@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useFloatingMenu } from "./useFloatingMenu";
 
 export type MultiSelectOption = { id: number; name: string; description?: string | null };
 
@@ -11,6 +13,7 @@ export default function MultiSelectSearch({
   onChange,
   placeholder = "Search…",
   multiple = true,
+  onSearchChange,
 }: {
   id: string;
   options: MultiSelectOption[];
@@ -19,10 +22,15 @@ export default function MultiSelectSearch({
   placeholder?: string;
   /** false turns this into a single-pick searchable dropdown: picking an option selects it and closes the menu, with no chips/checkboxes. */
   multiple?: boolean;
+  /** Called with what the user types in the menu's search box, for a parent that also searches server-side. */
+  onSearchChange?: (search: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const position = useFloatingMenu(open, triggerRef);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(() => options.filter((o) => selectedIds.includes(o.id)), [options, selectedIds]);
@@ -36,7 +44,9 @@ export default function MultiSelectSearch({
   useEffect(() => {
     if (!open) return;
     function handleMouseDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      // The menu lives in a portal, outside containerRef, so it counts as "inside" too.
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
@@ -72,6 +82,7 @@ export default function MultiSelectSearch({
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         onClick={() => (open ? setOpen(false) : openMenu())}
@@ -115,8 +126,12 @@ export default function MultiSelectSearch({
         </div>
       )}
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-zinc-200 bg-white shadow-lg">
+      {open && position && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", left: position.left, width: position.width, top: position.top, bottom: position.bottom }}
+          className="z-[100] flex flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+        >
           <div className="relative border-b border-zinc-200">
             <i
               className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
@@ -126,26 +141,30 @@ export default function MultiSelectSearch({
               ref={searchInputRef}
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                onSearchChange?.(event.target.value);
+              }}
               placeholder={placeholder}
               aria-label={placeholder}
               className="w-full py-2 pr-3 pl-9 text-sm text-zinc-900 focus:outline-none"
             />
           </div>
-          <ul role="listbox" aria-multiselectable={multiple} className="max-h-56 overflow-y-auto py-1">
+          <ul role="listbox" aria-multiselectable={multiple} style={{ maxHeight: Math.min(position.maxHeight - 90, 320) }} className="overflow-y-auto overscroll-contain py-1">
             {filtered.length === 0 && <li className="px-3 py-2 text-sm text-zinc-500">No matches.</li>}
             {filtered.map((o) => (
               <li key={o.id}>
-                <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-zinc-50">
+                <label className="flex cursor-pointer items-start gap-2 px-3 py-1.5 text-sm hover:bg-zinc-50">
                   <input
+                    className="mt-0.5 shrink-0"
                     type={multiple ? "checkbox" : "radio"}
                     name={multiple ? undefined : id}
                     checked={selectedIds.includes(o.id)}
                     onChange={() => toggle(o.id)}
                   />
-                  <span>
-                    {o.name}
-                    {o.description && <span className="ml-1 text-xs text-zinc-500">({o.description})</span>}
+                  <span className="min-w-0">
+                    <span className="block">{o.name}</span>
+                    {o.description && o.description !== o.name && <span className="block text-xs text-zinc-500">{o.description}</span>}
                   </span>
                 </label>
               </li>
@@ -161,16 +180,10 @@ export default function MultiSelectSearch({
               >
                 Clear all
               </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
-              >
-                Done
-              </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

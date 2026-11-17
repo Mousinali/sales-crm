@@ -10,6 +10,7 @@ import { SaleNotAccessibleError } from "./errors";
 
 const adminEmail = `sale-payments-admin-${Date.now()}@example.com`;
 let marketingHeadId: number;
+let superAdminId: number;
 let preSalesId: number;
 let otherPreSalesId: number;
 let saleId: number;
@@ -17,7 +18,7 @@ const saleIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
-  const superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
+  superAdminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
   const mh = await createUser(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", role: "MARKETING_HEAD", name: "MH", email: `sale-payments-mh-${Date.now()}@example.com` });
   const ps = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS", email: `sale-payments-ps-${Date.now()}@example.com` });
   const ps2 = await createUser(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", role: "PRE_SALES", name: "PS2", email: `sale-payments-ps2-${Date.now()}@example.com` });
@@ -47,10 +48,10 @@ describe("recordSalePayment / listSalePayments", () => {
     expect(payments[0].recorded_by_name).toBe("PS");
   });
 
-  it("lets a Marketing Head view and record payments on any sale", async () => {
-    const payment = await recordSalePayment(pool, { actorId: marketingHeadId, actorRole: "MARKETING_HEAD", saleId, amount: 1000, paymentMethod: "CHEQUE" });
+  it("lets a Super Admin view and record payments on any sale", async () => {
+    const payment = await recordSalePayment(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", saleId, amount: 1000, paymentMethod: "CHEQUE" });
     expect(payment.payment_method).toBe("CHEQUE");
-    const payments = await listSalePayments(pool, { id: marketingHeadId, role: "MARKETING_HEAD" }, saleId);
+    const payments = await listSalePayments(pool, { id: superAdminId, role: "SUPER_ADMIN" }, saleId);
     expect(payments.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -90,7 +91,7 @@ describe("recordSalePayment / listSalePayments", () => {
     const mine = await listPaymentsPage(pool, { id: preSalesId, role: "PRE_SALES" }, {}, { page: 1, pageSize: 50 });
     expect(mine.items.every((p) => p.sale_id === saleId)).toBe(true);
 
-    const all = await listPaymentsPage(pool, { id: marketingHeadId, role: "MARKETING_HEAD" }, {}, { page: 1, pageSize: 50 });
+    const all = await listPaymentsPage(pool, { id: superAdminId, role: "SUPER_ADMIN" }, {}, { page: 1, pageSize: 50 });
     expect(all.items.some((p) => p.sale_id === otherSale.id)).toBe(true);
   });
 
@@ -107,7 +108,7 @@ describe("recordSalePayment / listSalePayments", () => {
       amount: 200, paymentMethod: "CHEQUE", paymentDate: "2024-06-20", receiptNumber: "RCPT-FILTER-CHQ",
     });
 
-    const viewer = { id: marketingHeadId, role: "MARKETING_HEAD" as const };
+    const viewer = { id: superAdminId, role: "SUPER_ADMIN" as const };
     const pageParams = { page: 1, pageSize: 50 };
     const idsOf = (result: { items: { id: number }[] }) => result.items.map((p) => p.id);
 

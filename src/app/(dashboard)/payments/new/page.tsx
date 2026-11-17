@@ -3,7 +3,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import NewPaymentForm from "./NewPaymentForm";
 
 export default async function NewPaymentPage() {
-  await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
 
   return (
     <div>

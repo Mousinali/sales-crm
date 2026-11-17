@@ -84,11 +84,11 @@ export async function listNotificationsPage(
 
 export async function markNotificationRead(
   pool: Pool,
-  input: { viewerId: number; notificationId: number },
+  input: { viewerId: number; notificationId: number; read?: boolean },
 ): Promise<void> {
   const result = await pool.query(
-    `UPDATE notifications SET read_at = now() WHERE id = $1 AND recipient_user_id = $2`,
-    [input.notificationId, input.viewerId],
+    `UPDATE notifications SET read_at = CASE WHEN $3 THEN now() ELSE NULL END WHERE id = $1 AND recipient_user_id = $2`,
+    [input.notificationId, input.viewerId, input.read ?? true],
   );
   if (result.rowCount === 0) {
     throw new Error(`Notification ${input.notificationId} is not visible to user ${input.viewerId}`);

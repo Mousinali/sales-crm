@@ -29,14 +29,19 @@ export default function PieChart({
     return <p className="text-sm text-zinc-500">No data yet.</p>;
   }
 
+  // Beside the legend the donut gets less room than ag-charts' 300px default
+  // floor, which it would otherwise overflow and have the bottom clipped off.
+  const chartHeight = stacked ? resolvedHeight - 100 : resolvedHeight;
+
   const options: AgPolarChartOptions = {
     data: filtered,
+    minHeight: chartHeight,
+    minWidth: 120,
     background: { fill: "transparent" },
     padding: { top: 4, right: 4, bottom: 4, left: 4 },
-    legend: {
-      position: stacked ? "bottom" : "right",
-      item: { marker: { shape: "circle", size: 8 }, label: { color: "#52525b", fontSize: 13 } },
-    },
+    // Off in favour of the HTML legend below: the built-in one lays items out
+    // in a wrapping row, can't show each slice's value, and orders them itself.
+    legend: { enabled: false },
     series: [
       {
         type: "donut",
@@ -66,9 +71,41 @@ export default function PieChart({
     ],
   };
 
+  // Label left, count right — one row per slice, so the numbers line up in a
+  // column and can be read down rather than hunted along a wrapping row.
+  const legend = (
+    <ul className={stacked ? "flex flex-col gap-2" : "flex min-w-36 flex-col gap-2"}>
+      {filtered.map((d) => (
+        <li key={d.label} className="flex items-center justify-between gap-4 text-sm">
+          <span className="flex min-w-0 items-center gap-2 text-zinc-600">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d.color }} aria-hidden="true" />
+            <span className="truncate">{d.label}</span>
+          </span>
+          <span className="shrink-0 font-medium tabular-nums text-zinc-900">
+            {d.value.toLocaleString("en-IN")}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  if (stacked) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div style={{ height: chartHeight }}>
+          <AgCharts options={options} />
+        </div>
+        {legend}
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-hidden" style={{ height: resolvedHeight }}>
-      <AgCharts options={options} />
+    <div className="flex items-center gap-6" style={{ height: resolvedHeight }}>
+      <div className="min-w-0 flex-1" style={{ height: chartHeight }}>
+        <AgCharts options={options} />
+      </div>
+      {legend}
     </div>
   );
 }

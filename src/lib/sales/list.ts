@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
+import { leadVisibleSql } from "@/lib/leads/visibility";
 import type { SaleRow, SaleBudgetType } from "./types";
 
 export type SaleFilters = {
@@ -20,9 +21,14 @@ function buildSalesWhere(viewer: { id: number; role: Role }, filters: SaleFilter
   // Columns qualified with `sales.` throughout — listSales/listSalesPage join
   // in the users table (aliased sold_by_user), which also has created_by, so
   // an unqualified reference here would be ambiguous to Postgres.
-  if (viewer.role === "PRE_SALES" || viewer.role === "SALESPERSON") {
+  // A sale is also visible to anyone who can see its lead (created/owns it, or
+  // it was shared with them), so a shared lead's sales are shared with it.
+  if (viewer.role === "MARKETING_HEAD" || viewer.role === "PRE_SALES" || viewer.role === "SALESPERSON") {
     params.push(viewer.id);
-    conditions.push(`(sales.created_by = $${params.length} OR sales.sold_by_user_id = $${params.length})`);
+    conditions.push(
+      `(sales.created_by = $${params.length} OR sales.sold_by_user_id = $${params.length}
+        OR EXISTS (SELECT 1 FROM leads l WHERE l.id = sales.lead_id AND ${leadVisibleSql("l", `$${params.length}`)}))`,
+    );
   }
 
   if (filters.dateFrom) {

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
-import { reviewLead } from "@/lib/leads/review";
+import { setLeadStatus } from "@/lib/leads/review";
+import { LEAD_STATUSES } from "@/lib/leads/types";
 import {
   LeadNotFoundError,
   LeadNotAccessibleError,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/leads/errors";
 
 const reviewSchema = z.object({
-  action: z.enum(["QUALIFY", "REJECT", "RETURN"]),
+  status: z.enum(LEAD_STATUSES),
   reason: z.string().trim().min(1).optional(),
 });
 
@@ -40,11 +41,11 @@ export async function POST(
   }
 
   try {
-    const lead = await reviewLead(pool, {
+    const lead = await setLeadStatus(pool, {
       actorId: user.id,
       actorRole: user.role,
       leadId,
-      action: parsed.data.action,
+      status: parsed.data.status,
       reason: parsed.data.reason,
     });
     return NextResponse.json(lead);

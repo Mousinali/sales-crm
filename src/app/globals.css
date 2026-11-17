@@ -281,3 +281,31 @@ select.rounded-md {
     gap: 0.375rem;
   }
 }
+
+/* A slim, rounded scrollbar for lists scrolling inside a card — hidden until
+   the pointer is over the list, and the gutter is reserved so content never
+   sits under it or shifts when it appears. */
+.slim-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+.slim-scrollbar:hover {
+  scrollbar-color: #d4d4d8 transparent;
+}
+.slim-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.slim-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.slim-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+.slim-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+}
+.slim-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}

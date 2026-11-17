@@ -58,23 +58,24 @@ function postReview(id: number, body: unknown, cookie?: string) {
 }
 
 describe("POST /api/leads/[id]/review", () => {
-  it("400s a reject with no reason", async () => {
-    const res = await postReview(pendingLead.id, { action: "REJECT" }, mhCookie);
+  it("400s a lost lead with no reason", async () => {
+    const res = await postReview(pendingLead.id, { status: "CLOSED_LOST" }, preSalesCookie);
     expect(res.status).toBe(400);
   });
 
-  it("403s a Pre-sales user calling review", async () => {
-    const res = await postReview(pendingLead.id, { action: "QUALIFY" }, preSalesCookie);
+  it("403s a Marketing Head who doesn't own the lead", async () => {
+    const res = await postReview(pendingLead.id, { status: "QUALIFIED" }, mhCookie);
     expect(res.status).toBe(403);
   });
 
-  it("403s a Salesperson calling review", async () => {
-    const res = await postReview(pendingLead.id, { action: "QUALIFY" }, salespersonCookie);
+  it("403s a Salesperson who doesn't own the lead", async () => {
+    const res = await postReview(pendingLead.id, { status: "QUALIFIED" }, salespersonCookie);
     expect(res.status).toBe(403);
   });
 
-  it("lets Marketing Head qualify", async () => {
-    const res = await postReview(pendingLead.id, { action: "QUALIFY" }, mhCookie);
+  it("lets the lead's own Pre-sales owner qualify it", async () => {
+    const res = await postReview(pendingLead.id, { status: "QUALIFIED" }, preSalesCookie);
     expect(res.status).toBe(200);
+    expect((await res.json()).status).toBe("QUALIFIED");
   });
 });

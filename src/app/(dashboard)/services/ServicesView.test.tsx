@@ -26,6 +26,20 @@ describe("ServicesView", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
 
+  it("debounces the search: the box updates at once, the list only after a pause", async () => {
+    render(<ServicesView initialServices={sampleServices} />);
+    const box = screen.getByLabelText(/search services/i) as HTMLInputElement;
+
+    fireEvent.change(box, { target: { value: "zzz" } });
+    // The typed text appears immediately while the row is still listed — that
+    // gap is the debounce; without it the table re-filters on every keystroke.
+    expect(box.value).toBe("zzz");
+    expect(screen.getByText("Bulk SMS")).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.queryByText("Bulk SMS")).toBeNull());
+    expect(screen.getByText(/no services match your search/i)).toBeInTheDocument();
+  });
+
   it("creates a new service", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ id: 2, name: "App Development", description: null, status: "ACTIVE" }), { status: 201 }),

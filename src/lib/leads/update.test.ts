@@ -106,10 +106,10 @@ describe("updateLead", () => {
     ).rejects.toThrow(LeadNotAccessibleError);
   });
 
-  it("rejects a Salesperson editing any lead field", async () => {
+  it("rejects a Salesperson editing a lead they don't own", async () => {
     await expect(
       updateLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: myLead.id, fields: { notes: "x" } }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+    ).rejects.toThrow(LeadNotAccessibleError);
   });
 
   it("rejects HR editing any lead field", async () => {

@@ -9,7 +9,9 @@ import { LEAD_PRIORITY_LABELS, LEAD_BUDGET_TYPE_LABELS, SELECTABLE_LEAD_BUDGET_T
 import { INDIAN_STATES } from "@/app/(dashboard)/indianStates";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
 import CustomSelect from "@/components/ui/CustomSelect";
+import { INDUSTRIES, DESIGNATIONS } from "@/app/(dashboard)/leadOptions";
 import RichTextField from "@/components/ui/RichTextField";
+import MoneyInput from "@/components/ui/MoneyInput";
 import SocialLinksField, { type SocialLinks } from "@/app/(dashboard)/leads/SocialLinksField";
 import type { ServiceRow } from "@/lib/services/types";
 
@@ -139,18 +141,12 @@ export default function EditLeadForm({
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-6">
-      <form onSubmit={handleSaveSubmit} className="grid grid-cols-3 gap-4" noValidate>
+      <form onSubmit={handleSaveSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" noValidate>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="industry" className="text-sm font-medium text-zinc-700">
             Industry type
           </label>
-          <input
-            id="industry"
-            type="text"
-            value={industry}
-            onChange={(event) => setIndustry(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-          />
+          <CustomSelect id="industry" placeholder="Select Industry" value={industry} onChange={setIndustry} options={(INDUSTRIES.includes(industry) || !industry ? INDUSTRIES : [industry, ...INDUSTRIES]).map((o) => ({ value: o, label: o }))} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -247,13 +243,7 @@ export default function EditLeadForm({
           <label htmlFor="designation" className="text-sm font-medium text-zinc-700">
             Contact person designation
           </label>
-          <input
-            id="designation"
-            type="text"
-            value={designation}
-            onChange={(event) => setDesignation(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-          />
+          <CustomSelect id="designation" placeholder="Select Designation" value={designation} onChange={setDesignation} options={(DESIGNATIONS.includes(designation) || !designation ? DESIGNATIONS : [designation, ...DESIGNATIONS]).map((o) => ({ value: o, label: o }))} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -337,13 +327,10 @@ export default function EditLeadForm({
           <label htmlFor="estimatedBudget" className="text-sm font-medium text-zinc-700">
             Estimated budget
           </label>
-          <input
+          <MoneyInput
             id="estimatedBudget"
-            type="number"
-            min="0"
-            step="any"
             value={estimatedBudget}
-            onChange={(event) => setEstimatedBudget(event.target.value)}
+            onValueChange={setEstimatedBudget}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -352,47 +339,37 @@ export default function EditLeadForm({
           <label htmlFor="budgetType" className="text-sm font-medium text-zinc-700">
             Budget type
           </label>
-          <select
+          <CustomSelect
             id="budgetType"
             value={budgetType}
-            onChange={(event) => setBudgetType(event.target.value as LeadBudgetType | "")}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-          >
-            <option value="">—</option>
-            {budgetTypeOptions.map((type) => (
-              <option key={type} value={type}>
-                {LEAD_BUDGET_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setBudgetType(value as LeadBudgetType | "")}
+            options={[
+              { value: "", label: "—" },
+              ...budgetTypeOptions.map((type) => ({ value: type, label: LEAD_BUDGET_TYPE_LABELS[type] })),
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="priority" className="text-sm font-medium text-zinc-700">
             Priority
           </label>
-          <select
+          <CustomSelect
             id="priority"
             value={priority}
-            onChange={(event) => setPriority(event.target.value as LeadPriority)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-          >
-            {LEAD_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {LEAD_PRIORITY_LABELS[p]}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setPriority(value as LeadPriority)}
+            options={LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }))}
+          />
         </div>
 
-        <div className="col-span-3 flex flex-col gap-1.5">
+        <div className="col-span-full flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-medium text-zinc-700">
             Notes
           </label>
           <RichTextField id="notes" value={notes} onChange={setNotes} rows={3} />
         </div>
 
-        <div className="col-span-3 flex flex-col gap-1.5">
+        <div className="col-span-full flex flex-col gap-1.5">
           <label htmlFor="remarks" className="text-sm font-medium text-zinc-700">
             Remarks
           </label>
@@ -405,12 +382,12 @@ export default function EditLeadForm({
         />
 
         {saveError && (
-          <p role="alert" className="col-span-3 text-sm text-red-600">
+          <p role="alert" className="col-span-full text-sm text-red-600">
             {saveError}
           </p>
         )}
 
-        <div className="col-span-3 mt-2 flex justify-end gap-3">
+        <div className="col-span-full mt-2 flex justify-end gap-3">
           <button
             type="button"
             onClick={() => router.push(`/leads/${lead.id}`)}

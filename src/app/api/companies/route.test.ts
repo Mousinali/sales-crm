@@ -44,18 +44,21 @@ describe("GET /api/companies", () => {
     expect((await getCompanies()).status).toBe(401);
   });
 
-  it("rejects a Pre-sales user", async () => {
-    expect((await getCompanies(preSalesCookie)).status).toBe(403);
+  it("lets a Pre-sales user list companies (scoped to their own leads)", async () => {
+    const res = await getCompanies(preSalesCookie);
+    expect(res.status).toBe(200);
+    expect((await res.json()).companies).toEqual([]);
   });
 
-  it("lets a Marketing Head list companies", async () => {
+  it("lets a Marketing Head list companies, scoped to their own leads", async () => {
     const res = await getCompanies(marketingHeadCookie);
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(Array.isArray(body.companies)).toBe(true);
+    expect((await res.json()).companies).toEqual([]);
   });
 
   it("lets a Super Admin list companies", async () => {
-    expect((await getCompanies(superAdminCookie)).status).toBe(200);
+    const res = await getCompanies(superAdminCookie);
+    expect(res.status).toBe(200);
+    expect(Array.isArray((await res.json()).companies)).toBe(true);
   });
 });

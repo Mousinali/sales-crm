@@ -16,5 +16,7 @@ export async function parseErrorMessage(
   } catch {
     // fall through to fallback
   }
-  return fallback;
+  // No JSON error body means an unhandled server crash (Next returns plain
+  // text/HTML), so say that instead of a generic message that hides the cause.
+  return response.status >= 500 ? `${fallback} Server error (${response.status}) — check the server logs.` : fallback;
 }

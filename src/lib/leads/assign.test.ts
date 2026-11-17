@@ -6,7 +6,7 @@ import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { assignLead } from "./assign";
-import { LeadActionNotAllowedError } from "./errors";
+import { LeadActionNotAllowedError, LeadNotAccessibleError } from "./errors";
 import { listNotifications } from "@/lib/notifications/record";
 
 const adminEmail = `assign-admin-${Date.now()}@example.com`;
@@ -46,10 +46,10 @@ beforeAll(async () => {
   inactivePreSalesId = inactivePs.id;
   createdEmails.push(hr.email, mh.email, ps.email, sp.email, otherSp.email, inactiveSp.email, inactivePs.email);
 
-  qualifiedLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Assign Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  qualifiedLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Assign Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
-  pendingLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Pending Assign Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
-  closedWonLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Closed Won Co", phone: "7", serviceRequirements: "x", leadSource: "OTHER" });
+  pendingLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Pending Assign Co", phone: "9", serviceRequirements: "x", leadSource: "OTHER" });
+  closedWonLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Closed Won Co", phone: "7", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'CLOSED_WON', salesperson_owner_id = $2 WHERE id = $1", [closedWonLead.id, salespersonId]);
   leadIds.push(qualifiedLead.id, pendingLead.id, closedWonLead.id);
 });
@@ -116,10 +116,10 @@ describe("assignLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects a Pre-sales user calling assign", async () => {
+  it("rejects a Pre-sales user assigning a lead they don't own", async () => {
     await expect(
       assignLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: qualifiedLead.id, salespersonId }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+    ).rejects.toThrow(LeadNotAccessibleError);
   });
 
   it("rejects HR calling assign", async () => {
@@ -128,16 +128,27 @@ describe("assignLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects Super Admin calling assign", async () => {
+  it("rejects Accountant calling assign", async () => {
     await expect(
-      assignLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: qualifiedLead.id, salespersonId }),
+      assignLead(pool, { actorId: superAdminId, actorRole: "ACCOUNTANT", leadId: qualifiedLead.id, salespersonId }),
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects assigning a lead that hasn't been qualified yet", async () => {
-    await expect(
-      assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, salespersonId }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+  it("lets a Super Admin assign any lead", async () => {
+    const updated = await assignLead(pool, { actorId: superAdminId, actorRole: "SUPER_ADMIN", leadId: qualifiedLead.id, salespersonId });
+    expect(updated.salesperson_owner_id).toBe(salespersonId);
+  });
+
+  it("assigns a Salesperson whatever the lead's status (no qualification step)", async () => {
+    const updated = await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: pendingLead.id, salespersonId });
+    expect(updated.salesperson_owner_id).toBe(salespersonId);
+  });
+
+  it("lets a Pre-sales owner assign their own lead", async () => {
+    const own = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "PS Own Co", phone: "55", serviceRequirements: "x", leadSource: "OTHER" });
+    leadIds.push(own.id);
+    const updated = await assignLead(pool, { actorId: preSalesId, actorRole: "PRE_SALES", leadId: own.id, salespersonId });
+    expect(updated.salesperson_owner_id).toBe(salespersonId);
   });
 
   it("lets a Marketing Head change the Pre-sales owner on a lead that isn't qualified yet", async () => {
@@ -157,10 +168,11 @@ describe("assignLead", () => {
     ).rejects.toThrow(LeadActionNotAllowedError);
   });
 
-  it("rejects a Salesperson calling assign", async () => {
+  it("rejects a Salesperson assigning a lead they don't own", async () => {
+    await pool.query("UPDATE leads SET salesperson_owner_id = $1 WHERE id = $2", [otherSalespersonId, qualifiedLead.id]);
     await expect(
-      assignLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: qualifiedLead.id, salespersonId: otherSalespersonId }),
-    ).rejects.toThrow(LeadActionNotAllowedError);
+      assignLead(pool, { actorId: salespersonId, actorRole: "SALESPERSON", leadId: qualifiedLead.id, salespersonId }),
+    ).rejects.toThrow(LeadNotAccessibleError);
   });
 
   it("notifies the newly assigned Salesperson", async () => {
@@ -170,7 +182,7 @@ describe("assignLead", () => {
   });
 
   it("leaves exactly one consistent assignment when two assigns race on the same lead", async () => {
-    const raceLead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Race Co", phone: "99", serviceRequirements: "x", leadSource: "OTHER" });
+    const raceLead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Race Co", phone: "99", serviceRequirements: "x", leadSource: "OTHER" });
     await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [raceLead.id]);
     leadIds.push(raceLead.id);
 

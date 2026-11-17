@@ -39,7 +39,7 @@ beforeAll(async () => {
   mhCookie = `${SESSION_COOKIE_NAME}=${(await createSession(mh.id)).token}`;
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
 
-  qualifiedLead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Assign Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  qualifiedLead = await createLead(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", companyName: "Assign Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [qualifiedLead.id]);
   leadIds.push(qualifiedLead.id);
 });
@@ -76,7 +76,7 @@ describe("POST /api/leads/[id]/assign", () => {
     expect(res.status).toBe(200);
   });
 
-  it("rejects a Pre-sales user calling assign", async () => {
+  it("rejects a Pre-sales user who doesn't own the lead calling assign", async () => {
     const res = await postAssign(qualifiedLead.id, { salespersonId }, preSalesCookie);
     expect(res.status).toBe(403);
   });

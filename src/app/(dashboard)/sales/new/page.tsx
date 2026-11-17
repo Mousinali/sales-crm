@@ -5,13 +5,13 @@ import PageHeading from "@/components/ui/PageHeading";
 import NewSaleForm from "./NewSaleForm";
 
 export default async function NewSalePage() {
-  await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  const user = await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
   const serviceOptions = await listServices(pool, { status: "ACTIVE" });
 
   return (
     <div>
       <PageHeading title="Add Sale" crumbs={[{ label: "Sales", href: "/sales" }, { label: "Add Sale" }]} />
-      <NewSaleForm serviceOptions={serviceOptions} />
+      <NewSaleForm serviceOptions={serviceOptions} isAccountant={user.role === "ACCOUNTANT"} />
     </div>
   );
 }

@@ -7,8 +7,10 @@ import RefreshButton from "@/components/ui/RefreshButton";
 import Pagination from "@/components/ui/Pagination";
 import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import type { ServiceRow, ServiceStatus } from "@/lib/services/types";
 import { SERVICE_STATUSES } from "@/lib/services/types";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 // Services is reference/catalog data (every service, not a page of them,
 // since other forms need the full list for their "service interested"
@@ -25,7 +27,12 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
   const [services, setServices] = useState<ServiceRow[]>(initialServices);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const filteredServices = services.filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
+  // The box stays instantly responsive while the filtering (and the re-render
+  // of the whole table under it) waits for a pause in typing.
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const filteredServices = services.filter((s) =>
+    s.name.toLowerCase().includes(debouncedSearch.trim().toLowerCase()),
+  );
   const totalPages = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
   const pageServices = filteredServices.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -141,12 +148,14 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
   return (
     <div className="flex flex-col gap-6">
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 p-4">
-          <p className="text-sm text-zinc-500">
-            The services leads can select as &ldquo;Service interested&rdquo;. Deactivating one hides it from new
-            selections without affecting leads that already have it.
-          </p>
-          <div className="relative w-full max-w-xs sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 border-b border-zinc-200 p-4">
+          {/* Count and search read as one group on the left; `ml-auto` on the
+              actions pushes them right. justify-between across three children
+              left the search stranded in the middle of the row. */}
+          <span className="shrink-0 text-sm text-zinc-500">
+            {filteredServices.length} service{filteredServices.length === 1 ? "" : "s"}
+          </span>
+          <div className="relative w-full sm:w-64">
             <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
             <input
               type="text"
@@ -160,7 +169,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
               className="w-full rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
             <RefreshButton onRefresh={refetch} />
             <button
               type="button"
@@ -192,8 +201,19 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
             <tbody className="divide-y divide-zinc-100">
               {filteredServices.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
-                    {services.length === 0 ? "No services yet." : "No services match your search."}
+                  <td colSpan={4} className="px-4 py-10 text-center text-zinc-500">
+                    {services.length === 0 ? (
+                      <>
+                        <i className="ri-price-tag-3-line mb-2 block text-2xl text-zinc-300" aria-hidden="true" />
+                        <p className="font-medium text-zinc-700">No services yet</p>
+                        <p className="mx-auto mt-1 max-w-md text-sm">
+                          Services are what leads pick under &ldquo;Service interested&rdquo;. Deactivating one hides it
+                          from new selections without affecting leads that already have it.
+                        </p>
+                      </>
+                    ) : (
+                      "No services match your search."
+                    )}
                   </td>
                 </tr>
               )}
@@ -303,18 +323,15 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
                 <label htmlFor="editServiceStatus" className="text-sm font-medium text-zinc-700">
                   Status
                 </label>
-                <select
+                <CustomSelect
                   id="editServiceStatus"
                   value={editStatus}
-                  onChange={(event) => setEditStatus(event.target.value as ServiceStatus)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  {SERVICE_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {status === "ACTIVE" ? "Active" : "Inactive"}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setEditStatus(value as ServiceStatus)}
+                  options={SERVICE_STATUSES.map((status) => ({
+                    value: status,
+                    label: status === "ACTIVE" ? "Active" : "Inactive",
+                  }))}
+                />
               </div>
               {editError && (
                 <p role="alert" className="text-sm text-red-600">

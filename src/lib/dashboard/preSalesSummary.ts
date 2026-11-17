@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import { listLeads } from "@/lib/leads/list";
 import { listTasks } from "@/lib/tasks/crud";
 import type { SummaryPeriod } from "@/lib/dashboard/superAdminSummary";
+import { getMySalesAndPayments } from "@/lib/dashboard/mySales";
 import { periodSinceDate, periodUntilDate } from "@/lib/dashboard/periodDates";
 
 // The period-scoped counterpart to preSales.ts's all-time dashboard query,
@@ -14,7 +15,8 @@ export async function getPreSalesPeriodSummary(pool: Pool, userId: number, perio
   const since = periodSinceDate(period);
   const until = periodUntilDate(period);
 
-  const [leads, followUpsDueToday, upcomingTasks] = await Promise.all([
+  const [money, leads, followUpsDueToday, upcomingTasks] = await Promise.all([
+    getMySalesAndPayments(pool, userId, period),
     listLeads(pool, { id: userId, role: "PRE_SALES" }, { dateFrom: since }),
     listTasks(pool, { id: userId, role: "PRE_SALES" }, { dueWithin: "TODAY" }),
     listTasks(pool, { id: userId, role: "PRE_SALES" }, { dueWithin: "UPCOMING", upcomingUntil: until }),
@@ -24,6 +26,7 @@ export async function getPreSalesPeriodSummary(pool: Pool, userId: number, perio
   const leadsAwaitingReview = leads.filter((l) => l.status === "PENDING_REVIEW" || l.status === "MORE_INFO_REQUIRED");
 
   return {
+    ...money,
     leadsCreated: leadsCreated.length,
     leadsAwaitingReview: leadsAwaitingReview.length,
     followUpsDueToday: followUpsDueToday.length,

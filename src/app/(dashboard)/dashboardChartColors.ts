@@ -33,6 +33,7 @@ const ROLE_HEX: Record<Role, string> = {
   MARKETING_HEAD: "#0284c7",
   PRE_SALES: "#0d9488",
   SALESPERSON: "#e11d48",
+  ACCOUNTANT: "#059669",
 };
 
 export function leadStatusBarData(counts: Record<string, number>): BarDatum[] {

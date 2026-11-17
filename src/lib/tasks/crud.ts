@@ -18,19 +18,11 @@ export async function createTask(
     leadId?: number;
   },
 ): Promise<TaskRow> {
-  // §3.6: "Do not rely only on hiding UI controls" — TasksView only shows
-  // the assignee picker to MH/SA and only offers active Pre-sales/Salespeople,
-  // so the server enforces that exact rule rather than trusting the caller.
+  // Anyone can assign a task to themselves or to any other active user.
   if (input.assignedUserId !== input.creatorId) {
-    if (input.actorRole !== "MARKETING_HEAD" && input.actorRole !== "SUPER_ADMIN") {
-      throw new TaskActionNotAllowedError(`${input.actorRole} cannot assign a task to another user`);
-    }
-    const { rows } = await pool.query<{ id: number }>(
-      "SELECT id FROM users WHERE id = $1 AND status = 'ACTIVE' AND role IN ('PRE_SALES', 'SALESPERSON')",
-      [input.assignedUserId],
-    );
+    const { rows } = await pool.query<{ id: number }>("SELECT id FROM users WHERE id = $1 AND status = 'ACTIVE'", [input.assignedUserId]);
     if (rows.length === 0) {
-      throw new TaskActionNotAllowedError(`User ${input.assignedUserId} is not an active Pre-sales/Salesperson`);
+      throw new TaskActionNotAllowedError(`User ${input.assignedUserId} is not an active user`);
     }
   }
 
@@ -55,11 +47,15 @@ export async function createTask(
   return rows[0];
 }
 
+const ASSIGNEE_NAME = "(SELECT name FROM users WHERE id = tasks.assigned_user_id) AS assigned_user_name";
+
 type TaskFilters = {
   status?: TaskStatus;
   dueWithin?: "TODAY" | "OVERDUE" | "UPCOMING";
   /** Only with dueWithin: "UPCOMING" — narrows it to a dashboard period's forward horizon instead of every future task. */
   upcomingUntil?: Date;
+  /** Only tasks assigned to or created by the viewer, even for a Marketing Head / Super Admin who could see the team's (the Calendar shows just the viewer's own). */
+  mineOnly?: boolean;
 };
 
 // Shared by `listTasks` (dashboards want every matching row) and
@@ -68,12 +64,11 @@ function buildTasksWhere(viewer: { id: number; role: Role }, filters: TaskFilter
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  // Everyone else only sees their own assigned tasks; a Marketing Head or
-  // Super Admin sees the team's, mirroring the lead-visibility split but
-  // simpler — no "or creator" clause (req.md §10/§11 name no such rule).
-  if (viewer.role !== "SUPER_ADMIN" && viewer.role !== "MARKETING_HEAD") {
+  // Everyone else sees the tasks assigned to them plus the ones they
+  // assigned to others; a Marketing Head or Super Admin sees the team's.
+  if (filters.mineOnly || (viewer.role !== "SUPER_ADMIN" && viewer.role !== "MARKETING_HEAD")) {
     params.push(viewer.id);
-    conditions.push(`assigned_user_id = $${params.length}`);
+    conditions.push(`(assigned_user_id = $${params.length} OR created_by = $${params.length})`);
   }
   if (filters.status) {
     params.push(filters.status);
@@ -98,7 +93,7 @@ function buildTasksWhere(viewer: { id: number; role: Role }, filters: TaskFilter
 
 export async function listTasks(pool: Pool, viewer: { id: number; role: Role }, filters: TaskFilters): Promise<TaskRow[]> {
   const { whereClause, params } = buildTasksWhere(viewer, filters);
-  const { rows } = await pool.query<TaskRow>(`SELECT * FROM tasks ${whereClause} ORDER BY due_at`, params);
+  const { rows } = await pool.query<TaskRow>(`SELECT *, ${ASSIGNEE_NAME} FROM tasks ${whereClause} ORDER BY due_at`, params);
   return rows;
 }
 
@@ -110,7 +105,7 @@ export async function listTasksPage(
 ): Promise<PagedResult<TaskRow>> {
   const { whereClause, params } = buildTasksWhere(viewer, filters);
   const { rows } = await pool.query<TaskRow & { total_count: number }>(
-    `SELECT *, count(*) OVER() AS total_count FROM tasks ${whereClause}
+    `SELECT *, ${ASSIGNEE_NAME}, count(*) OVER() AS total_count FROM tasks ${whereClause}
      ORDER BY due_at
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, page.pageSize, (page.page - 1) * page.pageSize],

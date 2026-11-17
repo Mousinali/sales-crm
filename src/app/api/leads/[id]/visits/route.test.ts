@@ -37,7 +37,7 @@ beforeAll(async () => {
   preSalesCookie = `${SESSION_COOKIE_NAME}=${(await createSession(ps.id)).token}`;
   mustChangePasswordCookie = `${SESSION_COOKIE_NAME}=${(await createSession(sp.id)).token}`;
 
-  lead = await createLead(pool, { creatorId: ps.id, creatorRole: "PRE_SALES", companyName: "Visit Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
+  lead = await createLead(pool, { creatorId: mh.id, creatorRole: "MARKETING_HEAD", companyName: "Visit Route Co", phone: "1", serviceRequirements: "x", leadSource: "OTHER" });
   leadIds.push(lead.id);
 });
 

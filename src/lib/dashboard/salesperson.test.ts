@@ -33,7 +33,7 @@ beforeAll(async () => {
   const svc = await createService(pool, { actorId: adminId, actorRole: "SUPER_ADMIN", name: `Dash SP Svc ${Date.now()}` });
   serviceIds.push(svc.id);
 
-  const lead = await createLead(pool, { creatorId: preSalesId, creatorRole: "PRE_SALES", companyName: "Dash SP Co", phone: "1", leadSource: "OTHER", serviceIds: [svc.id] });
+  const lead = await createLead(pool, { creatorId: mhId, creatorRole: "MARKETING_HEAD", companyName: "Dash SP Co", phone: "1", leadSource: "OTHER", serviceIds: [svc.id] });
   leadIds.push(lead.id);
   await pool.query("UPDATE leads SET status = 'QUALIFIED' WHERE id = $1", [lead.id]);
   await assignLead(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", leadId: lead.id, salespersonId });

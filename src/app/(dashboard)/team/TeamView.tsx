@@ -14,6 +14,7 @@ import Pagination from "@/components/ui/Pagination";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 type StatusFilter = "ACTIVE" | "INACTIVE" | "";
 
@@ -395,15 +396,18 @@ export default function TeamView({
       <div className="rounded-lg border border-zinc-200 bg-white">
         <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 sm:flex-row sm:items-end sm:justify-between">
           <form onSubmit={handleFilterSubmit} className="hidden flex-wrap items-center gap-3 sm:flex">
-            <input
-              id="search"
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name or email"
-              aria-label="Search"
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            />
+            <div className="relative">
+              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-600" aria-hidden="true" />
+              <input
+                id="search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email"
+                aria-label="Search"
+                className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              />
+            </div>
 
             <FilterDropdown
               icon="ri-user-line"
@@ -434,14 +438,17 @@ export default function TeamView({
           </form>
 
           <div className="flex items-center gap-2.5 sm:hidden">
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name or email"
-              aria-label="Search"
-              className="min-w-[200px] flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            />
+            <div className="relative min-w-[200px] flex-1">
+              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-600" aria-hidden="true" />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email"
+                aria-label="Search"
+                className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              />
+            </div>
             <button
               type="button"
               onClick={() => setFilterSheetOpen(true)}
@@ -514,6 +521,9 @@ export default function TeamView({
                   Name
                 </th>
                 <th scope="col" className="px-4 py-3 text-left">
+                  Designation
+                </th>
+                <th scope="col" className="px-4 py-3 text-left">
                   Role
                 </th>
                 <th scope="col" className="px-4 py-3 text-left">
@@ -527,7 +537,7 @@ export default function TeamView({
             <tbody className="divide-y divide-zinc-100">
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                  <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
                     No team members found.
                   </td>
                 </tr>
@@ -539,10 +549,12 @@ export default function TeamView({
                       <Avatar name={user.name} imageUrl={user.avatar_url} size="md" />
                       <div>
                         <p className="font-medium text-zinc-900">{user.name}</p>
-                        {user.designation && <p className="text-xs text-zinc-500">{user.designation}</p>}
                         <p className="text-xs text-zinc-500">{user.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td data-label="Designation" className="px-4 py-3 text-zinc-700">
+                    {user.designation || "—"}
                   </td>
                   <td data-label="Role" className="px-4 py-3">
                     <span
@@ -625,18 +637,12 @@ export default function TeamView({
                 <label htmlFor="createRole" className="text-sm font-medium text-zinc-700">
                   Role
                 </label>
-                <select
+                <CustomSelect
                   id="createRole"
                   value={createRole}
-                  onChange={(event) => setCreateRole(event.target.value as Role)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                >
-                  {creatableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setCreateRole(value as Role)}
+                  options={creatableRoles.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">

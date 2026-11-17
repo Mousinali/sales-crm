@@ -46,11 +46,11 @@ export async function updateLead(
     }>;
   },
 ): Promise<void> {
-  if (input.actorRole === "SALESPERSON" || input.actorRole === "HR") {
+  if (input.actorRole === "HR" || input.actorRole === "ACCOUNTANT") {
     throw new LeadActionNotAllowedError(`${input.actorRole} cannot edit lead fields`);
   }
 
-  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
+  const lead = await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId, { requireOwner: true });
 
   const fields = input.fields;
   const columns: string[] = [];

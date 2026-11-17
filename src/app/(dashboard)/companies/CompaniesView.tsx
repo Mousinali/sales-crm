@@ -11,10 +11,12 @@ import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 
 export default function CompaniesView({
+  canDelete,
   initialCompanies,
   initialTotal,
   initialTotalPages,
 }: {
+  canDelete: boolean;
   initialCompanies: CompanySummary[];
   initialTotal: number;
   initialTotalPages: number;
@@ -137,7 +139,7 @@ export default function CompaniesView({
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">Contact</th>
               <th className="px-4 py-3">Leads</th>
-              <th className="px-4 py-3" />
+              {canDelete && <th className="px-4 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -162,7 +164,7 @@ export default function CompaniesView({
                   <p className="text-xs text-zinc-500">{company.email ?? "—"}</p>
                 </td>
                 <td data-label="Leads" className="px-4 py-3 text-zinc-700">{company.lead_count}</td>
-                <td data-label="" className="px-4 py-3">
+                {canDelete && <td data-label="" className="px-4 py-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -173,7 +175,7 @@ export default function CompaniesView({
                   >
                     Delete
                   </button>
-                </td>
+                </td>}
               </tr>
             ))}
           </tbody>

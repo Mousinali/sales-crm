@@ -5,7 +5,14 @@ import "@/components/ui/agChartsSetup";
 import { AgCharts } from "ag-charts-react";
 import type { AgCartesianChartOptions } from "ag-charts-community";
 
-export type BarDatum = { label: string; value: number; color: string };
+// `tooltipRows` overrides the default single "Count" row, for bars that carry
+// more than one figure (a payment total is both a count and an amount).
+export type BarDatum = {
+  label: string;
+  value: number;
+  color: string;
+  tooltipRows?: { label: string; value: string }[];
+};
 
 const AXIS_LABEL_STYLE = { fontSize: 12, color: "#71717a" };
 
@@ -71,11 +78,17 @@ export default function BarChart({
     return <p className="text-sm text-zinc-500">No data yet.</p>;
   }
 
+  // An "outside-end" label is drawn into the right padding, so that padding has
+  // to fit the widest number or ag-charts clips it — a six-figure count needs
+  // far more than the 28px that suits a two-digit one.
+  const widestValue = Math.max(...shown.map((d) => d.value.toLocaleString().length));
+  const rightPadding = horizontal && showValueLabels ? Math.max(28, widestValue * 8 + 12) : 28;
+
   const options: AgCartesianChartOptions = {
     data: shown,
     height: chartHeight,
     background: { fill: "transparent" },
-    padding: { top: 8, right: 28, bottom: 8, left: 8 },
+    padding: { top: 8, right: rightPadding, bottom: 8, left: 8 },
     axes: {
       x: {
         type: "category",
@@ -123,10 +136,13 @@ export default function BarChart({
           formatter: ({ value }) => (typeof value === "number" ? value.toLocaleString() : String(value)),
         },
         tooltip: {
-          renderer: ({ datum }) => ({
-            title: (datum as BarDatum).label,
-            data: [{ label: "Count", value: (datum as BarDatum).value.toLocaleString() }],
-          }),
+          renderer: ({ datum }) => {
+            const d = datum as BarDatum;
+            return {
+              title: d.label,
+              data: d.tooltipRows ?? [{ label: "Count", value: d.value.toLocaleString() }],
+            };
+          },
         },
       },
     ],

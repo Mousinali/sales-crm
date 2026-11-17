@@ -1,9 +1,12 @@
 "use client";
 
+import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import MoneyInput from "@/components/ui/MoneyInput";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { SALE_PAYMENT_METHODS, type SalePaymentMethod } from "@/lib/sales/types";
 
 const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
@@ -107,24 +110,21 @@ export default function NewPaymentForm() {
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-6">
-      <form onSubmit={handleCreateSubmit} className="grid grid-cols-3 gap-4" noValidate>
-        <div className="col-span-3 flex flex-col gap-1.5">
+      <form onSubmit={handleCreateSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" noValidate>
+        <div className="col-span-full flex flex-col gap-1.5">
           <label htmlFor="saleId" className="text-sm font-medium text-zinc-700">
             Sale
           </label>
-          <select
+          <CustomSelect
             id="saleId"
             value={saleId}
-            onChange={(event) => setSaleId(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            <option value="">Select a sale…</option>
-            {saleOptions.map((sale) => (
-              <option key={sale.id} value={sale.id}>
-                {sale.sale_number} · {sale.company_name}
-              </option>
-            ))}
-          </select>
+            onChange={setSaleId}
+            placeholder="Select a sale…"
+            options={saleOptions.map((sale) => ({
+              value: String(sale.id),
+              label: `${sale.sale_number} · ${sale.company_name}`,
+            }))}
+          />
           {due !== null && <p className="text-xs text-amber-700">{formatCurrency(due)} due on this sale</p>}
         </div>
 
@@ -132,13 +132,10 @@ export default function NewPaymentForm() {
           <label htmlFor="amount" className="text-sm font-medium text-zinc-700">
             Amount
           </label>
-          <input
+          <MoneyInput
             id="amount"
-            type="number"
-            min="0"
-            step="any"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onValueChange={setAmount}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
           />
         </div>
@@ -147,31 +144,22 @@ export default function NewPaymentForm() {
           <label htmlFor="paymentMethod" className="text-sm font-medium text-zinc-700">
             Payment method
           </label>
-          <select
+          <CustomSelect
             id="paymentMethod"
             value={paymentMethod}
-            onChange={(event) => setPaymentMethod(event.target.value as SalePaymentMethod)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            {SALE_PAYMENT_METHODS.map((method) => (
-              <option key={method} value={method}>
-                {PAYMENT_METHOD_LABELS[method]}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setPaymentMethod(value as SalePaymentMethod)}
+            options={SALE_PAYMENT_METHODS.map((method) => ({
+              value: method,
+              label: PAYMENT_METHOD_LABELS[method],
+            }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="paymentDate" className="text-sm font-medium text-zinc-700">
             Date
           </label>
-          <input
-            id="paymentDate"
-            type="date"
-            value={paymentDate}
-            onChange={(event) => setPaymentDate(event.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
+          <DateField id="paymentDate" value={paymentDate} onChange={setPaymentDate} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -202,7 +190,7 @@ export default function NewPaymentForm() {
           </div>
         )}
 
-        <div className="col-span-3 flex flex-col gap-1.5">
+        <div className="col-span-full flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-medium text-zinc-700">
             Notes
           </label>
@@ -216,12 +204,12 @@ export default function NewPaymentForm() {
         </div>
 
         {createError && (
-          <p role="alert" className="col-span-3 text-sm text-red-600">
+          <p role="alert" className="col-span-full text-sm text-red-600">
             {createError}
           </p>
         )}
 
-        <div className="col-span-3 mt-2 flex justify-end gap-3">
+        <div className="col-span-full mt-2 flex justify-end gap-3">
           <button
             type="button"
             onClick={() => router.push("/payments")}

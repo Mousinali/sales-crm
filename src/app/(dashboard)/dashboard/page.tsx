@@ -12,7 +12,11 @@ import { getSalespersonDashboard } from "@/lib/dashboard/salesperson";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
 import PieChart from "@/components/ui/PieChart";
 import Timeline from "@/components/ui/Timeline";
+import BestClientsCard from "@/components/ui/BestClientsCard";
+import EmployeeRankingCard from "@/components/ui/EmployeeRankingCard";
+import PaymentsByClientCard from "@/components/ui/PaymentsByClientCard";
 import EntriesChartCard from "@/components/ui/EntriesChartCard";
+import AccountantDashboard from "@/components/ui/AccountantDashboard";
 import SuperAdminSummaryTiles from "@/components/ui/SuperAdminSummaryTiles";
 import MarketingHeadSummaryTiles from "@/components/ui/MarketingHeadSummaryTiles";
 import PreSalesSummaryTiles from "@/components/ui/PreSalesSummaryTiles";
@@ -91,6 +95,23 @@ export default async function DashboardPage() {
   // child segments' RSC payload, so this page re-checks auth itself.
   const user = await requireUser();
 
+  if (user.role === "ACCOUNTANT") {
+    return (
+      <SuperAdminPeriodProvider>
+        <div className="flex flex-col gap-6">
+          <WelcomeCard
+            name={user.name}
+            role={user.role}
+            designation={user.designation}
+            avatarUrl={user.avatarUrl}
+            extra={<SuperAdminPeriodDropdown />}
+          />
+          <AccountantDashboard />
+        </div>
+      </SuperAdminPeriodProvider>
+    );
+  }
+
   if (user.role === "HR") {
     return (
       <SuperAdminPeriodProvider>
@@ -120,6 +141,10 @@ export default async function DashboardPage() {
           <SuperAdminSummaryTiles />
           <EntriesChartCard />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <BestClientsCard showOwners />
+            <EmployeeRankingCard />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <PieCard title="Active users by role" data={roleBarData(d.activeUsersByRole)} stacked />
             <PieCard title="Leads by priority" data={leadPriorityBarData(d.leadsByPriority)} stacked />
           </div>
@@ -141,6 +166,7 @@ export default async function DashboardPage() {
             extra={<SuperAdminPeriodDropdown />}
           />
           <MarketingHeadSummaryTiles />
+          <BestClientsCard />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <EntriesChartCard />
@@ -183,6 +209,11 @@ export default async function DashboardPage() {
           />
           <PreSalesSummaryTiles />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <EntriesChartCard />
+            <PaymentsByClientCard />
+          </div>
+          <BestClientsCard />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <ChartCard title="Pipeline by status" data={leadStatusBarData(d.leadsByStatus)} />
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
               <p className="mb-3 text-sm font-semibold text-zinc-900">Recently updated leads</p>
@@ -217,6 +248,11 @@ export default async function DashboardPage() {
           extra={<SuperAdminPeriodDropdown />}
         />
         <SalespersonSummaryTiles />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <EntriesChartCard />
+          <PaymentsByClientCard />
+        </div>
+        <BestClientsCard />
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
           <p className="mb-3 text-sm font-semibold text-zinc-900">Upcoming visits ({d.upcomingVisits.length})</p>
           {d.upcomingVisits.length === 0 ? (

@@ -11,18 +11,18 @@ const options = [
 describe("CustomSelect", () => {
   it("shows the placeholder when nothing is selected, and the matching label (plus icon) once a value is set", () => {
     const { rerender } = render(<CustomSelect value="" onChange={vi.fn()} options={options} placeholder="Pick one" />);
-    expect(screen.getByRole("button")).toHaveTextContent("Pick one");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Pick one");
 
     rerender(<CustomSelect value="a" onChange={vi.fn()} options={options} placeholder="Pick one" />);
-    expect(screen.getByRole("button")).toHaveTextContent("Option A");
-    expect(screen.getByRole("button").querySelector("img")).toHaveAttribute("src", "/icons/a.svg");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Option A");
+    expect(screen.getByRole("combobox").querySelector("img")).toHaveAttribute("src", "/icons/a.svg");
   });
 
   it("opens on click, lists every option, and calls onChange with the clicked option's value", () => {
     const onChange = vi.fn();
     render(<CustomSelect value="" onChange={onChange} options={options} />);
 
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("combobox"));
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: "Option B" }));
 
@@ -38,26 +38,26 @@ describe("CustomSelect", () => {
       </div>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /—/ }));
+    fireEvent.click(screen.getByRole("combobox"));
     expect(screen.getByRole("listbox")).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole("button", { name: "outside" }));
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /—/ }));
+    fireEvent.click(screen.getByRole("combobox"));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
   it("only shows a search box once there are enough options to search through, and filters by it", () => {
     render(<CustomSelect value="" onChange={vi.fn()} options={options} />);
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("combobox"));
     expect(screen.queryByLabelText(/search options/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: "Option A" }));
 
     const manyOptions = Array.from({ length: 10 }, (_, i) => ({ value: String(i), label: `Choice ${i}` }));
     render(<CustomSelect value="" onChange={vi.fn()} options={manyOptions} />);
-    fireEvent.click(screen.getAllByRole("button")[1]);
+    fireEvent.click(screen.getAllByRole("combobox")[1]);
 
     const search = screen.getByLabelText(/search options/i);
     fireEvent.change(search, { target: { value: "Choice 7" } });
@@ -70,7 +70,7 @@ describe("CustomSelect", () => {
     window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
 
     render(<CustomSelect value="b" onChange={vi.fn()} options={options} />);
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("combobox"));
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
     expect(screen.getByRole("option", { name: "Option B" })).toHaveAttribute("aria-selected", "true");

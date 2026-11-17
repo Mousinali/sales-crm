@@ -59,7 +59,7 @@ export default function Timeline({ entries, emptyText }: { entries: TimelineEntr
             </span>
             {index < entries.length - 1 && <span className="w-px flex-1 bg-zinc-200" aria-hidden="true" />}
           </div>
-          <div className={`flex flex-1 flex-col gap-0.5 ${index < entries.length - 1 ? "pb-5" : ""}`}>
+          <div className={`flex flex-1 flex-col justify-center gap-0.5 ${index < entries.length - 1 ? "min-h-13 pb-5" : "min-h-8"}`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <p className="text-sm font-medium text-zinc-900">{entry.title}</p>
               <time className="text-xs text-zinc-400">{formatTimestamp(entry.timestamp, entry.dateOnly)}</time>

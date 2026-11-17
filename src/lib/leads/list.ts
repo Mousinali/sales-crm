@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { toPagedResult, type PageParams, type PagedResult } from "@/lib/pagination";
+import { leadVisibleSql } from "./visibility";
 import type { LeadRow, LeadStatus, LeadSource, LeadPriority } from "./types";
 
 type LeadFilters = {
@@ -35,12 +36,11 @@ function buildLeadsWhere(viewer: { id: number; role: Role }, filters: LeadFilter
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  if (viewer.role === "PRE_SALES") {
+  // Only a Super Admin sees every lead; anyone else sees their own (created
+  // or owned) plus the ones an owner shared with them.
+  if (viewer.role !== "SUPER_ADMIN") {
     params.push(viewer.id);
-    conditions.push(`(leads.created_by = $${params.length} OR leads.pre_sales_owner_id = $${params.length})`);
-  } else if (viewer.role === "SALESPERSON") {
-    params.push(viewer.id);
-    conditions.push(`leads.salesperson_owner_id = $${params.length}`);
+    conditions.push(leadVisibleSql("leads", `$${params.length}`));
   }
 
   if (filters.archivedOnly) {
@@ -123,7 +123,7 @@ const OWNER_JOIN = `
 const OWNER_SELECT = `pre_sales_owner.name AS pre_sales_owner_name, salesperson_owner.name AS salesperson_owner_name`;
 
 export async function listLeads(pool: Pool, viewer: { id: number; role: Role }, filters: LeadFilters): Promise<LeadWithSale[]> {
-  if (viewer.role === "HR") return [];
+  if (viewer.role === "HR" || viewer.role === "ACCOUNTANT") return [];
 
   const { whereClause, params } = buildLeadsWhere(viewer, filters);
   const { rows } = await pool.query<LeadWithSale>(
@@ -140,7 +140,7 @@ export async function listLeadsPage(
   page: PageParams,
   sort?: { sortBy?: LeadSortColumn; sortDir?: "asc" | "desc" },
 ): Promise<PagedResult<LeadWithSale>> {
-  if (viewer.role === "HR") return { items: [], page: page.page, pageSize: page.pageSize, total: 0, totalPages: 1 };
+  if (viewer.role === "HR" || viewer.role === "ACCOUNTANT") return { items: [], page: page.page, pageSize: page.pageSize, total: 0, totalPages: 1 };
 
   const { whereClause, params } = buildLeadsWhere(viewer, filters);
   const { rows } = await pool.query<LeadWithSale & { total_count: number }>(

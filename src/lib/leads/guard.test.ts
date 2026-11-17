@@ -7,7 +7,6 @@ import { createUser } from "@/lib/users/create";
 import { createLead } from "./create";
 import { assertLeadVisible } from "./guard";
 import { LeadNotFoundError, LeadNotAccessibleError } from "./errors";
-import { scheduleVisit } from "@/lib/visits/schedule";
 
 const adminEmail = `guard-admin-${Date.now()}@example.com`;
 let mhId: number;
@@ -39,6 +38,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM lead_shares WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM notifications WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM client_visits WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
@@ -51,12 +51,28 @@ afterAll(async () => {
 });
 
 describe("assertLeadVisible", () => {
-  it("returns the lead for its owner/creator, Marketing Head, or Super Admin", async () => {
+  it("returns the lead for its owner/creator or a Super Admin", async () => {
     await expect(assertLeadVisible(pool, { id: preSalesId, role: "PRE_SALES" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
-    await expect(assertLeadVisible(pool, { id: mhId, role: "MARKETING_HEAD" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
+    await expect(assertLeadVisible(pool, { id: 1, role: "SUPER_ADMIN" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
   });
 
-  it("rejects a Pre-sales user who neither created nor owns the lead", async () => {
+  it("rejects a Marketing Head who neither created nor owns the lead", async () => {
+    await expect(assertLeadVisible(pool, { id: mhId, role: "MARKETING_HEAD" }, myLead.id)).rejects.toThrow(LeadNotAccessibleError);
+  });
+
+  it("rejects HR and Accountant outright", async () => {
+    await expect(assertLeadVisible(pool, { id: mhId, role: "HR" }, myLead.id)).rejects.toThrow(LeadNotAccessibleError);
+    await expect(assertLeadVisible(pool, { id: mhId, role: "ACCOUNTANT" }, myLead.id)).rejects.toThrow(LeadNotAccessibleError);
+  });
+
+  it("lets a shared user view the lead, but not as an owner", async () => {
+    await pool.query("INSERT INTO lead_shares (lead_id, user_id, shared_by) VALUES ($1, $2, $3)", [myLead.id, otherPreSalesId, preSalesId]);
+    await expect(assertLeadVisible(pool, { id: otherPreSalesId, role: "PRE_SALES" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
+    await expect(assertLeadVisible(pool, { id: otherPreSalesId, role: "PRE_SALES" }, myLead.id, { requireOwner: true })).rejects.toThrow(LeadNotAccessibleError);
+    await pool.query("DELETE FROM lead_shares WHERE lead_id = $1", [myLead.id]);
+  });
+
+  it("rejects a Pre-sales user who neither created nor owns the lead (and isn't shared on it)", async () => {
     await expect(assertLeadVisible(pool, { id: otherPreSalesId, role: "PRE_SALES" }, myLead.id)).rejects.toThrow(LeadNotAccessibleError);
   });
 
@@ -65,15 +81,10 @@ describe("assertLeadVisible", () => {
   });
 
   it("allows a Salesperson who has a client visit scheduled on the lead, even without ownership", async () => {
-    await scheduleVisit(pool, {
-      actorId: mhId,
-      actorRole: "MARKETING_HEAD",
-      leadId: myLead.id,
-      salespersonId,
-      visitDate: "2026-12-15",
-      startTime: "10:00",
-      objective: "Demo",
-    });
+    await pool.query(
+      "INSERT INTO client_visits (lead_id, salesperson_id, visit_date, start_time, objective, created_by) VALUES ($1, $2, '2026-12-15', '10:00', 'Demo', $3)",
+      [myLead.id, salespersonId, mhId],
+    );
     await expect(assertLeadVisible(pool, { id: salespersonId, role: "SALESPERSON" }, myLead.id)).resolves.toMatchObject({ id: myLead.id });
   });
 

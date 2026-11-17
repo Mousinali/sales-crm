@@ -7,18 +7,14 @@ import { parseErrorMessage } from "@/lib/parseErrorMessage";
 
 // Scoped to the period picked in SuperAdminPeriodDropdown (shared via
 // SuperAdminPeriodProvider) — same wiring as SuperAdminSummaryTiles, for
-// the Marketing Head welcome row's 8 stat tiles instead of 4.
+// the Marketing Head welcome row's 4 stat tiles.
 export default function MarketingHeadSummaryTiles() {
   const { period } = useSuperAdminPeriod();
   const [summary, setSummary] = useState<{
     totalLeads: number;
-    pendingReviewLeads: number;
-    qualifiedLeads: number;
-    convertedLeads: number;
-    upcomingVisits: number;
-    missedVisits: number;
-    transferHistoryCount: number;
-    conversionRate: number;
+    totalVisits: number;
+    mySales: number;
+    myPayments: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,14 +44,10 @@ export default function MarketingHeadSummaryTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <StatTile label="Total sales" value={`₹${(summary?.mySales ?? 0).toLocaleString("en-IN")}`} icon="ri-money-rupee-circle-line" tone="emerald" />
+      <StatTile label="Total payments" value={`₹${(summary?.myPayments ?? 0).toLocaleString("en-IN")}`} icon="ri-hand-coin-line" tone="violet" />
       <StatTile label="Total leads" value={summary?.totalLeads ?? 0} icon="ri-contacts-line" tone="brand" />
-      <StatTile label="Awaiting review" value={summary?.pendingReviewLeads ?? 0} icon="ri-time-line" tone="amber" />
-      <StatTile label="Qualified" value={summary?.qualifiedLeads ?? 0} icon="ri-shield-check-line" tone="sky" />
-      <StatTile label="Converted" value={summary?.convertedLeads ?? 0} icon="ri-trophy-line" tone="emerald" />
-      <StatTile label="Conversion rate" value={`${((summary?.conversionRate ?? 0) * 100).toFixed(1)}%`} icon="ri-pie-chart-line" tone="violet" />
-      <StatTile label="Upcoming visits" value={summary?.upcomingVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
-      <StatTile label="Missed visits" value={summary?.missedVisits ?? 0} icon="ri-calendar-close-line" tone="rose" />
-      <StatTile label="Transfer history" value={summary?.transferHistoryCount ?? 0} icon="ri-arrow-left-right-line" tone="zinc" />
+      <StatTile label="Total visits" value={summary?.totalVisits ?? 0} icon="ri-calendar-event-line" tone="teal" />
     </div>
   );
 }
