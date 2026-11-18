@@ -99,7 +99,7 @@ describe("createTask / listTasks", () => {
       dueAt: new Date(Date.now() - 86_400_000),
     });
     taskIds.push(task.id);
-    await updateTask(pool, { actorId: salespersonId, taskId: task.id, status: "COMPLETED" });
+    await updateTask(pool, { actorId: salespersonId, actorRole: "SALESPERSON", taskId: task.id, status: "COMPLETED" });
 
     const overdueList = await listTasks(pool, { id: salespersonId, role: "SALESPERSON" }, { dueWithin: "OVERDUE" });
     expect(overdueList.some((t) => t.id === task.id)).toBe(false);
@@ -174,14 +174,35 @@ describe("updateTask", () => {
   it("lets the assigned user update status, setting completed_at when COMPLETED", async () => {
     const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", dueAt: new Date() });
     taskIds.push(task.id);
-    const updated = await updateTask(pool, { actorId: salespersonId, taskId: task.id, status: "COMPLETED" });
+    const updated = await updateTask(pool, { actorId: salespersonId, actorRole: "SALESPERSON", taskId: task.id, status: "COMPLETED" });
     expect(updated.completed_at).not.toBeNull();
+  });
+
+  it("lets the assignee edit details, clear the description and hand the task to another user", async () => {
+    const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", description: "old", dueAt: new Date() });
+    taskIds.push(task.id);
+    const updated = await updateTask(pool, {
+      actorId: salespersonId,
+      actorRole: "SALESPERSON",
+      taskId: task.id,
+      title: "Y",
+      description: "",
+      assignedUserId: otherSalespersonId,
+    });
+    expect(updated).toMatchObject({ title: "Y", description: null, assigned_user_id: otherSalespersonId });
+  });
+
+  it("lets the creator re-assign a task they gave to someone else", async () => {
+    const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", dueAt: new Date() });
+    taskIds.push(task.id);
+    const updated = await updateTask(pool, { actorId: mhId, actorRole: "MARKETING_HEAD", taskId: task.id, assignedUserId: otherSalespersonId });
+    expect(updated.assigned_user_id).toBe(otherSalespersonId);
   });
 
   it("rejects a user updating someone else's task", async () => {
     const task = await createTask(pool, { creatorId: mhId, actorRole: "MARKETING_HEAD", assignedUserId: salespersonId, title: "X", dueAt: new Date() });
     taskIds.push(task.id);
-    await expect(updateTask(pool, { actorId: otherSalespersonId, taskId: task.id, status: "COMPLETED" })).rejects.toThrow(
+    await expect(updateTask(pool, { actorId: otherSalespersonId, actorRole: "SALESPERSON", taskId: task.id, status: "COMPLETED" })).rejects.toThrow(
       TaskNotAccessibleError,
     );
   });

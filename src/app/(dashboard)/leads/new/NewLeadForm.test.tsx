@@ -48,7 +48,7 @@ describe("NewLeadForm", () => {
     next();
 
     // Step 3 — Contact
-    fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "9000000123" } });
     fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });
     next();
 
@@ -117,5 +117,27 @@ describe("NewLeadForm", () => {
     render(<NewLeadForm serviceOptions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(push).toHaveBeenCalledWith("/leads");
+  });
+
+  it("keeps only digits in phone, WhatsApp and pincode, and blocks an invalid email before submitting", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ duplicates: [] })));
+    render(<NewLeadForm serviceOptions={[]} />);
+    const next = () => fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+    fireEvent.change(screen.getByLabelText(/^company$/i), { target: { value: "Digits Co" } });
+    next();
+    fireEvent.change(screen.getByLabelText(/pincode/i), { target: { value: "56a0-001" } });
+    expect((screen.getByLabelText(/pincode/i) as HTMLInputElement).value).toBe("560001");
+    next();
+    fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: "+91 98765-abc43210" } });
+    expect((screen.getByLabelText(/^phone$/i) as HTMLInputElement).value).toBe("919876543210");
+    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "98x76" } });
+    expect((screen.getByLabelText(/whatsapp number/i) as HTMLInputElement).value).toBe("9876");
+    next(); // WhatsApp is too short
+    expect(screen.getByRole("alert")).toHaveTextContent(/digit phone number/i);
+    fireEvent.change(screen.getByLabelText(/whatsapp number/i), { target: { value: "9876543210" } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: "not-an-email" } });
+    next();
+    expect(screen.getByRole("alert")).toHaveTextContent(/valid email/i);
+    expect(fetchSpy.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false);
   });
 });

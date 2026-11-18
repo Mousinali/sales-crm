@@ -18,11 +18,6 @@ import CustomSelect from "@/components/ui/CustomSelect";
 // slice of the already-fetched array rather than a paginated query.
 const PAGE_SIZE = 20;
 
-const STATUS_BADGE_CLASSES: Record<ServiceStatus, string> = {
-  ACTIVE: "bg-emerald-50 text-emerald-700",
-  INACTIVE: "bg-zinc-100 text-zinc-600",
-};
-
 export default function ServicesView({ initialServices }: { initialServices: ServiceRow[] }) {
   const [services, setServices] = useState<ServiceRow[]>(initialServices);
   const [page, setPage] = useState(1);
@@ -145,6 +140,41 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
     }
   }
 
+  async function toggleStatus(service: ServiceRow) {
+    const status: ServiceStatus = service.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    try {
+      const response = await fetch(`/api/services/${service.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        toast.error("Could not update status", await parseErrorMessage(response, "Could not update status."));
+        return;
+      }
+      const updated: ServiceRow = await response.json();
+      setServices((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+    } catch {
+      toast.error("Could not update status");
+    }
+  }
+
+  function StatusSwitch({ service }: { service: ServiceRow }) {
+    const on = service.status === "ACTIVE";
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={on ? "Deactivate service" : "Activate service"}
+        onClick={() => toggleStatus(service)}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ${on ? "bg-emerald-500" : "bg-zinc-300"}`}
+      >
+        <span aria-hidden="true" className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`} />
+      </button>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
@@ -169,12 +199,12 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
               className="w-full rounded-md border border-zinc-300 py-2 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+          <div className="flex w-full shrink-0 items-center gap-2 sm:ml-auto sm:w-auto">
             <RefreshButton onRefresh={refetch} />
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-1 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-1 text-sm sm:flex-none font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
             >
               <i className="ri-add-line text-base" aria-hidden="true" />
               New service
@@ -182,7 +212,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto sm:block">
           <table className="table-responsive min-w-full divide-y divide-zinc-200 text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
@@ -219,18 +249,14 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
               )}
               {pageServices.map((service) => (
                 <tr key={service.id} className="transition-colors hover:bg-zinc-50/80">
-                  <td data-label="Name" className="px-4 py-3 font-medium text-zinc-900">{service.name}</td>
-                  <td data-label="Description" className="px-4 py-3 text-zinc-600">
+                  <td data-label="Name" className="px-4 py-1.5 font-medium text-zinc-900">{service.name}</td>
+                  <td data-label="Description" className="px-4 py-1.5 text-zinc-600">
                     {service.description ? <FormattedText text={service.description} /> : "—"}
                   </td>
-                  <td data-label="Status" className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[service.status]}`}
-                    >
-                      {service.status === "ACTIVE" ? "Active" : "Inactive"}
-                    </span>
+                  <td data-label="Status" className="px-4 py-1.5">
+                    {StatusSwitch({ service })}
                   </td>
-                  <td data-label="" className="px-4 py-3 text-right">
+                  <td data-label="" className="px-4 py-1.5 text-right">
                     <button
                       type="button"
                       onClick={() => openEdit(service)}
@@ -243,6 +269,37 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
               ))}
             </tbody>
           </table>
+        </div>
+        {/* Phone: compact cards instead of the label/value stacked table rows. */}
+        <div className="flex flex-col gap-3 bg-zinc-50 p-3 sm:hidden">
+          {filteredServices.length === 0 && (
+            <p className="px-1 py-6 text-center text-sm text-zinc-500">
+              {services.length === 0 ? "No services yet." : "No services match your search."}
+            </p>
+          )}
+          {pageServices.map((service) => (
+            <div key={service.id} className="rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-zinc-900">{service.name}</p>
+                {StatusSwitch({ service })}
+              </div>
+              {service.description && (
+                <div className="mt-1 line-clamp-3 text-xs text-zinc-600">
+                  <FormattedText text={service.description} />
+                </div>
+              )}
+              <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => openEdit(service)}
+                  className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                >
+                  <i className="ri-pencil-line" aria-hidden="true" />
+                  Edit
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
         <Pagination page={page} totalPages={totalPages} total={filteredServices.length} onChange={setPage} />
       </div>

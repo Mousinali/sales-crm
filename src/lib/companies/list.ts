@@ -5,7 +5,7 @@ import type { CompanySummary } from "./types";
 
 // Roles that see every company get no scope; the rest are scoped to their visible leads.
 export function viewerScope(user: { id: number; role: string }): number | undefined {
-  return user.role === "SUPER_ADMIN" || user.role === "ACCOUNTANT" ? undefined : user.id;
+  return user.role === "SUPER_ADMIN" || user.role === "ACCOUNTANT" || user.role === "HR" ? undefined : user.id;
 }
 
 type CompanyFilters = {
@@ -48,7 +48,7 @@ export async function listCompaniesPage(pool: Pool, filters: CompanyFilters, pag
     `SELECT *, count(*) OVER() AS total_count FROM (
        SELECT DISTINCT ON (company_name_normalized)
          company_name_normalized, company_name, industry, business_type, location,
-         address, state, pincode, country, phone, email, website,
+         address, state, pincode, country, phone, email, website, lead_source,
          created_at AS latest_lead_at,
          count(*) OVER (PARTITION BY company_name_normalized) AS lead_count
        FROM leads

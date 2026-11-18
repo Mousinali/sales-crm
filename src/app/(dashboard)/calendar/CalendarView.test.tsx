@@ -52,9 +52,7 @@ describe("CalendarView month grid", () => {
     const today = new Date();
     fireEvent.click(screen.getByTestId("today-cell"));
 
-    const startsAtInput = await screen.findByLabelText(/date & time/i);
-    expect((startsAtInput as HTMLInputElement).value).toContain(
-      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
-    );
+    const startsAtButton = await screen.findByLabelText(/date & time/i);
+    expect(startsAtButton).toHaveTextContent(today.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }));
   });
 });

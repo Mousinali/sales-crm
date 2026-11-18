@@ -12,6 +12,8 @@ import RichTextField from "@/components/ui/RichTextField";
 import MoneyInput from "@/components/ui/MoneyInput";
 import type { ServiceRow } from "@/lib/services/types";
 import type { SaleLeadOption } from "@/lib/sales/leadOptions";
+import DigitsInput from "@/components/ui/DigitsInput";
+import { firstError, digitsOnly, isValidPhone, isValidEmail, PHONE_MESSAGE, EMAIL_MESSAGE } from "@/lib/validation";
 
 const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
   ONE_TIME: "One time",
@@ -124,6 +126,15 @@ export default function NewSaleForm({ serviceOptions, isAccountant }: { serviceO
       setCreateError("Choose a company from the lead list, or enter a company name.");
       return;
     }
+    const invalid = firstError([
+      ["phone", phone, isValidPhone, PHONE_MESSAGE],
+      ["email", email, isValidEmail, EMAIL_MESSAGE],
+    ]);
+    if (invalid) {
+      setCreateError(invalid.message);
+      document.getElementById(invalid.fieldId)?.focus();
+      return;
+    }
     const amount = Number(budgetAmount);
     if (!budgetAmount.trim() || !Number.isFinite(amount) || amount <= 0) {
       setCreateError("Enter a budget amount greater than 0.");
@@ -229,11 +240,11 @@ export default function NewSaleForm({ serviceOptions, isAccountant }: { serviceO
           <label htmlFor="phone" className="text-sm font-medium text-zinc-700">
             Phone
           </label>
-          <input
+          <DigitsInput
             id="phone"
-            type="text"
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            onValueChange={setPhone}
+            maxLength={15}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>

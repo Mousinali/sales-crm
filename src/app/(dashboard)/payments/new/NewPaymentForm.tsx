@@ -9,6 +9,8 @@ import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import MoneyInput from "@/components/ui/MoneyInput";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { SALE_PAYMENT_METHODS, type SalePaymentMethod } from "@/lib/sales/types";
+import DigitsInput from "@/components/ui/DigitsInput";
+import { isValidAccountNumber, ACCOUNT_MESSAGE } from "@/lib/validation";
 
 const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
   CASH: "Cash",
@@ -68,6 +70,12 @@ export default function NewPaymentForm() {
     const value = Number(amount);
     if (!amount.trim() || !Number.isFinite(value) || value <= 0) {
       setCreateError("Enter an amount greater than 0.");
+      return;
+    }
+
+    if (METHODS_WITH_ACCOUNT_NUMBER.includes(paymentMethod) && accountNumber.trim() && !isValidAccountNumber(accountNumber.trim())) {
+      setCreateError(ACCOUNT_MESSAGE);
+      document.getElementById("accountNumber")?.focus();
       return;
     }
 
@@ -181,11 +189,11 @@ export default function NewPaymentForm() {
             <label htmlFor="accountNumber" className="text-sm font-medium text-zinc-700">
               Account number
             </label>
-            <input
+            <DigitsInput
               id="accountNumber"
-              type="text"
               value={accountNumber}
-              onChange={(event) => setAccountNumber(event.target.value)}
+              onValueChange={setAccountNumber}
+              maxLength={18}
               className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>

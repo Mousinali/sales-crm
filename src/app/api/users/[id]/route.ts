@@ -4,15 +4,16 @@ import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { updateUserProfile, setUserStatus, archiveUser } from "@/lib/users/update";
 import { RoleNotManageableError, UserNotFoundError, EmailAlreadyExistsError, UserActionNotAllowedError } from "@/lib/users/errors";
+import { phoneSchema, optionalPhoneSchema, emailSchema } from "@/lib/validation";
 
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
-    email: z.string().trim().email().optional(),
+    email: emailSchema.optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
     employeeId: z.string().trim().optional(),
-    phone: z.string().trim().optional(),
-    whatsappNumber: z.string().trim().optional(),
+    phone: optionalPhoneSchema.optional(),
+    whatsappNumber: optionalPhoneSchema.optional(),
     designation: z.string().trim().optional(),
   })
   .refine(

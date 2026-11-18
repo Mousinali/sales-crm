@@ -22,8 +22,8 @@ describe("ServicesView", () => {
 
   it("renders the initial service list", () => {
     render(<ServicesView initialServices={sampleServices} />);
-    expect(screen.getByText("Bulk SMS")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getAllByText("Bulk SMS").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("switch", { name: /deactivate service/i }).length).toBeGreaterThan(0);
   });
 
   it("debounces the search: the box updates at once, the list only after a pause", async () => {
@@ -34,10 +34,10 @@ describe("ServicesView", () => {
     // The typed text appears immediately while the row is still listed — that
     // gap is the debounce; without it the table re-filters on every keystroke.
     expect(box.value).toBe("zzz");
-    expect(screen.getByText("Bulk SMS")).toBeInTheDocument();
+    expect(screen.getAllByText("Bulk SMS").length).toBeGreaterThan(0);
 
-    await waitFor(() => expect(screen.queryByText("Bulk SMS")).toBeNull());
-    expect(screen.getByText(/no services match your search/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryAllByText("Bulk SMS")).toHaveLength(0));
+    expect(screen.getAllByText(/no services match your search/i).length).toBeGreaterThan(0);
   });
 
   it("creates a new service", async () => {
@@ -48,17 +48,16 @@ describe("ServicesView", () => {
     fireEvent.click(screen.getByRole("button", { name: /new service/i }));
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: "App Development" } });
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
-    expect(await screen.findByText("App Development")).toBeInTheDocument();
+    expect((await screen.findAllByText("App Development")).length).toBeGreaterThan(0);
   });
 
-  it("edits a service's status", async () => {
+  it("toggles a service's status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ id: 1, name: "Bulk SMS", description: "Reach thousands in seconds", status: "INACTIVE" })),
     );
     render(<ServicesView initialServices={sampleServices} />);
-    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
-    fireEvent.change(screen.getByLabelText(/status/i), { target: { value: "INACTIVE" } });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
-    await waitFor(() => expect(screen.getByText("Inactive")).toBeInTheDocument());
+    // The phone cards and the table each render a switch; either toggles the same service.
+    fireEvent.click(screen.getAllByRole("switch", { name: /deactivate service/i })[0]);
+    await waitFor(() => expect(screen.getAllByRole("switch", { name: /^activate service/i }).length).toBeGreaterThan(0));
   });
 });

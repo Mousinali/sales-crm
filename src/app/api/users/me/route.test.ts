@@ -33,7 +33,7 @@ function patchMe(body: unknown, cookie?: string) {
 
 describe("PATCH /api/users/me", () => {
   it("rejects an unauthenticated request", async () => {
-    const response = await patchMe({ phone: "123" });
+    const response = await patchMe({ phone: "9000000123" });
     expect(response.status).toBe(401);
   });
 
@@ -44,7 +44,7 @@ describe("PATCH /api/users/me", () => {
 
   it("saves the caller's own phone and WhatsApp number", async () => {
     const response = await patchMe(
-      { phone: "555-0100", whatsappNumber: "555-0199" },
+      { phone: "9000000100", whatsappNumber: "9000000199" },
       `${SESSION_COOKIE_NAME}=${token}`,
     );
     expect(response.status).toBe(200);
@@ -53,6 +53,6 @@ describe("PATCH /api/users/me", () => {
       "SELECT phone, whatsapp_number FROM users WHERE id = $1",
       [userId],
     );
-    expect(rows[0]).toEqual({ phone: "555-0100", whatsapp_number: "555-0199" });
+    expect(rows[0]).toEqual({ phone: "9000000100", whatsapp_number: "9000000199" });
   });
 });

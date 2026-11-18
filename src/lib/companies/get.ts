@@ -97,6 +97,7 @@ export async function getCompany(
     phone: latest.phone,
     email: latest.email,
     website: latest.website,
+    lead_source: latest.lead_source,
     lead_count: leads.length,
     latest_lead_at: latest.created_at,
   };

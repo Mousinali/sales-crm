@@ -15,6 +15,10 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import CustomSelect from "@/components/ui/CustomSelect";
+import DigitsInput from "@/components/ui/DigitsInput";
+import { firstError, digitsOnly, isValidPhone, isValidEmail, PHONE_MESSAGE, EMAIL_MESSAGE } from "@/lib/validation";
+import { useViewportPageSize } from "@/lib/useViewportPageSize";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 type StatusFilter = "ACTIVE" | "INACTIVE" | "";
 
@@ -86,6 +90,8 @@ export default function TeamView({
   const [tempPasswordReveal, setTempPasswordReveal] = useState<TempPasswordReveal | null>(null);
   const [copyLabel, setCopyLabel] = useState("Copy");
 
+  const pageSizeRef = useViewportPageSize(61, 352);
+
   async function refetch(overrides?: { search?: string; roleFilter?: Role | ""; statusFilter?: StatusFilter; page?: number }) {
     const effectiveSearch = overrides?.search ?? search;
     const effectiveRole = overrides?.roleFilter ?? roleFilter;
@@ -97,6 +103,7 @@ export default function TeamView({
     if (effectiveStatus) params.set("status", effectiveStatus);
     if (effectiveSearch.trim()) params.set("q", effectiveSearch.trim());
     params.set("page", String(targetPage));
+    params.set("pageSize", String(pageSizeRef.current));
 
     setListError(null);
     try {
@@ -123,6 +130,12 @@ export default function TeamView({
   // Re-searches automatically once typing pauses, instead of making the
   // user hit Enter — the initial mount's "pause" is skipped so it doesn't
   // immediately re-fetch the page the server already rendered.
+  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  useEffect(() => {
+    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
   useEffect(() => {
@@ -165,6 +178,16 @@ export default function TeamView({
     }
     if (!createEmail.trim()) {
       setCreateError("Enter an email.");
+      return;
+    }
+    const invalid = firstError([
+      ["createEmail", createEmail, isValidEmail, EMAIL_MESSAGE],
+      ["createPhone", createPhone, isValidPhone, PHONE_MESSAGE],
+      ["createWhatsapp", createWhatsapp, isValidPhone, PHONE_MESSAGE],
+    ]);
+    if (invalid) {
+      setCreateError(invalid.message);
+      document.getElementById(invalid.fieldId)?.focus();
       return;
     }
 
@@ -211,8 +234,8 @@ export default function TeamView({
     setEditName(user.name);
     setEditEmail(user.email);
     setEditEmployeeId(user.employee_id ?? "");
-    setEditPhone(user.phone ?? "");
-    setEditWhatsapp(user.whatsapp_number ?? "");
+    setEditPhone(digitsOnly(user.phone ?? "", 15));
+    setEditWhatsapp(digitsOnly(user.whatsapp_number ?? "", 15));
     setEditDesignation(user.designation ?? "");
     setEditError(null);
   }
@@ -231,6 +254,16 @@ export default function TeamView({
     }
     if (!editEmail.trim()) {
       setEditError("Enter an email.");
+      return;
+    }
+    const invalid = firstError([
+      ["editEmail", editEmail, isValidEmail, EMAIL_MESSAGE],
+      ["editPhone", editPhone, isValidPhone, PHONE_MESSAGE],
+      ["editWhatsapp", editWhatsapp, isValidPhone, PHONE_MESSAGE],
+    ]);
+    if (invalid) {
+      setEditError(invalid.message);
+      document.getElementById(invalid.fieldId)?.focus();
       return;
     }
 
@@ -702,11 +735,11 @@ export default function TeamView({
                 <label htmlFor="createPhone" className="text-sm font-medium text-zinc-700">
                   Contact number
                 </label>
-                <input
+                <DigitsInput
                   id="createPhone"
-                  type="text"
                   value={createPhone}
-                  onChange={(event) => setCreatePhone(event.target.value)}
+                  onValueChange={setCreatePhone}
+                  maxLength={15}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
@@ -715,11 +748,11 @@ export default function TeamView({
                 <label htmlFor="createWhatsapp" className="text-sm font-medium text-zinc-700">
                   WhatsApp number
                 </label>
-                <input
+                <DigitsInput
                   id="createWhatsapp"
-                  type="text"
                   value={createWhatsapp}
-                  onChange={(event) => setCreateWhatsapp(event.target.value)}
+                  onValueChange={setCreateWhatsapp}
+                  maxLength={15}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
@@ -813,11 +846,11 @@ export default function TeamView({
                 <label htmlFor="editPhone" className="text-sm font-medium text-zinc-700">
                   Contact number
                 </label>
-                <input
+                <DigitsInput
                   id="editPhone"
-                  type="text"
                   value={editPhone}
-                  onChange={(event) => setEditPhone(event.target.value)}
+                  onValueChange={setEditPhone}
+                  maxLength={15}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>
@@ -826,11 +859,11 @@ export default function TeamView({
                 <label htmlFor="editWhatsapp" className="text-sm font-medium text-zinc-700">
                   WhatsApp number
                 </label>
-                <input
+                <DigitsInput
                   id="editWhatsapp"
-                  type="text"
                   value={editWhatsapp}
-                  onChange={(event) => setEditWhatsapp(event.target.value)}
+                  onValueChange={setEditWhatsapp}
+                  maxLength={15}
                   className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 />
               </div>

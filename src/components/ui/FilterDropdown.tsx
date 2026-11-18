@@ -10,7 +10,7 @@ function OptionIcon({ icon }: { icon: string }) {
     // eslint-disable-next-line @next/next/no-img-element -- a small fixed icon asset, not a user image next/image would optimize.
     return <img src={icon} alt="" className="h-4 w-4 shrink-0" aria-hidden="true" />;
   }
-  return <i className={`${icon} shrink-0 text-base text-brand-600`} aria-hidden="true" />;
+  return <i className={`${icon} shrink-0 text-base leading-none text-brand-600`} aria-hidden="true" />;
 }
 
 // A pill button + menu, same shape as the dashboard's period dropdown —
@@ -67,14 +67,14 @@ export default function FilterDropdown<T extends string>({
           <OptionIcon icon={optionIcons?.[value] ?? icon} />
           <span className="truncate">{selectedLabel}</span>
         </span>
-        <i className="ri-arrow-down-s-line shrink-0 text-zinc-400" aria-hidden="true" />
+        <i className="ri-arrow-down-s-line shrink-0 leading-none text-zinc-400" aria-hidden="true" />
       </button>
       {open && (
         <>
           <button type="button" aria-label={`Close ${ariaLabel.toLowerCase()} menu`} onClick={close} className="fixed inset-0 z-40 cursor-default" />
           <div
             className={`absolute left-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-lg ${
-              fullWidth ? "w-full" : "w-40"
+              fullWidth ? "w-full" : "w-max min-w-40"
             }`}
           >
             {searchable && (

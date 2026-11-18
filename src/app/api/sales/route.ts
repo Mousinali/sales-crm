@@ -7,13 +7,14 @@ import { createSale } from "@/lib/sales/create";
 import { listSalesPage } from "@/lib/sales/list";
 import { parsePageParams } from "@/lib/pagination";
 import { SaleActionNotAllowedError, SaleNotFoundError, SaleNotAccessibleError } from "@/lib/sales/errors";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
 
 const createSaleSchema = z.object({
   leadId: z.number().int().optional(),
   companyName: z.string().trim().min(1).optional(),
   contactPerson: z.string().trim().min(1).optional(),
-  phone: z.string().trim().min(1).optional(),
-  email: z.string().trim().email().optional(),
+  phone: phoneSchema.optional(),
+  email: emailSchema.optional(),
   address: z.string().trim().min(1).optional(),
   budgetAmount: z.number().positive(),
   budgetType: z.enum(SALE_BUDGET_TYPES),

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import LeadDetailView from "./LeadDetailView";
 import type { LeadRow } from "@/lib/leads/types";
 import type { VisitRow } from "@/lib/visits/types";
@@ -166,7 +166,8 @@ describe("LeadDetailView", () => {
     fireEvent.click(screen.getByLabelText(/^date$/i));
     fireEvent.click(screen.getByRole("button", { name: /next month/i }));
     fireEvent.click(screen.getByRole("button", { name: /December 1st, 2026/i }));
-    fireEvent.change(screen.getByLabelText(/^time$/i), { target: { value: "10:00" } });
+    fireEvent.click(screen.getByLabelText(/^time$/i));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Hour" })).getByRole("button", { name: "10" }));
     fireEvent.change(screen.getByLabelText(/objective/i), { target: { value: "Demo" } });
     const scheduleButtons = screen.getAllByRole("button", { name: /^schedule visit$/i });
     fireEvent.click(scheduleButtons[scheduleButtons.length - 1]);

@@ -47,7 +47,8 @@ export async function createTask(
   return rows[0];
 }
 
-const ASSIGNEE_NAME = "(SELECT name FROM users WHERE id = tasks.assigned_user_id) AS assigned_user_name";
+const ASSIGNEE_NAME =
+  "(SELECT name FROM users WHERE id = tasks.assigned_user_id) AS assigned_user_name, (SELECT company_name FROM leads WHERE id = tasks.lead_id) AS lead_company_name";
 
 type TaskFilters = {
   status?: TaskStatus;
@@ -117,12 +118,17 @@ export async function updateTask(
   pool: Pool,
   input: {
     actorId: number;
+    actorRole: Role;
     taskId: number;
     status?: TaskStatus;
     title?: string;
+    /** Empty string clears it. */
     description?: string;
     dueAt?: Date;
     priority?: TaskPriority;
+    assignedUserId?: number;
+    /** null unlinks the lead. */
+    leadId?: number | null;
   },
 ): Promise<TaskRow> {
   const { rows: existingRows } = await pool.query<TaskRow>("SELECT * FROM tasks WHERE id = $1", [input.taskId]);
@@ -130,7 +136,8 @@ export async function updateTask(
   if (!existing) {
     throw new TaskNotFoundError(`No task with id ${input.taskId}`);
   }
-  if (existing.assigned_user_id !== input.actorId) {
+  // The assignee and whoever created the task can both edit or re-assign it.
+  if (existing.assigned_user_id !== input.actorId && existing.created_by !== input.actorId) {
     throw new TaskNotAccessibleError(`User ${input.actorId} cannot access task ${input.taskId}`);
   }
 
@@ -146,9 +153,18 @@ export async function updateTask(
     set("completed_at", input.status === "COMPLETED" ? new Date() : existing.completed_at);
   }
   if (input.title !== undefined) set("title", input.title);
-  if (input.description !== undefined) set("description", input.description);
+  if (input.description !== undefined) set("description", input.description || null);
   if (input.dueAt !== undefined) set("due_at", input.dueAt);
   if (input.priority !== undefined) set("priority", input.priority);
+  if (input.assignedUserId !== undefined && input.assignedUserId !== existing.assigned_user_id) {
+    const { rows } = await pool.query("SELECT 1 FROM users WHERE id = $1 AND status = 'ACTIVE'", [input.assignedUserId]);
+    if (rows.length === 0) throw new TaskActionNotAllowedError(`User ${input.assignedUserId} is not an active user`);
+    set("assigned_user_id", input.assignedUserId);
+  }
+  if (input.leadId !== undefined && input.leadId !== existing.lead_id) {
+    if (input.leadId !== null) await assertLeadVisible(pool, { id: input.actorId, role: input.actorRole }, input.leadId);
+    set("lead_id", input.leadId);
+  }
 
   if (columns.length === 0) return existing;
 

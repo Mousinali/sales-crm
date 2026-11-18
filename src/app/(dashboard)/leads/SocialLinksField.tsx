@@ -77,6 +77,7 @@ export default function SocialLinksField({
       {PLATFORMS.filter((p) => open.has(p.key)).map((p) => (
         <input
           key={p.key}
+          id={p.key}
           type="url"
           aria-label={`${p.label} profile URL`}
           value={value[p.key]}

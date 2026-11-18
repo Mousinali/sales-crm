@@ -1,5 +1,6 @@
 "use client";
 
+import DateTimeField from "@/components/ui/DateTimeField";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { toast } from "@/lib/toast";
@@ -628,13 +629,7 @@ export default function CalendarView({
                   <label htmlFor="eventStartsAt" className="text-sm font-medium text-zinc-700">
                     Date &amp; time
                   </label>
-                  <input
-                    id="eventStartsAt"
-                    type="datetime-local"
-                    value={startsAt}
-                    onChange={(event) => setStartsAt(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                  />
+                  <DateTimeField id="eventStartsAt" value={startsAt} onChange={setStartsAt} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="eventType" className="text-sm font-medium text-zinc-700">

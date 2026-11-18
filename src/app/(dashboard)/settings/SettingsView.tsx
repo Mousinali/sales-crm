@@ -5,6 +5,8 @@ import { toast } from "@/lib/toast";
 import Avatar from "@/components/ui/Avatar";
 import ChangePasswordForm from "@/app/change-password/ChangePasswordForm";
 import { compressImage } from "./compressImage";
+import DigitsInput from "@/components/ui/DigitsInput";
+import { firstError, digitsOnly, isValidPhone, isValidEmail, PHONE_MESSAGE, EMAIL_MESSAGE } from "@/lib/validation";
 
 function SettingsCard({
   title,
@@ -43,8 +45,8 @@ export default function SettingsView({
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [phone, setPhone] = useState(initialPhone ?? "");
-  const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappNumber ?? "");
+  const [phone, setPhone] = useState(digitsOnly(initialPhone ?? "", 15));
+  const [whatsappNumber, setWhatsappNumber] = useState(digitsOnly(initialWhatsappNumber ?? "", 15));
   const [savingContact, setSavingContact] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
 
@@ -94,6 +96,15 @@ export default function SettingsView({
 
   async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const invalid = firstError([
+      ["settingsPhone", phone, isValidPhone, PHONE_MESSAGE],
+      ["settingsWhatsapp", whatsappNumber, isValidPhone, PHONE_MESSAGE],
+    ]);
+    if (invalid) {
+      setContactError(invalid.message);
+      document.getElementById(invalid.fieldId)?.focus();
+      return;
+    }
     setContactError(null);
     setSavingContact(true);
     try {
@@ -181,11 +192,11 @@ export default function SettingsView({
                   className="ri-phone-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
                   aria-hidden="true"
                 />
-                <input
+                <DigitsInput
                   id="settingsPhone"
-                  type="text"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  onValueChange={setPhone}
+                  maxLength={15}
                   placeholder="Add a contact number"
                   className="w-full rounded-xl border border-zinc-200 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
                 />
@@ -201,11 +212,11 @@ export default function SettingsView({
                   className="ri-whatsapp-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
                   aria-hidden="true"
                 />
-                <input
+                <DigitsInput
                   id="settingsWhatsapp"
-                  type="text"
                   value={whatsappNumber}
-                  onChange={(event) => setWhatsappNumber(event.target.value)}
+                  onValueChange={setWhatsappNumber}
+                  maxLength={15}
                   placeholder="Add a WhatsApp number"
                   className="w-full rounded-xl border border-zinc-200 py-2.5 pr-3 pl-10 text-base text-zinc-900 placeholder:text-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
                 />

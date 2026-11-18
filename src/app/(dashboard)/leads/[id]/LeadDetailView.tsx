@@ -1,5 +1,6 @@
 "use client";
 
+import TimeField from "@/components/ui/TimeField";
 import BalanceText from "@/components/ui/BalanceText";
 import DateField from "@/components/ui/DateField";
 import { useEffect, useState, type FormEvent } from "react";
@@ -27,6 +28,8 @@ import {
   LEAD_PRIORITY_BADGE_CLASSES,
   LEAD_PRIORITY_ICONS,
   LEAD_BUDGET_TYPE_LABELS,
+  LEAD_SOURCE_LABELS,
+  LEAD_SOURCE_ICONS,
   VISIT_STATUS_LABELS,
   VISIT_STATUS_BADGE_CLASSES,
   LEAD_ACTIVITY_DISPLAY,
@@ -767,6 +770,9 @@ export default function LeadDetailView({
               <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on" copyText={new Date(lead.created_at).toLocaleString()}>
                 {new Date(lead.created_at).toLocaleString()}
               </InfoRow>
+              <InfoRow icon={LEAD_SOURCE_ICONS[lead.lead_source] ?? "ri-global-line"} iconClass="bg-sky-100 text-sky-600" label="Lead source" copyText={LEAD_SOURCE_LABELS[lead.lead_source]}>
+                {LEAD_SOURCE_LABELS[lead.lead_source]}
+              </InfoRow>
               <InfoRow icon="ri-user-line" iconClass="bg-indigo-100 text-indigo-600" label="Created by" copyText={lead.created_by_name}>
                 {lead.created_by_name ?? "—"}
               </InfoRow>
@@ -1097,13 +1103,7 @@ export default function LeadDetailView({
                     <label htmlFor={`rescheduleTime-${visit.id}`} className="text-xs font-medium text-zinc-700">
                       New time
                     </label>
-                    <input
-                      id={`rescheduleTime-${visit.id}`}
-                      type="time"
-                      value={rescheduleStartTime}
-                      onChange={(event) => setRescheduleStartTime(event.target.value)}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                    />
+                    <TimeField id={`rescheduleTime-${visit.id}`} value={rescheduleStartTime} onChange={setRescheduleStartTime} compact />
                   </div>
                   <button
                     type="button"
@@ -1284,13 +1284,7 @@ export default function LeadDetailView({
                 <label htmlFor="visitStartTime" className="text-sm font-medium text-zinc-700">
                   Time
                 </label>
-                <input
-                  id="visitStartTime"
-                  type="time"
-                  value={visitStartTime}
-                  onChange={(event) => setVisitStartTime(event.target.value)}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
+                <TimeField id="visitStartTime" value={visitStartTime} onChange={setVisitStartTime} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">

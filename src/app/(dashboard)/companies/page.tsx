@@ -6,7 +6,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import CompaniesView from "./CompaniesView";
 
 export default async function CompaniesPage() {
-  const user = await requireRole(["SUPER_ADMIN", "ACCOUNTANT", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
+  const user = await requireRole(["SUPER_ADMIN", "ACCOUNTANT", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
   const result = await listCompaniesPage(pool, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE }, viewerScope(user));
 
   return (

@@ -9,23 +9,24 @@ import { listLeadServices } from "@/lib/leads/services";
 import { getLatestSaleForLead } from "@/lib/sales/summary";
 import { getLeadOwnerNames } from "@/lib/leads/owners";
 import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
 
 const updateLeadSchema = z
   .object({
     companyName: z.string().trim().min(1).optional(),
     contactPerson: z.string().trim().min(1).optional(),
     designation: z.string().trim().min(1).optional(),
-    phone: z.string().trim().min(1).optional(),
-    email: z.string().trim().email().optional(),
-    website: z.string().trim().min(1).optional(),
+    phone: phoneSchema.optional(),
+    email: emailSchema.optional(),
+    website: websiteSchema.optional(),
     industry: z.string().trim().min(1).optional(),
     businessType: z.string().trim().min(1).optional(),
     location: z.string().trim().min(1).optional(),
     address: z.string().trim().min(1).optional(),
     state: z.string().trim().min(1).optional(),
-    pincode: z.string().trim().min(1).optional(),
+    pincode: pincodeSchema.optional(),
     country: z.string().trim().min(1).optional(),
-    gstNumber: z.string().trim().min(1).optional(),
+    gstNumber: gstSchema.optional(),
     serviceRequirements: z.string().trim().min(1).optional(),
     serviceIds: z.array(z.number().int()).min(1).optional(),
     estimatedBudget: z.number().optional(),
@@ -33,7 +34,7 @@ const updateLeadSchema = z
     priority: z.enum(LEAD_PRIORITIES).optional(),
     nextFollowUpAt: z.coerce.date().optional(),
     notes: z.string().trim().min(1).optional(),
-    whatsappNumber: z.string().trim().min(1).optional(),
+    whatsappNumber: phoneSchema.optional(),
     remarks: z.string().trim().min(1).optional(),
     youtubeUrl: z.string().trim().url().optional(),
     facebookUrl: z.string().trim().url().optional(),

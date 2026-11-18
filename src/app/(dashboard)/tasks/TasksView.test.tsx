@@ -11,6 +11,8 @@ const sampleTask = {
   priority: "MEDIUM" as const,
   status: "PENDING" as const,
   assigned_user_id: 42,
+  lead_id: null,
+  created_by: 7,
 };
 
 describe("TasksView", () => {
@@ -42,6 +44,28 @@ describe("TasksView", () => {
     await waitFor(() => expect(screen.getAllByText("Completed").length).toBeGreaterThan(0));
   });
 
+  it("opens the task's details on row click and saves edits with a PATCH", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) =>
+      Promise.resolve(new Response(JSON.stringify(init?.method === "PATCH" ? sampleTask : { tasks: [sampleTask], leads: [], users: [], total: 1, totalPages: 1 }))),
+    );
+    render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={42} />);
+    fireEvent.click(screen.getByText("Follow up"));
+    expect(screen.getByRole("heading", { name: /task details/i })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(fetchSpy).toHaveBeenCalledWith("/api/tasks/1", expect.objectContaining({ method: "PATCH", body: expect.stringContaining("Renamed") })),
+    );
+  });
+
+  it("shows details read-only for a task not assigned to the viewer", () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ users: [], leads: [] })));
+    render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={99} />);
+    fireEvent.click(screen.getByText("Follow up"));
+    expect(screen.queryByRole("button", { name: /save changes/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/title/i)).toBeDisabled();
+  });
+
   it("hides inline status actions for a task not assigned to the viewer", () => {
     render(<TasksView initialTasks={[sampleTask]} initialTotal={1} initialTotalPages={1} viewerId={99} />);
     expect(screen.queryByRole("button", { name: /^complete$/i })).not.toBeInTheDocument();
@@ -59,7 +83,9 @@ describe("TasksView", () => {
     render(<TasksView initialTasks={[]} initialTotal={0} initialTotalPages={1} viewerId={42} />);
     fireEvent.click(screen.getByRole("button", { name: /new task/i }));
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "New one" } });
-    fireEvent.change(screen.getByLabelText(/due/i, { selector: "#taskDueAt" }), { target: { value: "2026-12-01T10:00" } });
+    fireEvent.click(screen.getByLabelText(/due/i, { selector: "#taskDueAt" }));
+    fireEvent.click(screen.getByRole("button", { name: /next month/i }));
+    fireEvent.click(screen.getByRole("button", { name: /December 1st, 2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/tasks", expect.objectContaining({ method: "POST" })));
     expect(await screen.findByText("New one")).toBeInTheDocument();

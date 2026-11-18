@@ -62,37 +62,44 @@ function postLeads(body: unknown, cookie?: string) {
 
 describe("POST /api/leads", () => {
   it("lets an authenticated Pre-sales user create a lead", async () => {
-    const res = await postLeads({ companyName: "Route Co", phone: "123", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL" }, preSalesCookie);
+    const res = await postLeads({ companyName: "Route Co", phone: "9000000123", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL" }, preSalesCookie);
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.services).toMatchObject([{ id: serviceId }]);
   });
 
   it("rejects a lead with no service selected", async () => {
-    const res = await postLeads({ companyName: "No Service Co", phone: "1", leadSource: "OTHER" }, preSalesCookie);
+    const res = await postLeads({ companyName: "No Service Co", phone: "9000000001", leadSource: "OTHER" }, preSalesCookie);
     expect(res.status).toBe(400);
   });
 
   it("rejects a nonexistent service id", async () => {
-    const res = await postLeads({ companyName: "Bad Service Co", phone: "1", serviceIds: [999999999], leadSource: "OTHER" }, preSalesCookie);
+    const res = await postLeads({ companyName: "Bad Service Co", phone: "9000000001", serviceIds: [999999999], leadSource: "OTHER" }, preSalesCookie);
     expect(res.status).toBe(403);
   });
 
   it("rejects an unauthenticated request", async () => {
-    const res = await postLeads({ companyName: "X", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" });
+    const res = await postLeads({ companyName: "X", phone: "9000000001", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" });
     expect(res.status).toBe(401);
   });
 
   it("lets an authenticated Salesperson create a lead", async () => {
-    const res = await postLeads({ companyName: "SP Route Co", phone: "1", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, salespersonCookie);
+    const res = await postLeads({ companyName: "SP Route Co", phone: "9000000001", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, salespersonCookie);
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.salesperson_owner_id).toBe(body.created_by);
   });
 
+  it("rejects a phone with letters or symbols, a short phone, a bad email, pincode and GST", async () => {
+    const base = { companyName: "Bad Input Co", phone: "9000000001", serviceIds: [serviceId], leadSource: "OTHER" };
+    for (const bad of [{ phone: "90000abc01" }, { phone: "+919000000001" }, { phone: "12345" }, { email: "nope" }, { pincode: "12" }, { gstNumber: "ABC" }, { whatsappNumber: "12-34" }]) {
+      expect((await postLeads({ ...base, ...bad }, preSalesCookie)).status).toBe(400);
+    }
+  });
+
   it("accepts the extended contact-detail fields and defaults country to India", async () => {
     const res = await postLeads(
-      { companyName: "Contact Route Co", phone: "321", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL", businessType: "Retail", address: "1 Main St", state: "Goa", pincode: "403001", whatsappNumber: "9123456780", remarks: "Prefers calls after 5pm" },
+      { companyName: "Contact Route Co", phone: "9000000321", serviceRequirements: "Needs CRM", serviceIds: [serviceId], leadSource: "REFERRAL", businessType: "Retail", address: "1 Main St", state: "Goa", pincode: "403001", whatsappNumber: "9123456780", remarks: "Prefers calls after 5pm" },
       preSalesCookie,
     );
     expect(res.status).toBe(201);
@@ -119,7 +126,7 @@ describe("GET /api/leads", () => {
   });
 
   it("scopes the list to the caller's visible leads", async () => {
-    await postLeads({ companyName: "Scope Co", phone: "9", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, preSalesCookie);
+    await postLeads({ companyName: "Scope Co", phone: "9000000009", serviceRequirements: "y", serviceIds: [serviceId], leadSource: "OTHER" }, preSalesCookie);
     const res = await getLeads(preSalesCookie);
     expect(res.status).toBe(200);
     const body = await res.json();

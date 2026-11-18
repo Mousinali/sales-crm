@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { FormattedText } from "./RichTextField";
 
 export type TimelineEntry = {
@@ -44,31 +47,60 @@ function formatTimestamp(timestamp: string | Date, dateOnly?: boolean): string {
 // A vertical log, newest first — shared by the lead detail page's activity
 // log and the sale detail page's payment history, since both are
 // chronological records of what happened, not just a flat list.
+const COLLAPSED_COUNT = 5;
+
 export default function Timeline({ entries, emptyText }: { entries: TimelineEntry[]; emptyText: string }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (entries.length === 0) {
     return <p className="text-sm text-zinc-500">{emptyText}</p>;
   }
 
+  const renderEntry = (entry: TimelineEntry, index: number) => (
+    <li key={entry.id} className="relative flex gap-3">
+      <div className="flex flex-col items-center">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${entry.iconClass}`}>
+          <i className={`${entry.icon} text-base`} aria-hidden="true" />
+        </span>
+        {index < entries.length - 1 && <span className="w-px flex-1 bg-zinc-200" aria-hidden="true" />}
+      </div>
+      <div className={`flex flex-1 flex-col justify-center gap-0.5 ${index < entries.length - 1 ? "min-h-13 pb-5" : "min-h-8"}`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <p className="text-sm font-medium text-zinc-900">{entry.title}</p>
+          <time className="text-xs text-zinc-400">{formatTimestamp(entry.timestamp, entry.dateOnly)}</time>
+        </div>
+        {entry.description && <FormattedText text={entry.description} className="text-sm text-zinc-600" />}
+        {entry.meta && <p className="text-xs text-zinc-500">{entry.meta}</p>}
+      </div>
+    </li>
+  );
+
+  const extra = entries.slice(COLLAPSED_COUNT);
+
   return (
-    <ol className="flex flex-col">
-      {entries.map((entry, index) => (
-        <li key={entry.id} className="relative flex gap-3">
-          <div className="flex flex-col items-center">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${entry.iconClass}`}>
-              <i className={`${entry.icon} text-base`} aria-hidden="true" />
-            </span>
-            {index < entries.length - 1 && <span className="w-px flex-1 bg-zinc-200" aria-hidden="true" />}
+    <>
+      <ol className="flex flex-col">{entries.slice(0, COLLAPSED_COUNT).map((e, i) => renderEntry(e, i))}</ol>
+      {extra.length > 0 && (
+        <>
+          {/* grid-rows 0fr -> 1fr animates the height without measuring it */}
+          <div
+            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            inert={!expanded}
+          >
+            <ol className="flex min-h-0 flex-col overflow-hidden">
+              {extra.map((e, i) => renderEntry(e, i + COLLAPSED_COUNT))}
+            </ol>
           </div>
-          <div className={`flex flex-1 flex-col justify-center gap-0.5 ${index < entries.length - 1 ? "min-h-13 pb-5" : "min-h-8"}`}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <p className="text-sm font-medium text-zinc-900">{entry.title}</p>
-              <time className="text-xs text-zinc-400">{formatTimestamp(entry.timestamp, entry.dateOnly)}</time>
-            </div>
-            {entry.description && <FormattedText text={entry.description} className="text-sm text-zinc-600" />}
-            {entry.meta && <p className="text-xs text-zinc-500">{entry.meta}</p>}
-          </div>
-        </li>
-      ))}
-    </ol>
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="mt-2 text-sm font-medium text-brand-700 hover:underline"
+          >
+            {expanded ? "Show less" : `See more (${extra.length})`}
+          </button>
+        </>
+      )}
+    </>
   );
 }

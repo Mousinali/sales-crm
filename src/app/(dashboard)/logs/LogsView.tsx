@@ -7,6 +7,8 @@ import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import { ROLE_LABELS } from "@/app/(dashboard)/roleDisplay";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
+import { useViewportPageSize } from "@/lib/useViewportPageSize";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 type AuditLogEntry = {
   id: number;
@@ -65,6 +67,8 @@ export default function LogsView({
   const [search, setSearch] = useState("");
   const [listError, setListError] = useState<string | null>(null);
 
+  const pageSizeRef = useViewportPageSize(61, 352);
+
   async function refetch(overrides?: { search?: string; page?: number }) {
     const effectiveSearch = overrides?.search ?? search;
     const targetPage = overrides?.page ?? page;
@@ -72,6 +76,7 @@ export default function LogsView({
     const params = new URLSearchParams();
     if (effectiveSearch.trim()) params.set("q", effectiveSearch.trim());
     params.set("page", String(targetPage));
+    params.set("pageSize", String(pageSizeRef.current));
 
     setListError(null);
     try {
@@ -98,6 +103,12 @@ export default function LogsView({
   // Re-searches automatically once typing pauses, instead of making the
   // user hit Enter — the initial mount's "pause" is skipped so it doesn't
   // immediately re-fetch the page the server already rendered.
+  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  useEffect(() => {
+    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
   useEffect(() => {

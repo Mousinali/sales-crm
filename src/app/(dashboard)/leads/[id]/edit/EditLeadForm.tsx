@@ -14,6 +14,9 @@ import RichTextField from "@/components/ui/RichTextField";
 import MoneyInput from "@/components/ui/MoneyInput";
 import SocialLinksField, { type SocialLinks } from "@/app/(dashboard)/leads/SocialLinksField";
 import type { ServiceRow } from "@/lib/services/types";
+import { leadFieldChecks } from "@/app/(dashboard)/leads/leadFieldChecks";
+import { digitsOnly } from "@/lib/validation";
+import DigitsInput from "@/components/ui/DigitsInput";
 
 export default function EditLeadForm({
   lead,
@@ -30,14 +33,14 @@ export default function EditLeadForm({
   const [businessType, setBusinessType] = useState(lead.business_type ?? "");
   const [address, setAddress] = useState(lead.address ?? "");
   const [leadState, setLeadState] = useState(lead.state ?? "");
-  const [pincode, setPincode] = useState(lead.pincode ?? "");
+  const [pincode, setPincode] = useState(digitsOnly(lead.pincode ?? "", 6));
   const [country, setCountry] = useState(lead.country);
   const [gstNumber, setGstNumber] = useState(lead.gst_number ?? "");
   const [contactPerson, setContactPerson] = useState(lead.contact_person ?? "");
   const [designation, setDesignation] = useState(lead.designation ?? "");
-  const [phone, setPhone] = useState(lead.phone);
+  const [phone, setPhone] = useState(digitsOnly(lead.phone, 15));
   const [phoneSameAsWhatsapp, setPhoneSameAsWhatsapp] = useState(false);
-  const [whatsappNumber, setWhatsappNumber] = useState(lead.whatsapp_number ?? "");
+  const [whatsappNumber, setWhatsappNumber] = useState(digitsOnly(lead.whatsapp_number ?? "", 15));
 
   function toggleSameAsWhatsapp(checked: boolean) {
     setPhoneSameAsWhatsapp(checked);
@@ -82,6 +85,13 @@ export default function EditLeadForm({
     }
     if (selectedServiceIds.length === 0) {
       setSaveError("Select at least one service.");
+      return;
+    }
+
+    const invalid = leadFieldChecks({ pincode, gstNumber, phone, whatsappNumber, email, website, socialLinks }).find((c) => c.invalid);
+    if (invalid) {
+      setSaveError(invalid.message);
+      document.getElementById(invalid.fieldId)?.focus();
       return;
     }
 
@@ -191,11 +201,11 @@ export default function EditLeadForm({
           <label htmlFor="pincode" className="text-sm font-medium text-zinc-700">
             Pincode
           </label>
-          <input
+          <DigitsInput
             id="pincode"
-            type="text"
             value={pincode}
-            onChange={(event) => setPincode(event.target.value)}
+            onValueChange={setPincode}
+            maxLength={6}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -221,7 +231,8 @@ export default function EditLeadForm({
             id="gstNumber"
             type="text"
             value={gstNumber}
-            onChange={(event) => setGstNumber(event.target.value)}
+            onChange={(event) => setGstNumber(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15))}
+            maxLength={15}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -261,11 +272,11 @@ export default function EditLeadForm({
               Same as WhatsApp
             </label>
           </div>
-          <input
+          <DigitsInput
             id="phone"
-            type="text"
             value={phone}
-            onChange={(event) => handlePhoneChange(event.target.value)}
+            onValueChange={handlePhoneChange}
+            maxLength={15}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -274,11 +285,11 @@ export default function EditLeadForm({
           <label htmlFor="whatsappNumber" className="text-sm font-medium text-zinc-700">
             WhatsApp number
           </label>
-          <input
+          <DigitsInput
             id="whatsappNumber"
-            type="text"
             value={whatsappNumber}
-            onChange={(event) => setWhatsappNumber(event.target.value)}
+            onValueChange={setWhatsappNumber}
+            maxLength={15}
             disabled={phoneSameAsWhatsapp}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:bg-zinc-50 disabled:text-zinc-500"
           />

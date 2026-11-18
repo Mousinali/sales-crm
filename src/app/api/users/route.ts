@@ -7,14 +7,15 @@ import { createUser } from "@/lib/users/create";
 import { listUsers, listUsersPage } from "@/lib/users/list";
 import { parsePageParams } from "@/lib/pagination";
 import { RoleNotManageableError, EmailAlreadyExistsError } from "@/lib/users/errors";
+import { phoneSchema, optionalPhoneSchema, emailSchema } from "@/lib/validation";
 
 const createUserSchema = z.object({
   role: z.enum(ROLES),
   name: z.string().trim().min(1),
-  email: z.string().trim().email(),
+  email: emailSchema,
   employeeId: z.string().trim().min(1).optional(),
-  phone: z.string().trim().min(1).optional(),
-  whatsappNumber: z.string().trim().min(1).optional(),
+  phone: phoneSchema.optional(),
+  whatsappNumber: phoneSchema.optional(),
   designation: z.string().trim().min(1).optional(),
 });
 

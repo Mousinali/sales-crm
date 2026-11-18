@@ -56,6 +56,8 @@ export default function StatTile({
   // Shows a placeholder in place of the value while the figure is still being fetched.
   loading?: boolean;
 }) {
+  const text = typeof value === "number" ? value.toLocaleString() : value;
+  // shortcut: char-count steps, not measured width; fine for ₹ amounts, upgrade if tiles get very narrow.
   return (
     <div className="stat-tile p-4" style={toneStyle(tone)}>
       <div className="flex items-start justify-between gap-2">
@@ -63,7 +65,7 @@ export default function StatTile({
           {loading ? (
             <Skeleton className="h-8 w-24" />
           ) : (
-            <p className="text-2xl font-semibold text-zinc-900">{typeof value === "number" ? value.toLocaleString() : value}</p>
+            <p className={`flex h-8 items-center font-semibold text-zinc-900 ${text.length > 18 ? "text-base" : text.length > 16 ? "text-lg" : text.length > 12 ? "text-xl" : "text-2xl"}`}>{text}</p>
           )}
           <p className="mt-1 text-xs font-semibold text-zinc-500">{label}</p>
         </div>

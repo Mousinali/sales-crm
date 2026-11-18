@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_BUDGET_TYPES } from "./types";
 import type { LeadSource, LeadPriority, LeadBudgetType } from "./types";
+import { isValidPhone, isValidEmail, isValidPincode, PHONE_MESSAGE, PINCODE_MESSAGE } from "@/lib/validation";
 
 /**
  * Column order of the sample file. Everything after `Lead source` is optional,
@@ -161,11 +162,17 @@ export async function parseBulkLeadFile(
     };
 
     const companyName = get("Company name");
-    const phone = get("Phone");
+    // Spreadsheets carry "+91 98765-43210" style numbers; keep the digits.
+    const phone = get("Phone").replace(/[\s\-()+.]/g, "");
     const fail = (reason: string) => errors.push({ row: rowNumber, company: companyName || "(blank)", reason });
 
     if (!companyName) { fail("Company name is required."); continue; }
     if (!phone) { fail("Phone is required."); continue; }
+    if (!isValidPhone(phone)) { fail(`Phone "${get("Phone")}" is not valid. ${PHONE_MESSAGE}`); continue; }
+    const whatsapp = get("WhatsApp number").replace(/[\s\-()+.]/g, "");
+    if (whatsapp && !isValidPhone(whatsapp)) { fail(`WhatsApp number "${get("WhatsApp number")}" is not valid. ${PHONE_MESSAGE}`); continue; }
+    if (get("Email") && !isValidEmail(get("Email"))) { fail(`Email "${get("Email")}" is not valid.`); continue; }
+    if (get("Pincode") && !isValidPincode(get("Pincode"))) { fail(`Pincode "${get("Pincode")}" is not valid. ${PINCODE_MESSAGE}`); continue; }
     if (seenPhones.has(phone)) { fail(`Duplicate phone "${phone}" earlier in this file.`); continue; }
 
     const sourceRaw = get("Lead source");
@@ -217,7 +224,7 @@ export async function parseBulkLeadFile(
       designation: get("Designation") || undefined,
       email: get("Email") || undefined,
       website: get("Website") || undefined,
-      whatsappNumber: get("WhatsApp number") || undefined,
+      whatsappNumber: whatsapp || undefined,
       industry: get("Industry") || undefined,
       businessType: get("Business type") || undefined,
       address: get("Address") || undefined,

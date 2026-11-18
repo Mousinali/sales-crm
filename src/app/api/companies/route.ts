@@ -18,11 +18,8 @@ export async function GET(request: Request): Promise<Response> {
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  // Super Admin and Accountant see every company; Marketing Head, Pre-sales and
-  // Salesperson see the ones behind leads they can see. HR sees none.
-  if (user.role === "HR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Super Admin, Accountant and HR see every company; Marketing Head, Pre-sales
+  // and Salesperson see the ones behind leads they can see.
 
   const url = new URL(request.url);
   const parsed = listQuerySchema.safeParse({

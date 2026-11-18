@@ -6,6 +6,13 @@ import { useFloatingMenu } from "./useFloatingMenu";
 
 export type SelectOption = { value: string; label: string; icon?: string };
 
+// `ri-*` is a Remix icon class (the font used across the app, brand-coloured unless the string carries its own `text-*` class); anything else is an image URL.
+function OptionIcon({ icon }: { icon: string }) {
+  if (icon.startsWith("ri-")) return <i className={`${icon} shrink-0 text-base leading-none ${icon.includes(" text-") ? "" : "text-brand-600"}`} aria-hidden="true" />;
+  // eslint-disable-next-line @next/next/no-img-element -- a fixed local icon, not a user-uploaded or remote image next/image would optimize.
+  return <img src={icon} alt="" className="h-4 w-4 shrink-0 object-contain" />;
+}
+
 // A styled stand-in for a native <select> — browsers render the native
 // popup with their own OS chrome (the dark, unstyled overlay this was built
 // to replace), which can't show a per-option icon and never matches the
@@ -96,10 +103,7 @@ export default function CustomSelect({
         className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-left text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
       >
         <span className="flex min-w-0 items-center gap-2">
-          {selected?.icon && (
-            // eslint-disable-next-line @next/next/no-img-element -- a fixed local icon, not a user-uploaded or remote image next/image would optimize.
-            <img src={selected.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
-          )}
+          {selected?.icon && <OptionIcon icon={selected.icon} />}
           <span className="truncate">{selected ? selected.label : placeholder}</span>
         </span>
         <i className={`ri-arrow-down-s-line shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
@@ -142,10 +146,7 @@ export default function CustomSelect({
                     o.value === value ? "bg-brand-50 text-brand-700" : "text-zinc-700"
                   }`}
                 >
-                  {o.icon && (
-                    // eslint-disable-next-line @next/next/no-img-element -- a fixed local icon, not a user-uploaded or remote image next/image would optimize.
-                    <img src={o.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
-                  )}
+                  {o.icon && <OptionIcon icon={o.icon} />}
                   <span className="truncate">{o.label}</span>
                 </button>
               </li>

@@ -14,6 +14,8 @@ import RichTextField from "@/components/ui/RichTextField";
 import MoneyInput from "@/components/ui/MoneyInput";
 import SocialLinksField, { EMPTY_SOCIAL_LINKS, type SocialLinks } from "@/app/(dashboard)/leads/SocialLinksField";
 import type { ServiceRow } from "@/lib/services/types";
+import { leadFieldChecks } from "@/app/(dashboard)/leads/leadFieldChecks";
+import DigitsInput from "@/components/ui/DigitsInput";
 
 type DuplicateMatch = { id: number; companyName: string; status: LeadStatus };
 
@@ -135,6 +137,9 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
       missing: selectedServiceIds.length === 0,
       message: "Select at least one service.",
     },
+    ...leadFieldChecks({ pincode, gstNumber, phone, whatsappNumber, email, website, socialLinks }).map((c) => ({
+      step: c.step, fieldId: c.fieldId, missing: c.invalid, message: c.message,
+    })),
   ];
 
   // Sends the person to the offending field rather than just naming it.
@@ -323,11 +328,11 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
           <label htmlFor="pincode" className="text-sm font-medium text-zinc-700">
             Pincode
           </label>
-          <input
+          <DigitsInput
             id="pincode"
-            type="text"
             value={pincode}
-            onChange={(event) => setPincode(event.target.value)}
+            onValueChange={setPincode}
+            maxLength={6}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -353,7 +358,8 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
             id="gstNumber"
             type="text"
             value={gstNumber}
-            onChange={(event) => setGstNumber(event.target.value)}
+            onChange={(event) => setGstNumber(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15))}
+            maxLength={15}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
         </div>
@@ -398,11 +404,11 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
               Same as WhatsApp
             </label>
           </div>
-          <input
+          <DigitsInput
             id="phone"
-            type="text"
             value={phone}
-            onChange={(event) => handlePhoneChange(event.target.value)}
+            onValueChange={handlePhoneChange}
+            maxLength={15}
             onBlur={checkDuplicates}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           />
@@ -412,11 +418,11 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
           <label htmlFor="whatsappNumber" className="text-sm font-medium text-zinc-700">
             WhatsApp number
           </label>
-          <input
+          <DigitsInput
             id="whatsappNumber"
-            type="text"
             value={whatsappNumber}
-            onChange={(event) => setWhatsappNumber(event.target.value)}
+            onValueChange={setWhatsappNumber}
+            maxLength={15}
             disabled={phoneSameAsWhatsapp}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:bg-zinc-50 disabled:text-zinc-500"
           />

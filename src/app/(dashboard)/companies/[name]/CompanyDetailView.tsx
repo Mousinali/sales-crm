@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import type { CompanyDetail } from "@/lib/companies/get";
 import type { SaleBudgetType } from "@/lib/sales/types";
-import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES } from "@/app/(dashboard)/leadDisplay";
+import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_SOURCE_LABELS, LEAD_SOURCE_ICONS } from "@/app/(dashboard)/leadDisplay";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import BalanceText from "@/components/ui/BalanceText";
 import Avatar from "@/components/ui/Avatar";
@@ -197,6 +197,12 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
             <InfoRow icon="ri-map-pin-line" iconClass="bg-violet-100 text-violet-600" label="Address" copyText={fullAddress}>
               {fullAddress ?? "—"}
             </InfoRow>
+            {profile.lead_source && (
+              // Source of the latest lead.
+              <InfoRow icon={LEAD_SOURCE_ICONS[profile.lead_source] ?? "ri-global-line"} iconClass="bg-sky-100 text-sky-600" label="Lead source" copyText={LEAD_SOURCE_LABELS[profile.lead_source]}>
+                {LEAD_SOURCE_LABELS[profile.lead_source]}
+              </InfoRow>
+            )}
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-5">
             <div className="space-y-3">
@@ -249,6 +255,7 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
                   <tr>
                     <th className="px-6 py-2.5">Contact</th>
                     <th className="px-3 py-2.5">Status</th>
+                    <th className="px-3 py-2.5">Source</th>
                     <th className="px-6 py-2.5 text-right">Recorded</th>
                   </tr>
                 </thead>
@@ -263,6 +270,12 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
                       <td className="px-3 py-3">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAD_STATUS_BADGE_CLASSES[lead.status]}`}>
                           {LEAD_STATUS_LABELS[lead.status]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-zinc-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          {LEAD_SOURCE_ICONS[lead.lead_source] && <img src={LEAD_SOURCE_ICONS[lead.lead_source]} alt="" className="h-4 w-4 shrink-0" />}
+                          {LEAD_SOURCE_LABELS[lead.lead_source]}
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right text-zinc-500">{formatDate(lead.created_at)}</td>

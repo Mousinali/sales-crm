@@ -1,0 +1,22 @@
+[  328631ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:761
+[  328684ms] [LOG] [Fast Refresh] done in 157ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:761
+[  588362ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  588610ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umloj0ni:1
+[  588656ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umlpunn6:1
+[  589366ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  590009ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=ummrg8ey:1
+[  590370ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  590785ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umnd0n1w:1
+[  591375ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  592372ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umol2nyg:1
+[  592378ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  593969ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umptfvz8:1
+[  597376ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umsg2n3w:1
+[  597383ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  598973ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umtofs2u:1
+[  600554ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/leads?sortBy=created_at&sortDir=desc&page=1&pageSize=13:1
+[  602380ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umwb3p6z:1
+[  602389ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257
+[  603977ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=umxjfybj:1
+[  607385ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/socket.io/?EIO=4&transport=polling&t=un063g6s:1
+[  607412ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=W2C8VCxBf_RwZIz3TZSb3' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1165-soo5tfpf._.js:16257

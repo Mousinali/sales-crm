@@ -3,11 +3,12 @@ import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { updateOwnContactDetails } from "@/lib/users/update";
+import { phoneSchema, optionalPhoneSchema, emailSchema } from "@/lib/validation";
 
 const patchSchema = z
   .object({
-    phone: z.string().trim().optional(),
-    whatsappNumber: z.string().trim().optional(),
+    phone: optionalPhoneSchema.optional(),
+    whatsappNumber: optionalPhoneSchema.optional(),
   })
   .refine((data) => data.phone !== undefined || data.whatsappNumber !== undefined, {
     message: "No fields to update",

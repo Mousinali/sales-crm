@@ -12,6 +12,8 @@ import FilterDropdown from "@/components/ui/FilterDropdown";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import { useViewportPageSize } from "@/lib/useViewportPageSize";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
   ONE_TIME: "One time",
@@ -47,6 +49,8 @@ export default function SalesView({
   // Filters are passed in explicitly rather than read off state: a setState
   // immediately followed by refetch() would still see the previous value and
   // send a request one change behind.
+  const pageSizeRef = useViewportPageSize(65, 380);
+
   async function refetch(overrides?: {
     search?: string;
     page?: number;
@@ -66,6 +70,7 @@ export default function SalesView({
     if (effectiveFrom) params.set("dateFrom", effectiveFrom);
     if (effectiveTo) params.set("dateTo", effectiveTo);
     params.set("page", String(targetPage));
+    params.set("pageSize", String(pageSizeRef.current));
 
     setListError(null);
     try {
@@ -88,6 +93,12 @@ export default function SalesView({
     event.preventDefault();
     void refetch({ page: 1 });
   }
+
+  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  useEffect(() => {
+    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
@@ -194,7 +205,7 @@ export default function SalesView({
         </p>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto sm:block">
         <table className="table-responsive w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
@@ -248,6 +259,35 @@ export default function SalesView({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone: compact cards instead of the label/value stacked table rows. */}
+      <div className="flex flex-col gap-3 bg-zinc-50 p-3 sm:hidden">
+        {sales.length === 0 && <p className="px-1 py-3 text-center text-sm text-zinc-500">No sales yet.</p>}
+        {sales.map((sale) => {
+          const budget = Number(sale.budget_amount);
+          const paid = Number(sale.paid_amount ?? 0);
+          return (
+            <div key={sale.id} className="rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+              <Link href={`/sales/${sale.id}`} className="text-sm font-semibold text-brand-700">{sale.company_name}</Link>
+              <p className="text-xs text-zinc-500">{sale.sale_number}{sale.contact_person ? ` · ${sale.contact_person}` : ""}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="font-medium text-zinc-900">₹{budget.toLocaleString("en-IN")} <span className="font-normal text-zinc-500">{BUDGET_TYPE_LABELS[sale.budget_type]}</span></span>
+                <span className="font-medium text-emerald-700">₹{paid.toLocaleString("en-IN")} paid</span>
+                <BalanceText budget={budget} paid={paid} dueLabel="remaining" />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+                <span className="flex items-center gap-1"><i className="ri-calendar-line" aria-hidden="true" />{sale.sale_date}</span>
+                {sale.sold_by_display_name && (
+                  <span className="inline-flex items-center gap-2 text-zinc-700">
+                    <Avatar name={sale.sold_by_display_name} imageUrl={sale.sold_by_avatar_url} />
+                    {sale.sold_by_display_name}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} />

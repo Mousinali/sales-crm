@@ -49,7 +49,7 @@ export const LEAD_SOURCE_ICONS: Partial<Record<LeadSource, string>> = {
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: "New",
-  PENDING_REVIEW: "Pending review",
+  PENDING_REVIEW: "Pending",
   MORE_INFO_REQUIRED: "Info Required",
   QUALIFIED: "Qualified",
   CONVERTED: "Converted",

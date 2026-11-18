@@ -33,7 +33,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 export function IconChip({ icon, className }: { icon: string; className: string }) {
   return (
     <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${className}`}>
-      <i className={`${icon} text-base`} aria-hidden="true" />
+      {icon.startsWith("/") ? <img src={icon} alt="" className="h-5 w-5" /> : <i className={`${icon} text-base`} aria-hidden="true" />}
     </span>
   );
 }

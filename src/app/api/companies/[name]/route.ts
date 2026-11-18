@@ -17,16 +17,13 @@ export async function GET(
   if (user.mustChangePassword) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (user.role === "HR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const { name } = await params;
 
   try {
-    const company = await getCompany(pool, name, viewerScope(user), { includeLeads: user.role !== "ACCOUNTANT", includeTransfers: user.role === "SUPER_ADMIN" });
-    // An Accountant sees the company's details and sales, never its leads.
-    return NextResponse.json(user.role === "ACCOUNTANT" ? { ...company, leads: [] } : company);
+    const company = await getCompany(pool, name, viewerScope(user), { includeLeads: user.role !== "ACCOUNTANT" && user.role !== "HR", includeTransfers: user.role === "SUPER_ADMIN" });
+    // An Accountant or HR sees the company's details and sales, never its leads.
+    return NextResponse.json(user.role === "ACCOUNTANT" || user.role === "HR" ? { ...company, leads: [] } : company);
   } catch (error) {
     if (error instanceof CompanyNotFoundError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

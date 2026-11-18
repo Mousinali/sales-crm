@@ -124,7 +124,29 @@ button:focus:not(:focus-visible) {
   --rdp-accent-color: var(--color-brand-600) !important;
   --rdp-accent-background-color: var(--color-brand-50) !important;
   --rdp-today-color: var(--color-brand-600) !important;
+  --rdp-day-height: 38px;
+  --rdp-day-width: 38px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  --rdp-day_button-border-radius: 9999px;
   font-family: inherit;
+}
+.brand-daypicker .rdp-caption_label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-zinc-900);
+}
+.brand-daypicker .rdp-weekday {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-zinc-400);
+}
+.brand-daypicker .rdp-day_button:hover {
+  background: var(--color-brand-50);
+}
+.brand-daypicker .rdp-today:not(.rdp-selected) .rdp-day_button {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--color-brand-300);
 }
 
 /* The mobile filter sheet's calendar (DateRangeFilter's `inline` mode) gets

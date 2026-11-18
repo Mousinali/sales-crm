@@ -45,6 +45,8 @@ import PageHeading from "@/components/ui/PageHeading";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import CustomSelect from "@/components/ui/CustomSelect";
+import { useViewportPageSize } from "@/lib/useViewportPageSize";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import BulkShareModal from "./BulkShareModal";
 
 type SimpleUser = { id: number; name: string };
@@ -102,6 +104,9 @@ export default function LeadsView({
   const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<LeadSortColumn>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [listError, setListError] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -123,19 +128,7 @@ export default function LeadsView({
     lead.pre_sales_owner_id === viewerId ||
     lead.salesperson_owner_id === viewerId;
 
-  function toggleSort(column: LeadSortColumn) {
-    if (sortBy === column) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(column);
-      setSortDir("asc");
-    }
-    void refetch(
-      1,
-      column,
-      sortBy === column ? (sortDir === "asc" ? "desc" : "asc") : "asc",
-    );
-  }
+  const pageSizeRef = useViewportPageSize(53, 404);
 
   async function refetch(
     targetPage: number,
@@ -152,6 +145,7 @@ export default function LeadsView({
     params.set("sortBy", overrideSortBy ?? sortBy);
     params.set("sortDir", overrideSortDir ?? sortDir);
     params.set("page", String(targetPage));
+    params.set("pageSize", String(pageSizeRef.current));
 
     setListError(null);
     try {
@@ -182,6 +176,20 @@ export default function LeadsView({
     }
   }
 
+  function toggleSort(column: LeadSortColumn) {
+    if (sortBy === column) {
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(column);
+      setSortDir("asc");
+    }
+    void refetch(
+      1,
+      column,
+      sortBy === column ? (sortDir === "asc" ? "desc" : "asc") : "asc",
+    );
+  }
+
   function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void refetch(1);
@@ -191,6 +199,12 @@ export default function LeadsView({
   // user click Apply filters — compared against the mount-time value
   // (not a ran-once flag) so React Strict Mode's double effect-invocation
   // in dev can't trip this into firing on mount anyway.
+  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  useEffect(() => {
+    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
   useEffect(() => {
@@ -212,9 +226,6 @@ export default function LeadsView({
   // Selection is also used for export, so every role that can see this list
   // gets the checkbox column, not just roles that can bulk-transfer.
   const canSelectLeads = true;
-  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(
-    new Set(),
-  );
   const [preSalesOptions, setPreSalesOptions] = useState<SimpleUser[]>([]);
   const [salespersonOptions, setSalespersonOptions] = useState<SimpleUser[]>(
     [],
@@ -551,6 +562,7 @@ export default function LeadsView({
             <FilterDropdown
               icon="ri-global-line"
               ariaLabel="Filter by source"
+              optionIcons={LEAD_SOURCE_ICONS}
               value={sourceFilter}
               options={[
                 { value: "", label: "All sources" },
@@ -647,7 +659,7 @@ export default function LeadsView({
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold text-zinc-500"
+                  className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-zinc-500"
                 >
                   Outcome
                 </th>
@@ -660,6 +672,12 @@ export default function LeadsView({
                 <th
                   scope="col"
                   className="px-4 py-3 text-left text-xs font-semibold text-zinc-500"
+                >
+                  Source
+                </th>
+                <th
+                  scope="col"
+                  className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-zinc-500"
                 >
                   Owner
                 </th>
@@ -697,7 +715,7 @@ export default function LeadsView({
               {leads.length === 0 && (
                 <tr>
                   <td
-                    colSpan={canSelectLeads ? 8 : 7}
+                    colSpan={canSelectLeads ? 9 : 8}
                     className="px-4 py-6 text-center text-zinc-500"
                   >
                     No leads found.
@@ -710,7 +728,7 @@ export default function LeadsView({
                   className="transition-colors hover:bg-zinc-50/80"
                 >
                   {canSelectLeads && (
-                    <td data-label="" className="px-4 py-3">
+                    <td data-label="" className="px-4 py-2">
                       <input
                         type="checkbox"
                         aria-label={`Select ${lead.company_name}`}
@@ -719,7 +737,7 @@ export default function LeadsView({
                       />
                     </td>
                   )}
-                  <td data-label="Company" className="px-4 py-3">
+                  <td data-label="Company" className="px-4 py-2">
                     <Link
                       href={`/leads/${lead.id}`}
                       className="font-medium text-brand-700 hover:underline"
@@ -731,7 +749,7 @@ export default function LeadsView({
                       {lead.phone}
                     </p>
                   </td>
-                  <td data-label="Status" className="px-4 py-3">
+                  <td data-label="Status" className="px-4 py-2">
                     <Badge
                       icon={LEAD_STATUS_ICONS[lead.status]}
                       className={LEAD_STATUS_BADGE_CLASSES[lead.status]}
@@ -739,7 +757,7 @@ export default function LeadsView({
                       {LEAD_STATUS_LABELS[lead.status]}
                     </Badge>
                   </td>
-                  <td data-label="Outcome" className="px-4 py-3 text-xs">
+                  <td data-label="Outcome" className="hidden lg:table-cell px-4 py-2 text-xs">
                     {lead.latest_sale_id != null ? (
                       <>
                         <p className="font-medium text-emerald-700">
@@ -761,7 +779,7 @@ export default function LeadsView({
                       <span className="text-zinc-400">—</span>
                     )}
                   </td>
-                  <td data-label="Priority" className="px-4 py-3">
+                  <td data-label="Priority" className="px-4 py-2">
                     <Badge
                       icon={LEAD_PRIORITY_ICONS[lead.priority]}
                       className={LEAD_PRIORITY_BADGE_CLASSES[lead.priority]}
@@ -769,7 +787,15 @@ export default function LeadsView({
                       {LEAD_PRIORITY_LABELS[lead.priority]}
                     </Badge>
                   </td>
-                  <td data-label="Owner" className="px-4 py-3 text-xs">
+                  <td data-label="Source" className="px-4 py-2 text-xs text-zinc-700">
+                    <span className="inline-flex items-center gap-1.5">
+                      {LEAD_SOURCE_ICONS[lead.lead_source] && (
+                        <img src={LEAD_SOURCE_ICONS[lead.lead_source]} alt="" className="h-4 w-4 shrink-0" />
+                      )}
+                      {LEAD_SOURCE_LABELS[lead.lead_source]}
+                    </span>
+                  </td>
+                  <td data-label="Owner" className="hidden lg:table-cell px-4 py-2 text-xs">
                     {lead.salesperson_owner_name ||
                     lead.pre_sales_owner_name ? (
                       <span className="inline-flex items-center gap-1.5 text-zinc-700">
@@ -786,7 +812,7 @@ export default function LeadsView({
                   </td>
                   <td
                     data-label="Created at"
-                    className="px-4 py-3 text-xs text-zinc-600"
+                    className="px-4 py-2 text-xs text-zinc-600"
                   >
                     <p>
                       {new Date(lead.created_at).toLocaleDateString("en-GB", {
@@ -802,7 +828,7 @@ export default function LeadsView({
                       })}
                     </p>
                   </td>
-                  <td data-label="" className="px-4 py-3 text-right">
+                  <td data-label="" className="px-4 py-2 text-right">
                     <button
                       type="button"
                       aria-label={`Actions for ${lead.company_name}`}
@@ -919,11 +945,16 @@ export default function LeadsView({
                 />
                 {LEAD_STATUS_LABELS[lead.status]}
               </span>
+              <span className="basis-full" aria-hidden="true" />
               <span className="flex items-center gap-1 font-medium text-zinc-900">
                 <i className="ri-user-line text-zinc-400" aria-hidden="true" />
                 {lead.salesperson_owner_name ||
                   lead.pre_sales_owner_name ||
                   "Unassigned"}
+              </span>
+              <span className="flex items-center gap-1 text-zinc-700">
+                {LEAD_SOURCE_ICONS[lead.lead_source] && <img src={LEAD_SOURCE_ICONS[lead.lead_source]} alt="" className="h-3.5 w-3.5 shrink-0" />}
+                {LEAD_SOURCE_LABELS[lead.lead_source]}
               </span>
             </div>
 

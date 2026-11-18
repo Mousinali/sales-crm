@@ -91,6 +91,14 @@ export default function DateField({
               setOpen(false);
             }}
           />
+          <div className="mt-1 flex justify-between border-t border-zinc-100 pt-2 text-sm font-medium">
+            <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="rounded-md px-2 py-1 text-zinc-500 hover:bg-zinc-100">
+              Clear
+            </button>
+            <button type="button" onClick={() => { onChange(toIso(new Date())); setOpen(false); }} className="rounded-md px-2 py-1 text-brand-700 hover:bg-brand-50">
+              Today
+            </button>
+          </div>
         </div>,
         document.body,
       )}

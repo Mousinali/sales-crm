@@ -59,6 +59,15 @@ describe("parseBulkLeadFile", () => {
     expect(r.errors[2].reason).toMatch(/unknown service "Nope"/i);
   });
 
+  it("rejects letters/short numbers in Phone but accepts +91 formatting", async () => {
+    const r = await parseBulkLeadFile(
+      csvFile(`${HEADER}\nLetters Co,90000abc01,OTHER,Bulk SMS\nShort Co,12345,OTHER,Bulk SMS\nFormatted Co,+91 98765-43210,OTHER,Bulk SMS`),
+      SERVICES,
+    );
+    expect(r.rows.map((x) => [x.companyName, x.phone])).toEqual([["Formatted Co", "919876543210"]]);
+    expect(r.errors.map((e) => e.row)).toEqual([2, 3]);
+  });
+
   it("rejects an unknown lead source rather than silently defaulting it", async () => {
     const r = await parseBulkLeadFile(
       csvFile(`${HEADER}\nAcme,9000000001,TELEPATHY,Bulk SMS`),

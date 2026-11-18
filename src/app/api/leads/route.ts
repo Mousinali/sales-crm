@@ -8,22 +8,23 @@ import { listLeadsPage, LEAD_SORT_COLUMNS } from "@/lib/leads/list";
 import { parsePageParams } from "@/lib/pagination";
 import { listLeadServices } from "@/lib/leads/services";
 import { LeadActionNotAllowedError } from "@/lib/leads/errors";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
 
 const createLeadSchema = z.object({
   companyName: z.string().trim().min(1),
   contactPerson: z.string().trim().min(1).optional(),
   designation: z.string().trim().min(1).optional(),
-  phone: z.string().trim().min(1),
-  email: z.string().trim().email().optional(),
-  website: z.string().trim().min(1).optional(),
+  phone: phoneSchema,
+  email: emailSchema.optional(),
+  website: websiteSchema.optional(),
   industry: z.string().trim().min(1).optional(),
   businessType: z.string().trim().min(1).optional(),
   location: z.string().trim().min(1).optional(),
   address: z.string().trim().min(1).optional(),
   state: z.string().trim().min(1).optional(),
-  pincode: z.string().trim().min(1).optional(),
+  pincode: pincodeSchema.optional(),
   country: z.string().trim().min(1).optional(),
-  gstNumber: z.string().trim().min(1).optional(),
+  gstNumber: gstSchema.optional(),
   serviceRequirements: z.string().trim().min(1).optional(),
   serviceIds: z.array(z.number().int()).min(1),
   estimatedBudget: z.number().optional(),
@@ -31,7 +32,7 @@ const createLeadSchema = z.object({
   leadSource: z.enum(LEAD_SOURCES),
   priority: z.enum(LEAD_PRIORITIES).optional(),
   notes: z.string().trim().min(1).optional(),
-  whatsappNumber: z.string().trim().min(1).optional(),
+  whatsappNumber: phoneSchema.optional(),
   remarks: z.string().trim().min(1).optional(),
   youtubeUrl: z.string().trim().url().optional(),
   facebookUrl: z.string().trim().url().optional(),

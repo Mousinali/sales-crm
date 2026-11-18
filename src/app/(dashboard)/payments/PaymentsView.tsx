@@ -12,6 +12,8 @@ import FilterDropdown from "@/components/ui/FilterDropdown";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
+import { useViewportPageSize } from "@/lib/useViewportPageSize";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
   CASH: "Cash",
@@ -53,6 +55,8 @@ export default function PaymentsView({
   // Filters are passed in explicitly rather than read off state: a setState
   // immediately followed by refetch() would still see the previous value and
   // send a request one change behind.
+  const pageSizeRef = useViewportPageSize(65, 380);
+
   async function refetch(overrides?: {
     search?: string;
     page?: number;
@@ -72,6 +76,7 @@ export default function PaymentsView({
     if (effectiveFrom) params.set("dateFrom", effectiveFrom);
     if (effectiveTo) params.set("dateTo", effectiveTo);
     params.set("page", String(targetPage));
+    params.set("pageSize", String(pageSizeRef.current));
 
     setListError(null);
     try {
@@ -94,6 +99,12 @@ export default function PaymentsView({
     event.preventDefault();
     void refetch({ page: 1 });
   }
+
+  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  useEffect(() => {
+    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
@@ -200,7 +211,7 @@ export default function PaymentsView({
         </p>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto sm:block">
         <table className="table-responsive w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
@@ -209,8 +220,8 @@ export default function PaymentsView({
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Sale amount / Due</th>
               <th className="px-4 py-3">Method</th>
-              <th className="px-4 py-3">Receipt No.</th>
-              <th className="px-4 py-3">Received by</th>
+              <th className="hidden px-4 py-3 lg:table-cell">Receipt No.</th>
+              <th className="hidden px-4 py-3 lg:table-cell">Received by</th>
               <th className="px-4 py-3">Date</th>
             </tr>
           </thead>
@@ -243,8 +254,8 @@ export default function PaymentsView({
                     {PAYMENT_METHOD_LABELS[payment.payment_method]}
                     {payment.account_number && <p className="text-xs text-zinc-500">A/C {payment.account_number}</p>}
                   </td>
-                  <td data-label="Receipt No." className="px-4 py-3 text-zinc-700">{payment.receipt_number ?? "—"}</td>
-                  <td data-label="Received by" className="px-4 py-3">
+                  <td data-label="Receipt No." className="hidden lg:table-cell px-4 py-3 text-zinc-700">{payment.receipt_number ?? "—"}</td>
+                  <td data-label="Received by" className="hidden lg:table-cell px-4 py-3">
                     {payment.recorded_by_name ? (
                       <span className="inline-flex items-center gap-2 text-zinc-700">
                         <Avatar name={payment.recorded_by_name} imageUrl={payment.recorded_by_avatar_url} />
@@ -260,6 +271,38 @@ export default function PaymentsView({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone: compact cards instead of the label/value stacked table rows. */}
+      <div className="flex flex-col gap-3 bg-zinc-50 p-3 sm:hidden">
+        {payments.length === 0 && <p className="px-1 py-3 text-center text-sm text-zinc-500">No payments yet.</p>}
+        {payments.map((payment) => {
+          const budget = Number(payment.budget_amount ?? 0);
+          const paid = Number(payment.paid_amount ?? 0);
+          return (
+            <div key={payment.id} className="rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+              <div className="flex items-start justify-between gap-2">
+                <Link href={`/sales/${payment.sale_id}`} className="text-sm font-semibold text-brand-700">{payment.company_name}</Link>
+                <span className="text-sm font-semibold text-emerald-700">{formatCurrency(Number(payment.amount))}</span>
+              </div>
+              <p className="text-xs text-zinc-500">{payment.payment_number} · {payment.sale_number}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-700">
+                <span>{PAYMENT_METHOD_LABELS[payment.payment_method]}{payment.account_number ? ` · A/C ${payment.account_number}` : ""}</span>
+                {payment.receipt_number && <span>Receipt {payment.receipt_number}</span>}
+                <BalanceText budget={budget} paid={paid} />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+                <span className="flex items-center gap-1"><i className="ri-calendar-line" aria-hidden="true" />{payment.payment_date}</span>
+                {payment.recorded_by_name && (
+                  <span className="inline-flex items-center gap-2 text-zinc-700">
+                    <Avatar name={payment.recorded_by_name} imageUrl={payment.recorded_by_avatar_url} />
+                    {payment.recorded_by_name}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} />
