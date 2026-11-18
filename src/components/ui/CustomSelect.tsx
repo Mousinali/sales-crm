@@ -112,8 +112,8 @@ export default function CustomSelect({
       {open && position && createPortal(
         <div
           ref={menuRef}
-          style={{ position: "fixed", left: position.left, width: position.width, top: position.top, bottom: position.bottom }}
-          className="z-[100] overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+          style={{ position: "fixed", left: position.left, minWidth: position.width, maxWidth: `calc(100vw - ${position.left + 8}px)`, top: position.top, bottom: position.bottom }}
+          className="z-[100] w-max overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
         >
           {searchable && (
             <div className="relative border-b border-zinc-200">
@@ -147,7 +147,7 @@ export default function CustomSelect({
                   }`}
                 >
                   {o.icon && <OptionIcon icon={o.icon} />}
-                  <span className="truncate">{o.label}</span>
+                  <span className="whitespace-nowrap">{o.label}</span>
                 </button>
               </li>
             ))}
