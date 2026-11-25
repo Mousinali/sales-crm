@@ -11,6 +11,8 @@ export const LEAD_ACTIVITY_DISPLAY: Record<LeadActivityType, { label: string; ic
   ASSIGNMENT: { label: "Assignment", icon: "ri-user-add-line", iconClass: "bg-indigo-50 text-indigo-600" },
   TRANSFER: { label: "Transfer", icon: "ri-arrow-left-right-line", iconClass: "bg-indigo-50 text-indigo-600" },
   OTHER: { label: "Other", icon: "ri-more-line", iconClass: "bg-zinc-100 text-zinc-500" },
+  ARCHIVED: { label: "Archived", icon: "ri-archive-line", iconClass: "bg-rose-50 text-rose-600" },
+  RESTORED: { label: "Restored", icon: "ri-inbox-unarchive-line", iconClass: "bg-emerald-50 text-emerald-600" },
 };
 
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {

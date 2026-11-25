@@ -4,6 +4,7 @@ import { assertLeadVisible } from "./guard";
 import { LeadActionNotAllowedError } from "./errors";
 import { normalizeCompanyName, normalizePhone, extractDomain } from "./normalize";
 import { setLeadServices } from "./services";
+import { recordLeadActivity } from "./activities";
 import { recordAuditLog } from "@/lib/audit/log";
 import type { LeadPriority, LeadBudgetType } from "./types";
 
@@ -115,5 +116,6 @@ export async function updateLead(
       targetId: input.leadId,
       details: { name: lead.company_name },
     });
+    await recordLeadActivity(pool, { leadId: input.leadId, actorId: input.actorId, type: fields.archived ? "ARCHIVED" : "RESTORED" });
   }
 }

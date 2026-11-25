@@ -5,7 +5,10 @@ import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { createSale } from "@/lib/sales/create";
+import { createLead } from "@/lib/leads/create";
 import { recordSalePayment } from "@/lib/sales/payments";
+import { archiveCompany, restoreCompany } from "@/lib/companies/archive";
+import { normalizeCompanyName } from "@/lib/leads/normalize";
 import { getMySalesAndPayments, getMyPaymentsByClient } from "./mySales";
 import { getEntriesTimeSeries } from "./entriesTimeSeries";
 
@@ -13,20 +16,25 @@ const adminEmail = `my-sales-admin-${Date.now()}@example.com`;
 let adminId: number;
 let spId: number;
 let otherSpId: number;
+let archSpId: number;
 const saleIds: number[] = [];
+const leadIds: number[] = [];
 
 beforeAll(async () => {
   await runMigrations(pool, path.join(__dirname, "../../../migrations"));
   adminId = (await seedSuperAdmin(pool, { email: adminEmail, name: "Admin", password: "1234" })).id;
   spId = (await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "SALESPERSON", name: "SP", email: `my-sales-sp-${Date.now()}@example.com` })).id;
   otherSpId = (await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "SALESPERSON", name: "SP2", email: `my-sales-sp2-${Date.now()}@example.com` })).id;
+  archSpId = (await createUser(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", role: "SALESPERSON", name: "SP3", email: `my-sales-sp3-${Date.now()}@example.com` })).id;
 });
 
 afterAll(async () => {
   await pool.query("DELETE FROM sale_payments WHERE sale_id = ANY($1)", [saleIds]);
   await pool.query("DELETE FROM sales WHERE id = ANY($1)", [saleIds]);
+  await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [adminId]);
-  await pool.query("DELETE FROM users WHERE id = ANY($1)", [[spId, otherSpId, adminId]]);
+  await pool.query("DELETE FROM users WHERE id = ANY($1)", [[spId, otherSpId, archSpId, adminId]]);
 });
 
 describe("a salesperson's own sales figures", () => {
@@ -59,5 +67,25 @@ describe("a salesperson's own sales figures", () => {
     const salesAmount = await getEntriesTimeSeries(pool, "SALES_AMOUNT", "MONTH", spId);
     expect(salesAmount.reduce((n, p) => n + p.value, 0)).toBe(1000);
     expect(sum(salesAmount).count).toBe(1);
+  });
+
+  it("drops a deleted company's sale & payment from the figures, and brings them back on restore", async () => {
+    const companyName = `Arch Co ${Date.now()}`;
+    const lead = await createLead(pool, { creatorId: archSpId, creatorRole: "SALESPERSON", companyName, phone: "9000000000", leadSource: "OTHER" });
+    leadIds.push(lead.id);
+    const sale = await createSale(pool, { creatorId: archSpId, creatorRole: "SALESPERSON", leadId: lead.id, budgetAmount: 2000, budgetType: "ONE_TIME" });
+    saleIds.push(sale.id);
+    await recordSalePayment(pool, { actorId: archSpId, actorRole: "SALESPERSON", saleId: sale.id, amount: 500, paymentMethod: "CASH" });
+
+    // Present while the company is live.
+    expect(await getMySalesAndPayments(pool, archSpId, "ALL_TIME")).toEqual({ mySales: 2000, myPayments: 500 });
+
+    // Deleting the company (archiving its leads) hides its money.
+    await archiveCompany(pool, adminId, normalizeCompanyName(companyName));
+    expect(await getMySalesAndPayments(pool, archSpId, "ALL_TIME")).toEqual({ mySales: 0, myPayments: 0 });
+
+    // Restoring brings the exact same figures back — nothing was deleted.
+    await restoreCompany(pool, adminId, normalizeCompanyName(companyName));
+    expect(await getMySalesAndPayments(pool, archSpId, "ALL_TIME")).toEqual({ mySales: 2000, myPayments: 500 });
   });
 });

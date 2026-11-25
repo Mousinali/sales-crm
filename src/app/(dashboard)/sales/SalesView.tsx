@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SALE_BUDGET_TYPES, type SaleRow, type SaleBudgetType } from "@/lib/sales/types";
 import type { Role } from "@/lib/auth/roles";
 import Pagination from "@/components/ui/Pagination";
+import ArchivedTag from "@/components/ui/ArchivedTag";
 import Avatar from "@/components/ui/Avatar";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import FilterDropdown from "@/components/ui/FilterDropdown";
@@ -242,6 +243,7 @@ export default function SalesView({
                     <Link href={`/sales/${sale.id}`} className="font-medium text-brand-700 hover:underline">
                       {sale.company_name}
                     </Link>
+                    {sale.company_archived && <ArchivedTag />}
                     {sale.contact_person && <p className="text-xs text-zinc-500">{sale.contact_person}</p>}
                   </td>
                   <td data-label="Budget" className="px-4 py-3">
@@ -279,6 +281,7 @@ export default function SalesView({
           return (
             <div key={sale.id} className="rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
               <Link href={`/sales/${sale.id}`} className="text-sm font-semibold text-brand-700">{sale.company_name}</Link>
+              {sale.company_archived && <ArchivedTag />}
               <p className="text-xs text-zinc-500">{sale.sale_number}{sale.contact_person ? ` · ${sale.contact_person}` : ""}</p>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 <span className="font-medium text-zinc-900">₹{budget.toLocaleString("en-IN")} <span className="font-normal text-zinc-500">{BUDGET_TYPE_LABELS[sale.budget_type]}</span></span>

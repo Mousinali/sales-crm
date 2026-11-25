@@ -42,6 +42,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await pool.query("DELETE FROM lead_services WHERE lead_id = ANY($1)", [leadIds]);
+  await pool.query("DELETE FROM lead_activities WHERE lead_id = ANY($1)", [leadIds]);
   await pool.query("DELETE FROM services WHERE id = ANY($1)", [serviceIds]);
   await pool.query("DELETE FROM leads WHERE id = ANY($1)", [leadIds]);
   await pool.query(

@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { leadVisibleSql } from "@/lib/leads/visibility";
+import { ARCHIVED_COMPANY_SALE_IDS } from "./archivedCompany";
 
 export const ENTRIES_PERIODS = ["TODAY", "WEEK", "MONTH"] as const;
 export type EntriesPeriod = (typeof ENTRIES_PERIODS)[number];
@@ -50,10 +51,18 @@ async function entriesSeries(pool: Pool, metric: EntriesMetric, period: EntriesP
         : isPayments(metric)
           ? ` AND t.recorded_by = $1`
           : ` AND (t.created_by = $1 OR t.sold_by_user_id = $1)`;
+  // Non-lead metrics (sales/payments) drop a deleted company's rows too: a
+  // sale by its own id, a payment by the sale it's against.
+  const archivedExclusion =
+    metric === "LEADS"
+      ? ""
+      : isPayments(metric)
+        ? ` AND t.sale_id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`
+        : ` AND t.id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`;
   const joinCondition =
     (metric === "LEADS"
       ? `date_trunc('${bucketTrunc}', t.created_at) = b.bucket AND t.archived_at IS NULL`
-      : `date_trunc('${bucketTrunc}', t.created_at) = b.bucket`) + ownerCondition;
+      : `date_trunc('${bucketTrunc}', t.created_at) = b.bucket`) + ownerCondition + archivedExclusion;
 
   const table = metric === "LEADS" ? "leads" : isPayments(metric) ? "sale_payments" : "sales";
   // Leads have no money column, so their amount is a constant zero.

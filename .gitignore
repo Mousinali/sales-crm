@@ -43,3 +43,6 @@ next-env.d.ts
 
 # playwright mcp (console logs, page snapshots, screenshots)
 /.playwright-mcp/
+# local working artifacts: security report + DB ops runbook (not app code)
+/brute-test.md
+/delete-archived-data.md

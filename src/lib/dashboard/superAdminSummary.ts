@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { ARCHIVED_COMPANY_SALE_IDS } from "./archivedCompany";
 
 export const SUMMARY_PERIODS = ["TODAY", "WEEK", "MONTH", "ALL_TIME"] as const;
 export type SummaryPeriod = (typeof SUMMARY_PERIODS)[number];
@@ -21,12 +22,12 @@ export const PERIOD_SINCE_SQL: Record<SummaryPeriod, string> = {
 export async function getSuperAdminPeriodSummary(pool: Pool, period: SummaryPeriod) {
   const since = PERIOD_SINCE_SQL[period];
   const [sales, leads, companies, payments] = await Promise.all([
-    pool.query<{ total: string }>(`SELECT COALESCE(SUM(budget_amount), 0) AS total FROM sales WHERE sale_date >= ${since}`),
+    pool.query<{ total: string }>(`SELECT COALESCE(SUM(budget_amount), 0) AS total FROM sales WHERE sale_date >= ${since} AND id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`),
     pool.query<{ count: string }>(`SELECT count(*) FROM leads WHERE created_at >= ${since} AND archived_at IS NULL`),
     pool.query<{ count: string }>(
-      `SELECT count(DISTINCT company_name_normalized) AS count FROM leads WHERE created_at >= ${since}`,
+      `SELECT count(DISTINCT company_name_normalized) AS count FROM leads WHERE created_at >= ${since} AND archived_at IS NULL`,
     ),
-    pool.query<{ total: string }>(`SELECT COALESCE(SUM(amount), 0) AS total FROM sale_payments WHERE payment_date >= ${since}`),
+    pool.query<{ total: string }>(`SELECT COALESCE(SUM(amount), 0) AS total FROM sale_payments WHERE payment_date >= ${since} AND sale_id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`),
   ]);
 
   return {

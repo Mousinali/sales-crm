@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { PERIOD_SINCE_SQL, type SummaryPeriod } from "./superAdminSummary";
+import { ARCHIVED_COMPANY_SALE_IDS } from "./archivedCompany";
 
 // Company-wide money picture for the Accountant. Sales are scoped by sale
 // date and payments by payment date; "due" is what's still unpaid on the
@@ -8,17 +9,17 @@ export async function getAccountantSummary(pool: Pool, period: SummaryPeriod) {
   const since = PERIOD_SINCE_SQL[period];
   const [sales, received, due, companies, byMethod] = await Promise.all([
     pool.query<{ total: string; count: string }>(
-      `SELECT COALESCE(SUM(budget_amount), 0) AS total, count(*) AS count FROM sales WHERE sale_date >= ${since}`,
+      `SELECT COALESCE(SUM(budget_amount), 0) AS total, count(*) AS count FROM sales WHERE sale_date >= ${since} AND id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`,
     ),
-    pool.query<{ total: string }>(`SELECT COALESCE(SUM(amount), 0) AS total FROM sale_payments WHERE payment_date >= ${since}`),
+    pool.query<{ total: string }>(`SELECT COALESCE(SUM(amount), 0) AS total FROM sale_payments WHERE payment_date >= ${since} AND sale_id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`),
     pool.query<{ total: string }>(
       `SELECT COALESCE(SUM(GREATEST(s.budget_amount - COALESCE(p.paid, 0), 0)), 0) AS total
        FROM sales s LEFT JOIN (SELECT sale_id, SUM(amount) AS paid FROM sale_payments GROUP BY sale_id) p ON p.sale_id = s.id
-       WHERE s.sale_date >= ${since}`,
+       WHERE s.sale_date >= ${since} AND s.id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})`,
     ),
     pool.query<{ count: string }>(`SELECT count(DISTINCT company_name_normalized) AS count FROM leads WHERE archived_at IS NULL`),
     pool.query<{ payment_method: string; total: string }>(
-      `SELECT payment_method, SUM(amount) AS total FROM sale_payments WHERE payment_date >= ${since} GROUP BY payment_method`,
+      `SELECT payment_method, SUM(amount) AS total FROM sale_payments WHERE payment_date >= ${since} AND sale_id NOT IN (${ARCHIVED_COMPANY_SALE_IDS}) GROUP BY payment_method`,
     ),
   ]);
 

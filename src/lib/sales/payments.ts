@@ -157,7 +157,8 @@ export async function listPaymentsPage(
   const [pageResult, countResult] = await Promise.all([
     pool.query<SalePaymentRow>(
       `SELECT sp.*, u.name AS recorded_by_name, u.avatar_url AS recorded_by_avatar_url, paid.total AS paid_amount
-       FROM (SELECT sp.*, sales.sale_number, sales.company_name, sales.budget_amount
+       FROM (SELECT sp.*, sales.sale_number, sales.company_name, sales.budget_amount,
+                    EXISTS (SELECT 1 FROM leads l WHERE l.id = sales.lead_id AND l.archived_at IS NOT NULL) AS company_archived
              FROM sale_payments sp JOIN sales ON sales.id = sp.sale_id
              ${whereClause} ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}) sp
        JOIN users u ON u.id = sp.recorded_by

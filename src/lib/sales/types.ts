@@ -35,6 +35,9 @@ export type SaleRow = {
   // running total of sale_payments for this sale, so paid/remaining can be
   // shown without a second round trip.
   paid_amount?: string;
+  // Only on list rows — true when this sale's lead was archived (its company
+  // deleted), so the list can flag it.
+  company_archived?: boolean;
 };
 
 export type SalePaymentRow = {
@@ -60,4 +63,6 @@ export type SalePaymentRow = {
   company_name?: string;
   budget_amount?: string;
   paid_amount?: string;
+  // Only on listPaymentsPage rows — true when the sale's lead was archived.
+  company_archived?: boolean;
 };

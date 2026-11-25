@@ -7,6 +7,8 @@ import { createLead } from "@/lib/leads/create";
 import { createSale } from "@/lib/sales/create";
 import { normalizeCompanyName } from "@/lib/leads/normalize";
 import { updateCompany } from "./update";
+import { archiveCompany, restoreCompany } from "./archive";
+import { listSalesPage } from "@/lib/sales/list";
 import { CompanyNotFoundError, CompanyNameTakenError, InvalidCompanyNameError } from "./errors";
 
 const adminEmail = `companies-update-admin-${Date.now()}@example.com`;
@@ -95,5 +97,25 @@ describe("updateCompany", () => {
     expect(rows[0].details).toEqual({ name: nameA, fields: ["industry", "location", "website", "pincode"] });
     const renamed = rows.find((r) => r.details.renamedFrom);
     expect(renamed.details).toEqual({ name: `Renamed Co ${stamp}`, renamedFrom: `Rename Me ${stamp}`, fields: ["companyName"] });
+  });
+
+  it("archiving/restoring a company records an activity on its lead and flags its sales", async () => {
+    const companyName = `Archive Co ${stamp}`;
+    const l = await lead(companyName, "9000000099");
+    const sale = await createSale(pool, { creatorId: adminId, creatorRole: "SUPER_ADMIN", leadId: l.id, budgetAmount: 1000, budgetType: "ONE_TIME" });
+    saleIds.push(sale.id);
+    const key = normalizeCompanyName(companyName);
+    const activityTypes = async () =>
+      (await pool.query<{ type: string }>("SELECT type FROM lead_activities WHERE lead_id = $1", [l.id])).rows.map((r) => r.type);
+    const archivedFlag = async () =>
+      (await listSalesPage(pool, { id: adminId, role: "SUPER_ADMIN" }, { q: companyName }, { page: 1, pageSize: 10 })).items[0]?.company_archived;
+
+    await archiveCompany(pool, adminId, key);
+    expect(await activityTypes()).toContain("ARCHIVED");
+    expect(await archivedFlag()).toBe(true);
+
+    await restoreCompany(pool, adminId, key);
+    expect(await activityTypes()).toContain("RESTORED");
+    expect(await archivedFlag()).toBe(false);
   });
 });

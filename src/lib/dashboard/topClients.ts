@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { PERIOD_SINCE_SQL, type SummaryPeriod } from "./superAdminSummary";
+import { ARCHIVED_COMPANY_SALE_IDS } from "./archivedCompany";
 
 // Calendar-based (this month/quarter/year), unlike the rolling summary
 // periods — a leaderboard reads as "this month", not "last 30 days".
@@ -33,6 +34,7 @@ export async function getBestClients(pool: Pool, period: SummaryPeriod, userId: 
      FROM (SELECT sales.*, COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id), 0) AS paid FROM sales) s
      LEFT JOIN users u ON u.id = ${CREDITED_ID}
      WHERE s.sale_date >= ${PERIOD_SINCE_SQL[period]}
+       AND s.id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})
        AND ($1::bigint IS NULL OR s.created_by = $1 OR s.sold_by_user_id = $1)
      GROUP BY lower(trim(s.company_name)) ORDER BY SUM(s.budget_amount) DESC LIMIT $2`,
     [userId, limit],
@@ -46,7 +48,7 @@ export async function getEmployeeRanking(pool: Pool, range: RankingRange, limit 
   const { rows } = await pool.query<{ id: string; name: string; role: string; sales: string; count: string }>(
     `SELECT u.id, u.name, u.role, SUM(s.budget_amount) AS sales, count(*) AS count
      FROM sales s JOIN users u ON u.id = ${CREDITED_ID}
-     WHERE s.sale_date >= ${RANGE_SINCE_SQL[range]}
+     WHERE s.sale_date >= ${RANGE_SINCE_SQL[range]} AND s.id NOT IN (${ARCHIVED_COMPANY_SALE_IDS})
      GROUP BY u.id, u.name, u.role ORDER BY SUM(s.budget_amount) DESC LIMIT $1`,
     [limit],
   );

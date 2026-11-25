@@ -63,6 +63,8 @@ const SOLD_BY_DISPLAY_NAME_SELECT = `
 `;
 const SOLD_BY_USER_JOIN = `LEFT JOIN users sold_by_user ON sold_by_user.id = sales.sold_by_user_id`;
 const PAID_AMOUNT_SELECT = `COALESCE(paid.total, 0) AS paid_amount`;
+// True when this sale's lead was archived (its company deleted) — flags the row in the list.
+const COMPANY_ARCHIVED_SELECT = `EXISTS (SELECT 1 FROM leads l WHERE l.id = sales.lead_id AND l.archived_at IS NOT NULL) AS company_archived`;
 const PAID_AMOUNT_JOIN = `LEFT JOIN LATERAL (SELECT SUM(amount) AS total FROM sale_payments WHERE sale_payments.sale_id = sales.id) paid ON true`;
 
 export async function listSales(pool: Pool, viewer: { id: number; role: Role }, filters: SaleFilters): Promise<SaleRow[]> {
@@ -70,7 +72,7 @@ export async function listSales(pool: Pool, viewer: { id: number; role: Role }, 
 
   const { whereClause, params } = buildSalesWhere(viewer, filters);
   const { rows } = await pool.query<SaleRow>(
-    `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT} FROM sales ${SOLD_BY_USER_JOIN} ${PAID_AMOUNT_JOIN} ${whereClause} ORDER BY sale_date DESC, sales.created_at DESC`,
+    `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT}, ${COMPANY_ARCHIVED_SELECT} FROM sales ${SOLD_BY_USER_JOIN} ${PAID_AMOUNT_JOIN} ${whereClause} ORDER BY sale_date DESC, sales.created_at DESC`,
     params,
   );
   return rows;
@@ -90,7 +92,7 @@ export async function listSalesPage(
   const orderBy = "ORDER BY sale_date DESC, sales.created_at DESC";
   const [pageResult, countResult] = await Promise.all([
     pool.query<SaleRow>(
-      `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT}
+      `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT}, ${COMPANY_ARCHIVED_SELECT}
        FROM (SELECT sales.* FROM sales ${whereClause} ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}) sales
        ${SOLD_BY_USER_JOIN} ${PAID_AMOUNT_JOIN}
        ${orderBy}`,

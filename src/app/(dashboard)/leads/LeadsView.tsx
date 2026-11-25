@@ -740,7 +740,8 @@ export default function LeadsView({
                   <td data-label="Company" className="px-4 py-2">
                     <Link
                       href={`/leads/${lead.id}`}
-                      className="font-medium text-brand-700 hover:underline"
+                      title={lead.company_name}
+                      className="block max-w-xs truncate font-medium text-brand-700 hover:underline"
                     >
                       {lead.company_name}
                     </Link>
@@ -895,7 +896,7 @@ export default function LeadsView({
             className="cursor-pointer rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-zinc-900">{lead.company_name}</p>
+              <p title={lead.company_name} className="min-w-0 truncate text-sm font-semibold text-zinc-900">{lead.company_name}</p>
               {canSelectLeads && (
                 <input
                   type="checkbox"

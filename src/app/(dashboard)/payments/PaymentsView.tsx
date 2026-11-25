@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SALE_PAYMENT_METHODS, type SalePaymentRow, type SalePaymentMethod } from "@/lib/sales/types";
 import type { Role } from "@/lib/auth/roles";
 import Pagination from "@/components/ui/Pagination";
+import ArchivedTag from "@/components/ui/ArchivedTag";
 import Avatar from "@/components/ui/Avatar";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import FilterDropdown from "@/components/ui/FilterDropdown";
@@ -250,6 +251,7 @@ export default function PaymentsView({
                     <Link href={`/sales/${payment.sale_id}`} className="font-medium text-brand-700 hover:underline">
                       {payment.company_name}
                     </Link>
+                    {payment.company_archived && <ArchivedTag />}
                     <p className="text-xs text-zinc-500">{payment.sale_number}</p>
                   </td>
                   <td data-label="Amount" className="px-4 py-3 font-medium text-emerald-700">{formatCurrency(Number(payment.amount))}</td>
@@ -289,7 +291,10 @@ export default function PaymentsView({
           return (
             <div key={payment.id} className="rounded-lg bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
               <div className="flex items-start justify-between gap-2">
-                <Link href={`/sales/${payment.sale_id}`} className="text-sm font-semibold text-brand-700">{payment.company_name}</Link>
+                <span className="min-w-0">
+                  <Link href={`/sales/${payment.sale_id}`} className="text-sm font-semibold text-brand-700">{payment.company_name}</Link>
+                  {payment.company_archived && <ArchivedTag />}
+                </span>
                 <span className="text-sm font-semibold text-emerald-700">{formatCurrency(Number(payment.amount))}</span>
               </div>
               <p className="text-xs text-zinc-500">{payment.payment_number} · {payment.sale_number}</p>

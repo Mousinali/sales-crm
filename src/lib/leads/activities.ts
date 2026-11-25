@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "./guard";
 
-export type LeadActivityType = "NOTE" | "CALL" | "MEETING" | "OTHER" | "STATUS_CHANGE" | "ASSIGNMENT" | "TRANSFER" | "CLIENT_VISIT";
+export type LeadActivityType = "NOTE" | "CALL" | "MEETING" | "OTHER" | "STATUS_CHANGE" | "ASSIGNMENT" | "TRANSFER" | "CLIENT_VISIT" | "ARCHIVED" | "RESTORED";
 
 export type LeadActivityRow = {
   id: number;
