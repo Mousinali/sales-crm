@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { stripNul } from "@/lib/db";
 
 export async function recordAuditLog(
   pool: Pool,
@@ -18,7 +19,13 @@ export async function recordAuditLog(
       entry.action,
       entry.targetTable ?? null,
       entry.targetId ?? null,
-      entry.details ? JSON.stringify(entry.details) : null,
+      entry.details ? JSON.stringify(entry.details, (_key, value) => stripNul(value)) : null,
     ],
   );
+}
+
+// For the user-activity timeline: the action already succeeded, so a failed
+// log write must not turn it into an error response.
+export async function logActivity(pool: Pool, entry: Parameters<typeof recordAuditLog>[1]): Promise<void> {
+  await recordAuditLog(pool, entry).catch((error) => console.error("activity log failed", entry.action, error));
 }

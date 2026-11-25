@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "@/lib/toast";
@@ -9,6 +10,25 @@ import NotificationIcon from "./NotificationIcon";
 import { notificationDisplay } from "./notificationDisplay";
 
 const MUTE_STORAGE_KEY = "notificationsMuted";
+// The desktop dropdown shows a preview; the rest live on the full page.
+const DESKTOP_PREVIEW_COUNT = 6;
+
+// Compact relative time ("just now", "5m ago", "3h ago", "2d ago", …).
+function timeAgo(iso: string): string {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const units: [number, string][] = [
+    [60, "m"],
+    [3600, "h"],
+    [86400, "d"],
+    [604800, "w"],
+  ];
+  for (let i = units.length - 1; i >= 0; i--) {
+    const [secs, label] = units[i];
+    if (seconds >= secs) return `${Math.floor(seconds / secs)}${label} ago`;
+  }
+  return "just now";
+}
 
 type Notification = {
   id: number;
@@ -167,28 +187,22 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
     </button>
   );
 
-  const list =
-    notifications.length === 0 ? (
+  const renderList = (items: Notification[]) =>
+    items.length === 0 ? (
       <p className="px-4 py-3 text-sm text-zinc-500">No notifications yet.</p>
     ) : (
-      notifications.map((n) => (
+      items.map((n) => (
         <div key={n.id} className="group flex items-center hover:bg-zinc-50">
           <button
             type="button"
             onClick={() => handleClick(n)}
-            className="flex min-w-0 flex-1 items-start gap-3 px-4 py-2.5 text-left"
+            className="flex min-w-0 flex-1 items-start gap-3 px-4 py-2 text-left"
           >
             <NotificationIcon type={n.type} />
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-                {notificationDisplay(n.type).label}
-                {n.created_at && (
-                  <time className="font-normal normal-case tracking-normal">
-                    · {new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
-                  </time>
-                )}
-              </span>
-              <span className={`block text-sm ${n.read_at ? "text-zinc-400" : "font-medium text-zinc-900"}`}>{n.message}</span>
+              <span className="block truncate text-sm font-semibold text-zinc-900">{notificationDisplay(n.type).label}</span>
+              <span className={`mt-0.5 block text-xs leading-snug line-clamp-2 ${n.read_at ? "text-zinc-400" : "text-zinc-600"}`}>{n.message}</span>
+              {n.created_at && <time className="mt-0.5 block text-[11px] text-zinc-400">{timeAgo(n.created_at)}</time>}
             </span>
             {!n.read_at && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-label="Unread" />}
           </button>
@@ -197,13 +211,29 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
             onClick={(event) => handleDelete(event, n.id)}
             aria-label="Delete notification"
             title="Delete"
-            className="mr-2 shrink-0 rounded p-1.5 text-zinc-300 opacity-0 hover:bg-zinc-200 hover:text-zinc-600 group-hover:opacity-100"
+            className="mr-2 shrink-0 self-center rounded-md p-2 text-zinc-400 opacity-0 transition-colors hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
           >
             <i className="ri-delete-bin-line text-sm" aria-hidden="true" />
           </button>
         </div>
       ))
     );
+
+  const viewAllLink = (
+    <div className="border-t border-zinc-100 p-3">
+      <Link
+        href="/notifications"
+        onClick={() => setOpen(false)}
+        className="block rounded-lg bg-brand-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+      >
+        View all notifications
+      </Link>
+    </div>
+  );
+
+  const newBadge = unreadCount > 0 && (
+    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">{unreadCount} New</span>
+  );
 
   const bellButton = (
     <button
@@ -244,11 +274,15 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
               open ? "translate-x-0" : "translate-x-full"
             }`}
           >
-            <div className="flex items-center justify-between border-b border-zinc-200 p-4">
-              <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 p-4">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+                {newBadge}
+              </div>
               {muteToggle}
             </div>
-            <div className="flex-1 overflow-y-auto">{list}</div>
+            <div className="flex-1 overflow-y-auto">{renderList(notifications)}</div>
+            {notifications.length > 0 && viewAllLink}
           </div>
         </div>
       </>
@@ -259,12 +293,16 @@ export default function NotificationsBell({ variant = "desktop" }: { variant?: "
     <div ref={desktopRef} className="relative">
       {bellButton}
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-md border border-zinc-200 bg-white py-1 shadow-lg">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Notifications</p>
+        <div className="absolute right-0 z-50 mt-2 w-96 max-w-[calc(100vw-1rem)] rounded-md border border-zinc-200 bg-white py-1 shadow-lg">
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+              {newBadge}
+            </div>
             {muteToggle}
           </div>
-          {list}
+          <div className="max-h-[70vh] overflow-y-auto">{renderList(notifications.slice(0, DESKTOP_PREVIEW_COUNT))}</div>
+          {notifications.length > 0 && viewAllLink}
         </div>
       )}
     </div>

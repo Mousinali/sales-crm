@@ -6,7 +6,7 @@ import BulkUploadView from "./BulkUploadView";
 export default async function BulkUploadLeadPage() {
   const user = await requireRole(["SUPER_ADMIN", "HR", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON"]);
   // Mirrors /leads/new: only the roles that may create a lead get this page.
-  if (user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
+  if (user.role !== "SUPER_ADMIN" && user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
     redirect("/leads");
   }
 

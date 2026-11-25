@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { Role } from "@/lib/auth/roles";
 import { assertLeadVisible } from "./guard";
 import { LeadActionNotAllowedError } from "./errors";
+import { recordNotification } from "@/lib/notifications/record";
 
 export type LeadShareRow = { user_id: number; name: string; role: Role };
 
@@ -25,10 +26,15 @@ export async function shareLead(pool: Pool, actor: { id: number; role: Role }, l
   if (rows.length === 0) {
     throw new LeadActionNotAllowedError(`User ${userId} is not an active user who can view leads`);
   }
-  await pool.query(
+  const { rowCount } = await pool.query(
     "INSERT INTO lead_shares (lead_id, user_id, shared_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     [leadId, userId, actor.id],
   );
+  if (rowCount) {
+    const { rows: lead } = await pool.query<{ company_name: string }>("SELECT company_name FROM leads WHERE id = $1", [leadId]);
+    // Reuses LEAD_ASSIGNED so no notifications-type migration is needed.
+    await recordNotification(pool, { recipientUserId: userId, type: "LEAD_ASSIGNED", leadId, relatedUserId: actor.id, message: `${lead[0]?.company_name ?? "A lead"} was shared with you` });
+  }
 }
 
 export async function unshareLead(pool: Pool, actor: { id: number; role: Role }, leadId: number, userId: number): Promise<void> {

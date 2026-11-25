@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -7,23 +8,23 @@ import { createSale } from "@/lib/sales/create";
 import { listSalesPage } from "@/lib/sales/list";
 import { parsePageParams } from "@/lib/pagination";
 import { SaleActionNotAllowedError, SaleNotFoundError, SaleNotAccessibleError } from "@/lib/sales/errors";
-import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema, amountSchema, companyNameSchema, dateSchema } from "@/lib/validation";
 
 const createSaleSchema = z.object({
   leadId: z.number().int().optional(),
-  companyName: z.string().trim().min(1).optional(),
+  companyName: companyNameSchema.optional(),
   contactPerson: z.string().trim().min(1).optional(),
   phone: phoneSchema.optional(),
   email: emailSchema.optional(),
   address: z.string().trim().min(1).optional(),
-  budgetAmount: z.number().positive(),
+  budgetAmount: amountSchema,
   budgetType: z.enum(SALE_BUDGET_TYPES),
-  saleDate: z.string().trim().min(1).optional(),
+  saleDate: dateSchema.optional(),
   soldByType: z.enum(SALE_SOLD_BY_TYPES).optional(),
   soldByUserId: z.number().int().optional(),
   soldByCustomName: z.string().trim().min(1).optional(),
   serviceIds: z.array(z.number().int()).optional(),
-  initialPaymentAmount: z.number().positive().optional(),
+  initialPaymentAmount: amountSchema.optional(),
   initialPaymentMethod: z.enum(SALE_PAYMENT_METHODS).optional(),
   notes: z.string().trim().min(1).optional(),
 });
@@ -56,6 +57,7 @@ export async function POST(request: Request): Promise<Response> {
       creatorRole: user.role,
       ...parsed.data,
     });
+    await logActivity(pool, { actorUserId: user.id, action: "sale.created", targetTable: "sales", targetId: sale.id, details: { name: sale.company_name, amount: sale.budget_amount } });
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {
     if (error instanceof SaleActionNotAllowedError) {

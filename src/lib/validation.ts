@@ -36,8 +36,15 @@ export const phoneSchema = z.string().trim().regex(/^\d+$/, PHONE_MESSAGE).refin
 export const optionalPhoneSchema = blankOr(phoneSchema);
 export const pincodeSchema = z.string().trim().refine(isValidPincode, PINCODE_MESSAGE);
 export const gstSchema = z.string().trim().toUpperCase().refine(isValidGst, GST_MESSAGE);
-export const websiteSchema = z.string().trim().refine(isValidWebsite, WEBSITE_MESSAGE);
-export const emailSchema = z.string().trim().email(EMAIL_MESSAGE);
+export const websiteSchema = z.string().trim().max(500, WEBSITE_MESSAGE).refine(isValidWebsite, WEBSITE_MESSAGE);
+export const emailSchema = z.string().trim().max(254, EMAIL_MESSAGE).email(EMAIL_MESSAGE);
+/** A real calendar day, YYYY-MM-DD. */
+export const dateSchema = z.iso.date().refine((v) => v >= "1900-01-01");
+/** Rupees; the cap (1 lakh crore) is far above any real deal and stops junk like 1e300 being stored. */
+export const MAX_AMOUNT = 1e12;
+export const amountSchema = z.number().positive().max(MAX_AMOUNT);
+// Indexed, and Postgres refuses to index a value over ~2.7 KB.
+export const companyNameSchema = z.string().trim().min(1).max(200);
 
 /** Validates a form's fields in order; returns the first error (and its field id) or null. */
 export function firstError(checks: [fieldId: string, value: string, ok: (v: string) => boolean, message: string][]) {

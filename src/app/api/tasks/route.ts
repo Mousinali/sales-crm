@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -40,6 +41,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const task = await createTask(pool, { creatorId: user.id, actorRole: user.role, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "task.created", targetTable: "tasks", targetId: task.id, details: { name: task.title } });
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     if (error instanceof TaskActionNotAllowedError || error instanceof LeadNotAccessibleError) {

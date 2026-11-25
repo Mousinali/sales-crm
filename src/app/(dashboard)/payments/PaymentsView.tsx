@@ -12,7 +12,6 @@ import FilterDropdown from "@/components/ui/FilterDropdown";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
-import { useViewportPageSize } from "@/lib/useViewportPageSize";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 const PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
@@ -55,11 +54,12 @@ export default function PaymentsView({
   // Filters are passed in explicitly rather than read off state: a setState
   // immediately followed by refetch() would still see the previous value and
   // send a request one change behind.
-  const pageSizeRef = useViewportPageSize(65, 380);
+  const [pageSize, setPageSize] = useState(15);
 
   async function refetch(overrides?: {
     search?: string;
     page?: number;
+    pageSize?: number;
     method?: SalePaymentMethod | "";
     dateFrom?: string;
     dateTo?: string;
@@ -68,6 +68,7 @@ export default function PaymentsView({
     const effectiveMethod = overrides?.method ?? methodFilter;
     const effectiveFrom = overrides?.dateFrom ?? dateFrom;
     const effectiveTo = overrides?.dateTo ?? dateTo;
+    const effectivePageSize = overrides?.pageSize ?? pageSize;
     const targetPage = overrides?.page ?? page;
 
     const params = new URLSearchParams();
@@ -76,7 +77,7 @@ export default function PaymentsView({
     if (effectiveFrom) params.set("dateFrom", effectiveFrom);
     if (effectiveTo) params.set("dateTo", effectiveTo);
     params.set("page", String(targetPage));
-    params.set("pageSize", String(pageSizeRef.current));
+    params.set("pageSize", String(effectivePageSize));
 
     setListError(null);
     try {
@@ -95,14 +96,20 @@ export default function PaymentsView({
     }
   }
 
+  function changePageSize(next: number) {
+    setPageSize(next);
+    void refetch({ page: 1, pageSize: next });
+  }
+
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void refetch({ page: 1 });
   }
 
-  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  // Server renders the default page size; load the selector's default once on mount if it differs.
   useEffect(() => {
-    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pageSize !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,7 +201,7 @@ export default function PaymentsView({
             </span>
           )}
         </button>
-        {viewerRole !== "SUPER_ADMIN" && (
+        {viewerRole !== "HR" && (
           <Link
             href="/payments/new"
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
@@ -305,7 +312,7 @@ export default function PaymentsView({
         })}
       </div>
 
-      <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} />
+      <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} pageSize={pageSize} onPageSizeChange={changePageSize} />
 
       <FilterBottomSheet
         open={filterSheetOpen}

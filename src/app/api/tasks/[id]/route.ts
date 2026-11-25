@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -34,7 +35,7 @@ export async function PATCH(
 
   const { id } = await params;
   const taskId = Number(id);
-  if (!Number.isInteger(taskId)) {
+  if (!Number.isSafeInteger(taskId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -46,6 +47,7 @@ export async function PATCH(
 
   try {
     const task = await updateTask(pool, { actorId: user.id, actorRole: user.role, taskId, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "task.updated", targetTable: "tasks", targetId: taskId, details: { name: task.title } });
     return NextResponse.json(task);
   } catch (error) {
     if (error instanceof TaskNotAccessibleError) {

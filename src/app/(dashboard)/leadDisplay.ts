@@ -71,6 +71,20 @@ export const LEAD_STATUS_BADGE_CLASSES: Record<LeadStatus, string> = {
   CLOSED_LOST: "bg-rose-50 text-rose-700",
 };
 
+// How the status dropdown on a lead looks while it shows each status: a tinted
+// control (border/fill/text) and the matching icon colour used in its menu.
+export const LEAD_STATUS_SELECT_TONES: Record<LeadStatus, { trigger: string; icon: string }> = {
+  NEW: { trigger: "border-zinc-300 bg-zinc-100 text-zinc-700", icon: "text-zinc-500" },
+  PENDING_REVIEW: { trigger: "border-amber-300 bg-amber-50 text-amber-800", icon: "text-amber-600" },
+  MORE_INFO_REQUIRED: { trigger: "border-teal-300 bg-teal-50 text-teal-800", icon: "text-teal-600" },
+  QUALIFIED: { trigger: "border-sky-300 bg-sky-50 text-sky-800", icon: "text-sky-600" },
+  CONVERTED: { trigger: "border-emerald-300 bg-emerald-50 text-emerald-800", icon: "text-emerald-600" },
+  REJECTED: { trigger: "border-rose-300 bg-rose-50 text-rose-800", icon: "text-rose-600" },
+  ON_HOLD: { trigger: "border-slate-300 bg-slate-100 text-slate-700", icon: "text-slate-500" },
+  CLOSED_WON: { trigger: "border-emerald-300 bg-emerald-50 text-emerald-800", icon: "text-emerald-600" },
+  CLOSED_LOST: { trigger: "border-rose-300 bg-rose-50 text-rose-800", icon: "text-rose-600" },
+};
+
 export const LEAD_STATUS_ICONS: Record<LeadStatus, string> = {
   NEW: "ri-sparkling-2-line",
   PENDING_REVIEW: "ri-time-line",
@@ -112,10 +126,18 @@ export const LEAD_PRIORITY_BADGE_CLASSES: Record<LeadPriority, string> = {
 };
 
 export const LEAD_PRIORITY_ICONS: Record<LeadPriority, string> = {
-  LOW: "ri-flag-line",
+  LOW: "ri-arrow-down-line",
   MEDIUM: "ri-flag-line",
   HIGH: "ri-fire-line",
 };
+
+// Priority dropdown options: each with its icon in the priority's colour.
+const LEAD_PRIORITY_ICON_COLORS: Record<LeadPriority, string> = { LOW: "text-zinc-500", MEDIUM: "text-amber-500", HIGH: "text-brand-600" };
+export const LEAD_PRIORITY_SELECT_OPTIONS = (["LOW", "MEDIUM", "HIGH"] as const).map((p) => ({
+  value: p,
+  label: LEAD_PRIORITY_LABELS[p],
+  icon: `${LEAD_PRIORITY_ICONS[p]} ${LEAD_PRIORITY_ICON_COLORS[p]}`,
+}));
 
 export const VISIT_STATUS_LABELS: Record<VisitStatus, string> = {
   SCHEDULED: "Scheduled",

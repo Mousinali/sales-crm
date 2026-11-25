@@ -1,5 +1,9 @@
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
+// Rows-per-page choices offered by the Pagination control's dropdown.
+export const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
+// Keeps page * pageSize inside what Postgres accepts as an OFFSET.
+const MAX_PAGE = 1_000_000;
 
 export type PageParams = { page: number; pageSize: number };
 
@@ -12,7 +16,7 @@ export type PagedResult<T> = {
 };
 
 export function parsePageParams(searchParams: URLSearchParams): PageParams {
-  const page = Math.max(1, Math.trunc(Number(searchParams.get("page"))) || 1);
+  const page = Math.min(MAX_PAGE, Math.max(1, Math.trunc(Number(searchParams.get("page"))) || 1));
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(Number(searchParams.get("pageSize"))) || DEFAULT_PAGE_SIZE));
   return { page, pageSize };
 }

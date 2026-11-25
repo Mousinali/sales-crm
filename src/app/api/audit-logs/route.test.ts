@@ -61,4 +61,19 @@ describe("GET /api/audit-logs", () => {
     expect(body.logs.length).toBeGreaterThan(0);
     expect(body.logs.every((log: { actor_name: string }) => log.actor_name === "Log Admin")).toBe(true);
   });
+
+  it("counts each category within the selected period on a user's timeline", async () => {
+    await pool.query(
+      `INSERT INTO audit_logs (actor_user_id, action, created_at)
+       VALUES ($1, 'user.login', now()), ($1, 'user.login', now() - interval '3 days'),
+              ($1, 'user.login', now() - interval '20 days'), ($1, 'user.login', now() - interval '60 days')`,
+      [hrId],
+    );
+    for (const [period, expected] of [["&period=today", 1], ["&period=7d", 2], ["&period=30d", 3], ["", 4]] as const) {
+      const response = await getAuditLogs(`?userId=${hrId}&category=sign_in${period}`, `${SESSION_COOKIE_NAME}=${superAdminToken}`);
+      const body = await response.json();
+      expect(body.categoryCounts?.sign_in).toBe(expected);
+      expect(Number(body.total)).toBe(expected);
+    }
+  });
 });

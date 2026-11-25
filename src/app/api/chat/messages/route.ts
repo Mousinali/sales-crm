@@ -4,7 +4,7 @@ import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { listMessages, sendMessage, getChatState, isMuted } from "@/lib/chat/crud";
 import { recordNotification } from "@/lib/notifications/record";
-import { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError } from "@/lib/chat/errors";
+import { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError, ChatAttachmentError } from "@/lib/chat/errors";
 
 const sendSchema = z.object({
   recipientId: z.number().int(),
@@ -26,7 +26,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const withUserId = Number(new URL(request.url).searchParams.get("with"));
-  if (!Number.isInteger(withUserId)) {
+  if (!Number.isSafeInteger(withUserId)) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
 
@@ -66,6 +66,9 @@ export async function POST(request: Request): Promise<Response> {
     }
     return NextResponse.json(message, { status: 201 });
   } catch (error) {
+    if (error instanceof ChatAttachmentError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof ChatBlockedError) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }

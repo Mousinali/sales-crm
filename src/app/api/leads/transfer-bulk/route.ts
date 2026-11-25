@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -41,6 +42,7 @@ export async function POST(request: Request): Promise<Response> {
       newSalespersonOwnerId: parsed.data.newSalespersonOwnerId,
       reason: parsed.data.reason,
     });
+    await logActivity(pool, { actorUserId: user.id, action: "lead.transferred", targetTable: "leads", details: { count: parsed.data.leadIds.length } });
     return NextResponse.json({ leads });
   } catch (error) {
     if (error instanceof LeadActionNotAllowedError || error instanceof LeadNotAccessibleError) {

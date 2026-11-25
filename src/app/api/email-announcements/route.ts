@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -36,6 +37,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const announcement = await createAnnouncement(pool, { senderId: user.id, senderRole: user.role, ...parsed.data });
     const [withSummary] = await attachRecipientSummary(pool, [announcement]);
+    await logActivity(pool, { actorUserId: user.id, action: "email.announcement_sent", targetTable: "email_announcements", targetId: announcement.id, details: { name: parsed.data.subject } });
     return NextResponse.json(withSummary, { status: 201 });
   } catch (error) {
     if (error instanceof EmailActionNotAllowedError) {

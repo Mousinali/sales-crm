@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (user.mustChangePassword) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const attachmentId = Number((await params).id);
-  if (!Number.isInteger(attachmentId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  if (!Number.isSafeInteger(attachmentId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const file = await getAttachmentForUser(pool, user.id, attachmentId);
   if (!file) return NextResponse.json({ error: "Not found" }, { status: 404 });

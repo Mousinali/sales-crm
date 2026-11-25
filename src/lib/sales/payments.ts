@@ -151,19 +151,23 @@ export async function listPaymentsPage(
   }
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const { rows } = await pool.query<SalePaymentRow & { total_count: number }>(
-    `SELECT sp.*, u.name AS recorded_by_name, u.avatar_url AS recorded_by_avatar_url,
-            sales.sale_number, sales.company_name, sales.budget_amount,
-            paid.total AS paid_amount,
-            count(*) OVER() AS total_count
-     FROM sale_payments sp
-     JOIN sales ON sales.id = sp.sale_id
-     JOIN users u ON u.id = sp.recorded_by
-     JOIN LATERAL (SELECT SUM(amount) AS total FROM sale_payments WHERE sale_payments.sale_id = sales.id) paid ON true
-     ${whereClause}
-     ORDER BY sp.payment_date DESC, sp.created_at DESC
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, page.pageSize, (page.page - 1) * page.pageSize],
-  );
+  // Page and total are separate queries so the users/paid-total lookups run
+  // only for the page's rows, not every matching payment.
+  const orderBy = "ORDER BY sp.payment_date DESC, sp.created_at DESC";
+  const [pageResult, countResult] = await Promise.all([
+    pool.query<SalePaymentRow>(
+      `SELECT sp.*, u.name AS recorded_by_name, u.avatar_url AS recorded_by_avatar_url, paid.total AS paid_amount
+       FROM (SELECT sp.*, sales.sale_number, sales.company_name, sales.budget_amount
+             FROM sale_payments sp JOIN sales ON sales.id = sp.sale_id
+             ${whereClause} ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}) sp
+       JOIN users u ON u.id = sp.recorded_by
+       JOIN LATERAL (SELECT SUM(amount) AS total FROM sale_payments WHERE sale_payments.sale_id = sp.sale_id) paid ON true
+       ${orderBy}`,
+      [...params, page.pageSize, (page.page - 1) * page.pageSize],
+    ),
+    pool.query<{ count: number }>(`SELECT count(*) FROM sale_payments sp JOIN sales ON sales.id = sp.sale_id ${whereClause}`, params),
+  ]);
+  const total_count = countResult.rows[0].count;
+  const rows = pageResult.rows.map((row) => ({ ...row, total_count }));
   return toPagedResult(rows, page);
 }

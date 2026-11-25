@@ -17,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   const recipientId = Number(form?.get("recipientId"));
-  if (!(file instanceof File) || !Number.isInteger(recipientId)) {
+  if (!(file instanceof File) || !Number.isSafeInteger(recipientId)) {
     return NextResponse.json({ error: "Choose a file to send" }, { status: 400 });
   }
 

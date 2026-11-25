@@ -8,7 +8,7 @@ import { ServiceActionNotAllowedError, ServiceNotFoundError, ServiceNameAlreadyE
 
 const patchSchema = z
   .object({
-    name: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().min(1).optional(),
     status: z.enum(SERVICE_STATUSES).optional(),
   })
@@ -28,7 +28,7 @@ export async function PATCH(
 
   const { id } = await params;
   const serviceId = Number(id);
-  if (!Number.isInteger(serviceId)) {
+  if (!Number.isSafeInteger(serviceId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 

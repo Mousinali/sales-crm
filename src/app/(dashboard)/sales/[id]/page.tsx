@@ -5,13 +5,15 @@ import { assertSaleVisible } from "@/lib/sales/guard";
 import { listSaleServices } from "@/lib/sales/services";
 import { listSalePayments } from "@/lib/sales/payments";
 import { SaleNotFoundError, SaleNotAccessibleError } from "@/lib/sales/errors";
+import { listSaleEditLogs } from "@/lib/sales/edit";
+import { listSales } from "@/lib/sales/list";
 import SaleDetailView from "./SaleDetailView";
 
 export default async function SaleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
   const saleId = Number(id);
-  if (!Number.isInteger(saleId)) {
+  if (!Number.isSafeInteger(saleId)) {
     notFound();
   }
 
@@ -23,10 +25,16 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
     throw error;
   }
 
-  const [services, payments] = await Promise.all([
+  const [services, payments, logs] = await Promise.all([
     listSaleServices(pool, sale.id),
     listSalePayments(pool, user, sale.id),
+    listSaleEditLogs(pool, sale.id),
   ]);
+
+  // Other sales for the same company, limited to what this viewer can see.
+  const relatedSales = (await listSales(pool, user, { q: sale.company_name })).filter((s) =>
+    sale.lead_id != null ? s.lead_id === sale.lead_id : s.company_name === sale.company_name,
+  );
 
   // The guard returns the bare sales row, so resolve the display names here.
   const { rows } = await pool.query<{ sold_by: string | null; recorded_by: string | null }>(
@@ -40,6 +48,9 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
       sale={sale}
       services={services}
       initialPayments={payments}
+      relatedSales={JSON.parse(JSON.stringify(relatedSales))}
+      logs={JSON.parse(JSON.stringify(logs))}
+      userId={user.id}
       soldByName={rows[0]?.sold_by ?? null}
       recordedByName={rows[0]?.recorded_by ?? null}
     />

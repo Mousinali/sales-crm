@@ -4,8 +4,8 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
-import { LEAD_SOURCES, LEAD_PRIORITIES, type LeadSource, type LeadPriority, type LeadStatus, type LeadBudgetType } from "@/lib/leads/types";
-import { LEAD_PRIORITY_LABELS, LEAD_BUDGET_TYPE_LABELS, LEAD_SOURCE_LABELS, LEAD_SOURCE_ICONS, SELECTABLE_LEAD_BUDGET_TYPES } from "@/app/(dashboard)/leadDisplay";
+import { LEAD_SOURCES, type LeadSource, type LeadPriority, type LeadStatus, type LeadBudgetType } from "@/lib/leads/types";
+import { LEAD_PRIORITY_SELECT_OPTIONS, LEAD_BUDGET_TYPE_LABELS, LEAD_SOURCE_LABELS, LEAD_SOURCE_ICONS, SELECTABLE_LEAD_BUDGET_TYPES } from "@/app/(dashboard)/leadDisplay";
 import { INDIAN_STATES } from "@/app/(dashboard)/indianStates";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -107,12 +107,10 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
 
   async function checkDuplicates() {
     if (!companyName.trim()) return;
-    // The duplicates endpoint requires both companyName and phone, but the
-    // check is advisory: fire it as soon as the company name is filled in
-    // (the usual case is company name first, phone second), and let a 400
-    // from an incomplete query resolve to "no warning yet" rather than
-    // waiting for every field before checking at all.
-    const params = new URLSearchParams({ companyName: companyName.trim(), phone: phone.trim() });
+    // Advisory: fires as soon as the company name is filled in, with whichever
+    // of the other fields have been filled so far (phone comes two steps later).
+    const params = new URLSearchParams({ companyName: companyName.trim() });
+    if (phone.trim()) params.set("phone", phone.trim());
     if (email.trim()) params.set("email", email.trim());
     if (website.trim()) params.set("website", website.trim());
     try {
@@ -519,7 +517,7 @@ export default function NewLeadForm({ serviceOptions }: { serviceOptions: Servic
             id="priority"
             value={priority}
             onChange={(value) => setPriority(value as LeadPriority)}
-            options={LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }))}
+            options={LEAD_PRIORITY_SELECT_OPTIONS}
           />
         </div>
 

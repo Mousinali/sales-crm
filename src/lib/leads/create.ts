@@ -39,7 +39,8 @@ export async function createLead(pool: Pool, input: {
   if (
     input.creatorRole !== "PRE_SALES" &&
     input.creatorRole !== "MARKETING_HEAD" &&
-    input.creatorRole !== "SALESPERSON"
+    input.creatorRole !== "SALESPERSON" &&
+    input.creatorRole !== "SUPER_ADMIN"
   ) {
     throw new LeadActionNotAllowedError(`${input.creatorRole} cannot create leads`);
   }

@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
+import { Pool } from "pg";
 import { pool } from "@/lib/db";
 import { runMigrations } from "@/lib/migrate";
 import { seedSuperAdmin } from "@/lib/auth/seed";
 import { createUser } from "@/lib/users/create";
 import { sendMessage, listMessages, listConversations, markRead, markDelivered } from "./crud";
-import { ChatRecipientNotFoundError, ChatMessageNotFoundError } from "./errors";
+import { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatAttachmentError } from "./errors";
+import { MAX_MESSAGE_CHARS } from "./types";
 
 const adminEmail = `chat-admin-${Date.now()}@example.com`;
 let aliceId: number;
@@ -115,5 +117,27 @@ describe("direct messages", () => {
     await expect(
       sendMessage(pool, { senderId: aliceId, recipientId: bobId, body: "Sneaky reply", replyToMessageId: carolMessage.id }),
     ).rejects.toThrow(ChatMessageNotFoundError);
+  });
+});
+
+describe("sendMessage under pool pressure", () => {
+  it("finishes when more sends are in flight than the pool has connections (no pool deadlock)", async () => {
+    const tiny = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
+    try {
+      const results = await Promise.race([
+        Promise.all(Array.from({ length: 12 }, (_, i) => sendMessage(tiny, { senderId: aliceId, recipientId: bobId, body: `burst ${i}` }))),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("sendMessage deadlocked the pool")), 8000)),
+      ]);
+      expect(results).toHaveLength(12);
+    } finally {
+      await tiny.end();
+    }
+  }, 15000);
+});
+
+describe("message length cap", () => {
+  it("accepts a message of exactly the limit and rejects one character more", async () => {
+    await expect(sendMessage(pool, { senderId: aliceId, recipientId: bobId, body: "a".repeat(MAX_MESSAGE_CHARS) })).resolves.toBeDefined();
+    await expect(sendMessage(pool, { senderId: aliceId, recipientId: bobId, body: "a".repeat(MAX_MESSAGE_CHARS + 1) })).rejects.toBeInstanceOf(ChatAttachmentError);
   });
 });

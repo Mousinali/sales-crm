@@ -18,7 +18,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
         viewerId={user.id}
         initialConversations={conversations.map((c) => ({ ...c, last_at: c.last_at.toISOString() }))}
         initialGroups={groups.map((g) => ({ ...g, last_at: g.last_at.toISOString() }))}
-        initialSelectedId={Number.isInteger(initialSelectedId) ? initialSelectedId : null}
+        initialSelectedId={Number.isSafeInteger(initialSelectedId) ? initialSelectedId : null}
       />
     </div>
   );

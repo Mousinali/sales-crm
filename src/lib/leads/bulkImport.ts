@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { LEAD_SOURCES, LEAD_PRIORITIES, LEAD_BUDGET_TYPES } from "./types";
 import type { LeadSource, LeadPriority, LeadBudgetType } from "./types";
-import { isValidPhone, isValidEmail, isValidPincode, PHONE_MESSAGE, PINCODE_MESSAGE } from "@/lib/validation";
+import { isValidPhone, isValidEmail, isValidPincode, MAX_AMOUNT, PHONE_MESSAGE, PINCODE_MESSAGE } from "@/lib/validation";
 
 /**
  * Column order of the sample file. Everything after `Lead source` is optional,
@@ -102,9 +102,16 @@ function toGrid(text: string): string[][] {
     .map(splitCsvLine);
 }
 
+/** The upload is named like a workbook but isn't one (corrupt, or an old binary .xls). */
+export class UnreadableFileError extends Error {}
+
 async function xlsxToGrid(buffer: ArrayBuffer): Promise<string[][]> {
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer);
+  try {
+    await wb.xlsx.load(buffer);
+  } catch {
+    throw new UnreadableFileError("That file could not be read as an Excel workbook.");
+  }
   const sheet = wb.worksheets[0];
   if (!sheet) return [];
   const grid: string[][] = [];
@@ -200,7 +207,7 @@ export async function parseBulkLeadFile(
 
     const budgetRaw = get("Estimated budget").replace(/[,\s₹]/g, "");
     const estimatedBudget = budgetRaw ? Number(budgetRaw) : undefined;
-    if (budgetRaw && !Number.isFinite(estimatedBudget)) { fail(`Estimated budget "${get("Estimated budget")}" is not a number.`); continue; }
+    if (budgetRaw && !(estimatedBudget! >= 0 && estimatedBudget! <= MAX_AMOUNT)) { fail(`Estimated budget "${get("Estimated budget")}" is not a valid amount.`); continue; }
 
     const budgetRawType = get("Budget type").toUpperCase().replace(/[\s-]+/g, "_");
     if (budgetRawType && !LEAD_BUDGET_TYPES.includes(budgetRawType as LeadBudgetType)) {

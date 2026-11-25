@@ -13,7 +13,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const user = await requireUser();
   const { id } = await params;
   const leadId = Number(id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     notFound();
   }
 

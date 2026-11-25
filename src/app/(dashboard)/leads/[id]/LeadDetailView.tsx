@@ -19,11 +19,13 @@ import type { LeadActivityRow, LeadActivityType } from "@/lib/leads/activities";
 import type { Role } from "@/lib/auth/roles";
 import type { VisitRow } from "@/lib/visits/types";
 import type { ServiceRow } from "@/lib/services/types";
+import ShareSection from "./ShareSection";
 import CustomSelect from "@/components/ui/CustomSelect";
 import {
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE_CLASSES,
   LEAD_STATUS_ICONS,
+  LEAD_STATUS_SELECT_TONES,
   LEAD_PRIORITY_LABELS,
   LEAD_PRIORITY_BADGE_CLASSES,
   LEAD_PRIORITY_ICONS,
@@ -135,7 +137,7 @@ export default function LeadDetailView({
   }
 
   // Only a lead's owner (and a Super Admin) can change it; someone it was
-  // merely shared with gets a read-only view.
+  // merely shared with can only view it and move its status (canReview).
   const fullAddress = [lead.address, lead.state, lead.pincode, lead.country].filter(Boolean).join(", ") || null;
 
   const canEdit =
@@ -185,7 +187,7 @@ export default function LeadDetailView({
         return;
       }
       const updated = await response.json();
-      setLead(updated);
+      await refreshLead(); // the POST returns the bare row, without owner names
       await refreshActivities();
       toast.success("Lead status updated", LEAD_STATUS_LABELS[updated.status as keyof typeof LEAD_STATUS_LABELS]);
       setReviewSubmitting(false);
@@ -211,51 +213,21 @@ export default function LeadDetailView({
   const [salespersonOptions, setSalespersonOptions] = useState<SimpleUser[]>([]);
   const [selectedPreSales, setSelectedPreSales] = useState<string>("");
   const [selectedSalesperson, setSelectedSalesperson] = useState<string>("");
-  const [shareOptions, setShareOptions] = useState<ShareUser[]>([]);
-  const [shares, setShares] = useState<{ user_id: number; name: string }[]>([]);
-  const [shareUserId, setShareUserId] = useState("");
-  const [shareError, setShareError] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   useEffect(() => {
     if (!canAssign) return;
-    // shortcut: the roster is capped at 50 users, no search box; fine for a small team.
+    // Pre-sales / salesperson pickers for Assign: first 50 users. Sharing has its own paged list (ShareSection).
     fetch("/api/users/roster")
       .then((res) => (res.ok ? res.json() : { users: [] }))
       .then((body) => {
         const users: ShareUser[] = body.users ?? [];
         setPreSalesOptions(users.filter((u) => u.role === "PRE_SALES"));
         setSalespersonOptions(users.filter((u) => u.role === "SALESPERSON"));
-        setShareOptions(users.filter((u) => u.id !== viewerId && (u.role === "MARKETING_HEAD" || u.role === "PRE_SALES" || u.role === "SALESPERSON")));
       })
       .catch(() => {});
-    fetch(`/api/leads/${lead.id}/share`)
-      .then((res) => (res.ok ? res.json() : { shares: [] }))
-      .then((body) => setShares(body.shares ?? []))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAssign]);
-
-  async function changeShare(method: "POST" | "DELETE", userId: number) {
-    setShareError(null);
-    try {
-      const response = await fetch(`/api/leads/${lead.id}/share`, {
-        method,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-      if (!response.ok) {
-        setShareError(await parseErrorMessage(response, "Could not update sharing."));
-        return;
-      }
-      const refreshed = await fetch(`/api/leads/${lead.id}/share`);
-      if (refreshed.ok) setShares((await refreshed.json()).shares ?? []);
-      setShareUserId("");
-    } catch {
-      setShareError("Could not update sharing.");
-    }
-  }
 
   function openAssign() {
     setSelectedPreSales("");
@@ -288,8 +260,7 @@ export default function LeadDetailView({
         setAssignSubmitting(false);
         return;
       }
-      const updated = await response.json();
-      setLead(updated);
+      await refreshLead(); // the POST returns the bare row, without owner names
       await refreshActivities();
       toast.success("Lead assigned");
       setAssignSubmitting(false);
@@ -346,8 +317,7 @@ export default function LeadDetailView({
         setTransferSubmitting(false);
         return;
       }
-      const updated = await response.json();
-      setLead(updated);
+      await refreshLead(); // the POST returns the bare row, without owner names
       await refreshActivities();
       toast.success("Lead transferred");
       setTransferSubmitting(false);
@@ -606,14 +576,32 @@ export default function LeadDetailView({
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-semibold text-zinc-900">{lead.company_name}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-zinc-500">
-              <i className="ri-user-line text-base" aria-hidden="true" />
-              {lead.contact_person}
-              {lead.designation && <span className="text-zinc-400">· {lead.designation}</span>}
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold text-zinc-900">{lead.company_name}</h1>
+            {(lead.contact_person || lead.phone || lead.email) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-zinc-500">
+                {lead.contact_person && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <i className="ri-user-line text-brand-600" aria-hidden="true" />
+                    {lead.contact_person}
+                    {lead.designation && <span className="text-zinc-400">· {lead.designation}</span>}
+                  </span>
+                )}
+                {lead.phone && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <i className="ri-phone-line text-brand-600" aria-hidden="true" />
+                    {lead.phone}
+                  </span>
+                )}
+                {lead.email && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <i className="ri-mail-line text-brand-600" aria-hidden="true" />
+                    {lead.email}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge icon={LEAD_STATUS_ICONS[lead.status]} className={LEAD_STATUS_BADGE_CLASSES[lead.status]}>
@@ -629,8 +617,11 @@ export default function LeadDetailView({
         </div>
 
         {(canReview || canEdit || canAssign) && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
+          <div className="-mx-6 -mb-6 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-b-lg border-t border-zinc-200 bg-zinc-50 px-6 py-3">
             <div className="flex flex-wrap items-center gap-2">
+              {canReview && (
+                <span className="text-xs font-medium uppercase text-zinc-500">Status</span>
+              )}
               {canReview && (
                 <CustomSelect
                   aria-label="Change status"
@@ -639,6 +630,8 @@ export default function LeadDetailView({
                   options={LEAD_STATUSES.map((status) => ({
                     value: status,
                     label: LEAD_STATUS_LABELS[status],
+                    icon: `${LEAD_STATUS_ICONS[status]} ${LEAD_STATUS_SELECT_TONES[status].icon}`,
+                    tone: LEAD_STATUS_SELECT_TONES[status],
                   }))}
                 />
               )}
@@ -649,9 +642,9 @@ export default function LeadDetailView({
                 {canEdit && (
                   <Link
                     href={`/leads/${lead.id}/edit`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
                   >
-                    <i className="ri-pencil-line text-sm" aria-hidden="true" />
+                    <i className="ri-pencil-line" aria-hidden="true" />
                     Edit
                   </Link>
                 )}
@@ -659,9 +652,9 @@ export default function LeadDetailView({
                   <button
                     type="button"
                     onClick={openTransfer}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
                   >
-                    <i className="ri-arrow-left-right-line text-sm" aria-hidden="true" />
+                    <i className="ri-arrow-left-right-line" aria-hidden="true" />
                     Transfer
                   </button>
                 )}
@@ -672,9 +665,9 @@ export default function LeadDetailView({
                       setArchiveError(null);
                       setArchiveOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
                   >
-                    <i className="ri-delete-bin-line text-sm" aria-hidden="true" />
+                    <i className="ri-delete-bin-line" aria-hidden="true" />
                     Delete
                   </button>
                 )}
@@ -767,8 +760,8 @@ export default function LeadDetailView({
                   {lead.gst_number}
                 </InfoRow>
               )}
-              <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on" copyText={new Date(lead.created_at).toLocaleString()}>
-                {new Date(lead.created_at).toLocaleString()}
+              <InfoRow icon="ri-calendar-line" iconClass="bg-violet-100 text-violet-600" label="Created on" copyText={new Date(lead.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" })}>
+                {new Date(lead.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" })}
               </InfoRow>
               <InfoRow icon={LEAD_SOURCE_ICONS[lead.lead_source] ?? "ri-global-line"} iconClass="bg-sky-100 text-sky-600" label="Lead source" copyText={LEAD_SOURCE_LABELS[lead.lead_source]}>
                 {LEAD_SOURCE_LABELS[lead.lead_source]}
@@ -986,44 +979,7 @@ export default function LeadDetailView({
                 Assign
               </button>
             </div>
-            <div className="mt-6 border-t border-zinc-200 pt-4">
-              <h3 className="text-sm font-medium text-zinc-900">Shared with (view only)</h3>
-              <ul className="mt-2 flex flex-col gap-1 text-sm text-zinc-700">
-                {shares.length === 0 && <li className="text-zinc-500">Not shared with anyone.</li>}
-                {shares.map((share) => (
-                  <li key={share.user_id} className="flex items-center justify-between gap-3">
-                    {share.name}
-                    <button type="button" onClick={() => void changeShare("DELETE", share.user_id)} className="text-xs text-rose-700 hover:underline">
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 flex gap-2">
-                <CustomSelect
-                  aria-label="Share with"
-                  value={shareUserId}
-                  onChange={setShareUserId}
-                  options={[
-                    { value: "", label: "Choose a user…" },
-                    ...shareOptions.filter((u) => !shares.some((s) => s.user_id === u.id)).map((u) => ({ value: String(u.id), label: u.name })),
-                  ]}
-                />
-                <button
-                  type="button"
-                  disabled={!shareUserId}
-                  onClick={() => void changeShare("POST", Number(shareUserId))}
-                  className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-                >
-                  Share
-                </button>
-              </div>
-              {shareError && (
-                <p role="alert" className="mt-2 text-sm text-red-600">
-                  {shareError}
-                </p>
-              )}
-            </div>
+            <ShareSection leadId={lead.id} viewerId={viewerId} />
           </div>
         )}
 

@@ -22,7 +22,7 @@ export async function GET(request: Request): Promise<Response> {
   // Only the roles that can create a lead need to check for duplicates
   // before saving one; every other role gets 403 rather than a free-form
   // search over every lead's contact details.
-  if (user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
+  if (user.role !== "SUPER_ADMIN" && user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

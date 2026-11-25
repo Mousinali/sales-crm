@@ -53,10 +53,10 @@ export default async function DashboardLayout({
                 label: "Leads",
                 icon: "ri-contacts-line",
                 children: [
-                  // Mirrors LeadsView's `canCreate` check (PRE_SALES/MARKETING_HEAD/
+                  // Mirrors LeadsView's `canCreate` check (SUPER_ADMIN/PRE_SALES/MARKETING_HEAD/
                   // SALESPERSON only) — /leads/new redirects anyone else straight
                   // back to /leads, so there's no point offering the link to them here.
-                  ...(user.role === "PRE_SALES" || user.role === "MARKETING_HEAD" || user.role === "SALESPERSON"
+                  ...(user.role === "SUPER_ADMIN" || user.role === "PRE_SALES" || user.role === "MARKETING_HEAD" || user.role === "SALESPERSON"
                     ? [
                         { href: "/leads/new", label: "Add Lead", icon: "ri-add-line" },
                         { href: "/leads/bulk", label: "Bulk Upload Lead", icon: "ri-upload-2-line" },
@@ -73,7 +73,7 @@ export default async function DashboardLayout({
     {
       label: "Revenue",
       items: [
-        ...(user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON" || user.role === "ACCOUNTANT"
+        ...(user.role === "SUPER_ADMIN" || user.role === "MARKETING_HEAD" || user.role === "PRE_SALES" || user.role === "SALESPERSON" || user.role === "ACCOUNTANT"
           ? [
               {
                 href: "/sales",
@@ -95,10 +95,6 @@ export default async function DashboardLayout({
               },
             ]
           : []),
-        // Super Admin gets read-only access to the sales/payment lists, not
-        // the add-sale/new-payment forms those roles also get above.
-        ...(user.role === "SUPER_ADMIN" ? [{ href: "/sales", label: "Sales", icon: "ri-money-dollar-circle-line" }] : []),
-        ...(user.role === "SUPER_ADMIN" ? [{ href: "/payments", label: "Payments", icon: "ri-bill-line" }] : []),
       ],
     },
     ...(user.role === "SUPER_ADMIN"

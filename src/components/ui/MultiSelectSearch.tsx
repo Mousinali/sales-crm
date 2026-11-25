@@ -132,9 +132,9 @@ export default function MultiSelectSearch({
           style={{ position: "fixed", left: position.left, width: position.width, top: position.top, bottom: position.bottom }}
           className="z-[100] flex flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
         >
-          <div className="relative border-b border-zinc-200">
+          <div className="relative border-b border-zinc-200 p-2">
             <i
-              className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              className="ri-search-line pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-brand-600"
               aria-hidden="true"
             />
             <input
@@ -147,16 +147,16 @@ export default function MultiSelectSearch({
               }}
               placeholder={placeholder}
               aria-label={placeholder}
-              className="w-full py-2 pr-3 pl-9 text-sm text-zinc-900 focus:outline-none"
+              className="w-full rounded-md border border-zinc-300 py-1.5 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
-          <ul role="listbox" aria-multiselectable={multiple} style={{ maxHeight: Math.min(position.maxHeight - 90, 320) }} className="overflow-y-auto overscroll-contain py-1">
+          <ul role="listbox" aria-multiselectable={multiple} style={{ maxHeight: Math.min(position.maxHeight - 104, 320) }} className="overflow-y-auto overscroll-contain py-1">
             {filtered.length === 0 && <li className="px-3 py-2 text-sm text-zinc-500">No matches.</li>}
             {filtered.map((o) => (
               <li key={o.id}>
                 <label className="flex cursor-pointer items-start gap-2 px-3 py-1.5 text-sm hover:bg-zinc-50">
                   <input
-                    className="mt-0.5 shrink-0"
+                    className="mt-0.5 shrink-0 accent-brand-600"
                     type={multiple ? "checkbox" : "radio"}
                     name={multiple ? undefined : id}
                     checked={selectedIds.includes(o.id)}

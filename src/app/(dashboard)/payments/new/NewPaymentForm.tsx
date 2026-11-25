@@ -2,7 +2,7 @@
 
 import BalanceText from "@/components/ui/BalanceText";
 import DateField from "@/components/ui/DateField";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
@@ -38,7 +38,14 @@ export default function NewPaymentForm() {
   const router = useRouter();
 
   const [saleOptions, setSaleOptions] = useState<SimpleSale[]>([]);
+  const [saleQuery, setSaleQuery] = useState("");
+  const [salePage, setSalePage] = useState(1);
+  const [saleHasMore, setSaleHasMore] = useState(false);
+  const [saleLoading, setSaleLoading] = useState(false);
   const [saleId, setSaleId] = useState("");
+  // Kept separately so the picked sale's balance/name survive even after the
+  // user searches and the option scrolls out of the loaded page.
+  const [selectedSale, setSelectedSale] = useState<SimpleSale | null>(null);
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>("CASH");
   const [paymentDate, setPaymentDate] = useState(todayDateInput());
@@ -49,16 +56,26 @@ export default function NewPaymentForm() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    // shortcut: a flat page of up to 100 sales, no search box; fine for a
-    // small-to-mid sales list — switch to a type-ahead search if it grows.
-    fetch("/api/sales?pageSize=100")
-      .then((res) => (res.ok ? res.json() : { sales: [] }))
-      .then((body) => setSaleOptions(body.sales ?? []))
-      .catch(() => {});
-  }, []);
+  // Loads one page of sales at a time (server-side search + scroll paging via
+  // CustomSelect), rather than pulling the whole table into the picker.
+  async function loadSales(query: string, page: number, append: boolean) {
+    setSaleLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: "25" });
+      if (query) params.set("q", query);
+      const res = await fetch(`/api/sales?${params.toString()}`);
+      const body = res.ok ? await res.json() : { sales: [], totalPages: 1 };
+      const sales: SimpleSale[] = body.sales ?? [];
+      setSaleOptions((prev) => (append ? [...prev, ...sales] : sales));
+      setSaleHasMore(page < (body.totalPages ?? 1));
+      setSalePage(page);
+    } catch {
+      if (!append) setSaleOptions([]);
+    } finally {
+      setSaleLoading(false);
+    }
+  }
 
-  const selectedSale = saleOptions.find((s) => String(s.id) === saleId);
 
   async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,12 +144,23 @@ export default function NewPaymentForm() {
           <CustomSelect
             id="saleId"
             value={saleId}
-            onChange={setSaleId}
+            onChange={(next) => {
+              setSaleId(next);
+              const found = saleOptions.find((s) => String(s.id) === next);
+              if (found) setSelectedSale(found);
+            }}
             placeholder="Select a sale…"
             options={saleOptions.map((sale) => ({
               value: String(sale.id),
               label: `${sale.sale_number} · ${sale.company_name}`,
             }))}
+            onSearch={(query) => {
+              setSaleQuery(query);
+              void loadSales(query, 1, false);
+            }}
+            onLoadMore={() => void loadSales(saleQuery, salePage + 1, true)}
+            hasMore={saleHasMore}
+            loading={saleLoading}
           />
           {selectedSale && <p><BalanceText budget={Number(selectedSale.budget_amount)} paid={Number(selectedSale.paid_amount ?? 0)} dueLabel="due on this sale" /></p>}
         </div>

@@ -16,6 +16,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+  await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [userId]);
   await pool.query("DELETE FROM users WHERE id = $1", [userId]);
 });
 
@@ -43,6 +44,16 @@ describe("POST /api/auth/login", () => {
     const res = await POST(loginRequest({ email, password: "1234" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toContain(process.env.SESSION_COOKIE_NAME!);
+  });
+
+  it("records the device, browser and OS of a successful login in the audit log", async () => {
+    const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+    await POST(loginRequest({ email, password: "1234" }, { "user-agent": iphone }));
+    const { rows } = await pool.query(
+      "SELECT details FROM audit_logs WHERE actor_user_id = $1 AND action = 'user.login' ORDER BY id DESC LIMIT 1",
+      [userId],
+    );
+    expect(rows[0].details).toEqual({ device: "Mobile", browser: "Safari", os: "iOS" });
   });
 
   it("rejects an incorrect password without setting a cookie", async () => {
@@ -79,6 +90,7 @@ describe("POST /api/auth/login", () => {
     expect(stillLimited.headers.get("retry-after")).toBe(String(body.retryAfterSeconds));
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
   });
 
@@ -95,6 +107,7 @@ describe("POST /api/auth/login", () => {
     expect((await POST(loginRequest({ email, password: "wrongpw" }))).status).toBe(401);
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
   });
 
@@ -111,6 +124,7 @@ describe("POST /api/auth/login", () => {
     expect(lastStatus).toBe(429);
 
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [seeded.id]);
+    await pool.query("DELETE FROM audit_logs WHERE actor_user_id = $1", [seeded.id]);
     await pool.query("DELETE FROM users WHERE id = $1", [seeded.id]);
   });
 });

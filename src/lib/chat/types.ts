@@ -17,6 +17,7 @@ export type ChatAttachmentInput = { name: string; mimeType: string; data: Buffer
 
 // Files go in the database, so keep them modest.
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const MAX_MESSAGE_CHARS = 5000;
 
 export type ConversationSummary = {
   counterpart_id: number;

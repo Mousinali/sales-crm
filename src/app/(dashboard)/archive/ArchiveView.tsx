@@ -39,7 +39,8 @@ type Tab = "leads" | "companies" | "users";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  // Fixed zone and locale so server and browser render the same text; not en-IN, whose am/pm casing differs between Node and Chrome.
+  return new Date(value).toLocaleString("en-US", { timeZone: "Asia/Kolkata", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function ArchiveView({

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -27,6 +28,7 @@ export async function POST(request: Request): Promise<Response> {
     const { id } = await createGroup(pool, { creatorId: user.id, name: parsed.data.name, memberIds: parsed.data.memberIds });
     // Already-connected members start receiving the group's live messages right away.
     for (const memberId of [user.id, ...parsed.data.memberIds]) getIO()?.in(`user:${memberId}`).socketsJoin(`group:${id}`);
+    await logActivity(pool, { actorUserId: user.id, action: "team.created", targetTable: "chat_groups", targetId: id, details: { name: parsed.data.name } });
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
     if (error instanceof ChatRecipientNotFoundError) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -34,7 +35,7 @@ export async function PATCH(
 
   const { id } = await params;
   const visitId = Number(id);
-  if (!Number.isInteger(visitId)) {
+  if (!Number.isSafeInteger(visitId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -60,6 +61,7 @@ export async function PATCH(
         nextAction: parsed.data.nextAction,
       });
     }
+    await logActivity(pool, { actorUserId: user.id, action: `visit.${parsed.data.action.toLowerCase()}`, targetTable: "client_visits", targetId: visitId });
     return NextResponse.json(visit);
   } catch (error) {
     if (error instanceof VisitConflictError) {

@@ -20,12 +20,13 @@ import { Server } from "socket.io";
 config({ path: ".env.local" });
 
 const { pool } = await import("@/lib/db");
-const { getSessionUser, sessionTokenFromCookieHeader } = await import("@/lib/auth/session");
+const { getSessionUser, sessionRoom, sessionTokenFromCookieHeader } = await import("@/lib/auth/session");
 const { sendMessage, markDelivered, isMuted } = await import("@/lib/chat/crud");
 const { listMyGroupIds } = await import("@/lib/chat/groups");
-const { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError } = await import("@/lib/chat/errors");
+const { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError, ChatAttachmentError } = await import("@/lib/chat/errors");
 const { recordNotification } = await import("@/lib/notifications/record");
 const { setIO } = await import("@/lib/socket");
+const { isCrossSite, isDecodableUrl } = await import("@/lib/requestGuards");
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT) || 3000;
@@ -35,7 +36,18 @@ const handle = app.getRequestHandler();
 type SocketUser = { id: number; name: string };
 
 app.prepare().then(() => {
-  const httpServer = createServer((req, res) => handle(req, res));
+  const httpServer = createServer((req, res) => {
+    if (!isDecodableUrl(req.url)) {
+      res.writeHead(400).end("Bad request");
+      return;
+    }
+    // Second CSRF defence behind the SameSite cookie: no other site may make a state-changing request.
+    if (!["GET", "HEAD", "OPTIONS"].includes(req.method ?? "") && isCrossSite(req.headers)) {
+      res.writeHead(403, { "Content-Type": "application/json" }).end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+    return handle(req, res);
+  });
   const io = new Server(httpServer, {
     // The session cookie is `sameSite: "lax"`, which already stops a
     // cross-site page's script from attaching it to a WebSocket handshake —
@@ -95,6 +107,7 @@ app.prepare().then(() => {
       next(new Error("Unauthorized"));
       return;
     }
+    socket.data.sessionRoom = sessionRoom(token!);
     socket.data.user = { id: user.id, name: user.name } satisfies SocketUser;
     next();
   });
@@ -104,7 +117,7 @@ app.prepare().then(() => {
     // A per-user room (not per-socket) so delivery reaches every tab/device
     // the user has open, and so the sender's other tabs also see their own
     // just-sent message.
-    socket.join(`user:${user.id}`);
+    socket.join([`user:${user.id}`, socket.data.sessionRoom]);
     // Team chats this user belongs to, so group messages reach every tab live.
     void listMyGroupIds(pool, user.id).then((ids) => socket.join(ids.map((id) => `group:${id}`)));
 
@@ -153,7 +166,7 @@ app.prepare().then(() => {
           ack?.({ message });
         } catch (error) {
           const errorMessage =
-            error instanceof ChatRecipientNotFoundError || error instanceof ChatMessageNotFoundError || error instanceof ChatBlockedError
+            error instanceof ChatRecipientNotFoundError || error instanceof ChatMessageNotFoundError || error instanceof ChatBlockedError || error instanceof ChatAttachmentError
               ? error.message
               : "Could not send message";
           ack?.({ error: errorMessage });

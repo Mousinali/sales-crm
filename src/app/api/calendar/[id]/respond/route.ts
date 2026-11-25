@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -30,7 +31,7 @@ export async function PATCH(
 
   const { id } = await params;
   const eventId = Number(id);
-  if (!Number.isInteger(eventId)) {
+  if (!Number.isSafeInteger(eventId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -42,6 +43,7 @@ export async function PATCH(
 
   try {
     const attendee = await respondToCalendarEvent(pool, { actorId: user.id, actorName: user.name, eventId, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "calendar.responded", targetTable: "calendar_events", targetId: eventId, details: { status: parsed.data.status } });
     return NextResponse.json(attendee);
   } catch (error) {
     if (error instanceof CalendarEventNotAccessibleError) {

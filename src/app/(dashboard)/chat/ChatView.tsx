@@ -11,6 +11,7 @@ import { formatRoleLabel } from "@/app/(dashboard)/roleDisplay";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
 import { toast } from "@/lib/toast";
+import { MAX_MESSAGE_CHARS } from "@/lib/chat/types";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -883,6 +884,7 @@ export default function ChatView({
                     <textarea
                       ref={textareaRef}
                       rows={1}
+                      maxLength={MAX_MESSAGE_CHARS}
                       value={draft}
                       onChange={(event) => setDraft(event.target.value)}
                       onKeyDown={handleComposerKeyDown}

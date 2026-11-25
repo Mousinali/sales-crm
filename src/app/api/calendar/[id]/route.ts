@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -30,7 +31,7 @@ export async function PATCH(
 
   const { id } = await params;
   const eventId = Number(id);
-  if (!Number.isInteger(eventId)) {
+  if (!Number.isSafeInteger(eventId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -42,6 +43,7 @@ export async function PATCH(
 
   try {
     const event = await updateCalendarEvent(pool, { actorId: user.id, actorName: user.name, eventId, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "calendar.updated", targetTable: "calendar_events", targetId: eventId, details: { name: event.title } });
     return NextResponse.json(event);
   } catch (error) {
     if (error instanceof CalendarEventNotFoundError) {
@@ -68,12 +70,13 @@ export async function DELETE(
 
   const { id } = await params;
   const eventId = Number(id);
-  if (!Number.isInteger(eventId)) {
+  if (!Number.isSafeInteger(eventId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   try {
     await deleteCalendarEvent(pool, { actorId: user.id, actorName: user.name, eventId });
+    await logActivity(pool, { actorUserId: user.id, action: "calendar.deleted", targetTable: "calendar_events", targetId: eventId });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof CalendarEventNotAccessibleError) {

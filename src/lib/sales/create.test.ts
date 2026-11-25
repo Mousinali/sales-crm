@@ -51,10 +51,17 @@ afterAll(async () => {
 });
 
 describe("createSale", () => {
-  it("rejects HR and Super Admin recording a sale", async () => {
+  it("rejects HR recording a sale", async () => {
     await expect(
-      createSale(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", companyName: "X", budgetAmount: 100, budgetType: "ONE_TIME" }),
+      createSale(pool, { creatorId: superAdminId, creatorRole: "HR", companyName: "X", budgetAmount: 100, budgetType: "ONE_TIME" }),
     ).rejects.toThrow(SaleActionNotAllowedError);
+  });
+
+  it("lets Super Admin record a sale, credited to themselves", async () => {
+    const sale = await createSale(pool, { creatorId: superAdminId, creatorRole: "SUPER_ADMIN", companyName: `SA Sale Co ${Date.now()}`, budgetAmount: 100, budgetType: "ONE_TIME" });
+    saleIds.push(sale.id);
+    expect(sale.created_by).toBe(superAdminId);
+    expect(sale.sold_by_user_id).toBe(superAdminId);
   });
 
   it("lets an Accountant record a sale from a lead they can't otherwise view", async () => {

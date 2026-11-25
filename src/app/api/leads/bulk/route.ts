@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { listServices } from "@/lib/services/list";
 import { createLead } from "@/lib/leads/create";
-import { parseBulkLeadFile, type BulkRowError } from "@/lib/leads/bulkImport";
+import { parseBulkLeadFile, UnreadableFileError, type BulkRowError } from "@/lib/leads/bulkImport";
 import { LeadActionNotAllowedError } from "@/lib/leads/errors";
 
 // Matches the limit advertised on the upload page. Generous rather than tuned:
@@ -16,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (user.mustChangePassword) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // Same roles that may create a lead one at a time.
-  if (user.role !== "MARKETING_HEAD" && user.role !== "PRE_SALES" && user.role !== "SALESPERSON") {
+  if (user.role !== "SUPER_ADMIN" && user.role !== "MARKETING_HEAD" && user.role !== "PRE_SALES" && user.role !== "SALESPERSON") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -35,7 +36,14 @@ export async function POST(request: Request): Promise<Response> {
   const services = await listServices(pool, { status: "ACTIVE" });
   const idByName = new Map(services.map((s) => [s.name.trim().toLowerCase(), s.id]));
 
-  const { rows, errors } = await parseBulkLeadFile(file, services.map((s) => s.name));
+  let parsedFile;
+  try {
+    parsedFile = await parseBulkLeadFile(file, services.map((s) => s.name));
+  } catch (error) {
+    if (error instanceof UnreadableFileError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
+  const { rows, errors } = parsedFile;
   const failures: BulkRowError[] = [...errors];
   let imported = 0;
 
@@ -78,6 +86,8 @@ export async function POST(request: Request): Promise<Response> {
       failures.push({ row: row.row, company: row.companyName, reason });
     }
   }
+
+  if (imported > 0) await logActivity(pool, { actorUserId: user.id, action: "lead.bulk_imported", targetTable: "leads", details: { count: imported } });
 
   return NextResponse.json({
     imported,

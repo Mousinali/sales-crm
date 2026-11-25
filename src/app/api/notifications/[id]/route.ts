@@ -17,7 +17,7 @@ export async function PATCH(
 
   const { id } = await params;
   const notificationId = Number(id);
-  if (!Number.isInteger(notificationId)) {
+  if (!Number.isSafeInteger(notificationId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -47,7 +47,7 @@ export async function DELETE(
 
   const { id } = await params;
   const notificationId = Number(id);
-  if (!Number.isInteger(notificationId)) {
+  if (!Number.isSafeInteger(notificationId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 

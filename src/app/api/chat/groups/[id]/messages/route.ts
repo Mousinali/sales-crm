@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (user.mustChangePassword) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const groupId = Number((await params).id);
-  if (!Number.isInteger(groupId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  if (!Number.isSafeInteger(groupId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   let body = "";
   let attachment: { name: string; mimeType: string; data: Buffer } | undefined;

@@ -1,5 +1,7 @@
 "use client";
 
+import { PAGE_SIZE_OPTIONS } from "@/lib/pagination";
+
 // Builds the numbered-button sequence with "…" gaps once there are more
 // pages than fit — always keeps the first, last, and a window around the
 // current page, so the control doesn't grow unbounded on large lists.
@@ -22,18 +24,42 @@ export default function Pagination({
   totalPages,
   total,
   onChange,
+  pageSize,
+  onPageSizeChange,
 }: {
   page: number;
   totalPages: number;
   total: number;
   onChange: (page: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
-  if (totalPages <= 1) return null;
+  // Still render when there's a single page so the rows-per-page selector stays reachable.
+  if (totalPages <= 1 && !onPageSizeChange) return null;
 
   return (
     <div className="flex flex-col items-stretch gap-3 border-t border-zinc-200 px-4 py-3 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
-      {/* Grouped: "300000 total" is hard to read at a glance. */}
-      <span className="text-center tabular-nums sm:text-left">{total.toLocaleString("en-IN")} total</span>
+      <div className="flex items-center justify-center gap-3 sm:justify-start">
+        {onPageSizeChange && (
+          <label className="flex items-center gap-1.5">
+            <span className="text-zinc-500">Rows</span>
+            <select
+              value={pageSize}
+              onChange={(event) => onPageSizeChange(Number(event.target.value))}
+              className="rounded-md border border-zinc-200 bg-white py-1 pl-2 pr-7 text-sm text-zinc-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {/* Grouped: "300000 total" is hard to read at a glance. */}
+        <span className="tabular-nums">{total.toLocaleString("en-IN")} total</span>
+      </div>
+      {totalPages > 1 && (
       <div className="flex items-center justify-between gap-1 sm:justify-start">
         <button
           type="button"
@@ -78,6 +104,7 @@ export default function Pagination({
           <i className="ri-arrow-right-s-line" aria-hidden="true" />
         </button>
       </div>
+      )}
     </div>
   );
 }

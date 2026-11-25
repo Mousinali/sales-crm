@@ -9,11 +9,11 @@ import { listLeadServices } from "@/lib/leads/services";
 import { getLatestSaleForLead } from "@/lib/sales/summary";
 import { getLeadOwnerNames } from "@/lib/leads/owners";
 import { LeadNotFoundError, LeadNotAccessibleError, LeadActionNotAllowedError } from "@/lib/leads/errors";
-import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema, companyNameSchema, MAX_AMOUNT } from "@/lib/validation";
 
 const updateLeadSchema = z
   .object({
-    companyName: z.string().trim().min(1).optional(),
+    companyName: companyNameSchema.optional(),
     contactPerson: z.string().trim().min(1).optional(),
     designation: z.string().trim().min(1).optional(),
     phone: phoneSchema.optional(),
@@ -29,7 +29,7 @@ const updateLeadSchema = z
     gstNumber: gstSchema.optional(),
     serviceRequirements: z.string().trim().min(1).optional(),
     serviceIds: z.array(z.number().int()).min(1).optional(),
-    estimatedBudget: z.number().optional(),
+    estimatedBudget: z.number().min(0).max(MAX_AMOUNT).optional(),
     budgetType: z.enum(LEAD_BUDGET_TYPES).optional(),
     priority: z.enum(LEAD_PRIORITIES).optional(),
     nextFollowUpAt: z.coerce.date().optional(),
@@ -58,7 +58,7 @@ export async function GET(
 
   const { id } = await params;
   const leadId = Number(id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -99,7 +99,7 @@ export async function PATCH(
 
   const { id } = await params;
   const leadId = Number(id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 

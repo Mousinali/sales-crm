@@ -8,7 +8,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (user.mustChangePassword) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const groupId = Number((await params).id);
-  if (!Number.isInteger(groupId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  if (!Number.isSafeInteger(groupId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   await markGroupRead(pool, user.id, groupId);
   return NextResponse.json({ ok: true });
 }

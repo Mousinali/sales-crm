@@ -10,8 +10,8 @@ import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import CustomSelect from "@/components/ui/CustomSelect";
 import RichTextField, { FormattedText } from "@/components/ui/RichTextField";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/tasks/types";
-import { LEAD_PRIORITIES, type LeadPriority } from "@/lib/leads/types";
-import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES, LEAD_PRIORITY_ICONS } from "@/app/(dashboard)/leadDisplay";
+import { type LeadPriority } from "@/lib/leads/types";
+import { LEAD_PRIORITY_LABELS, LEAD_PRIORITY_BADGE_CLASSES, LEAD_PRIORITY_ICONS, LEAD_PRIORITY_SELECT_OPTIONS } from "@/app/(dashboard)/leadDisplay";
 import Badge from "@/components/ui/Badge";
 import Pagination from "@/components/ui/Pagination";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
@@ -444,6 +444,16 @@ export default function TasksView({
                             Start
                           </button>
                         )}
+                        {task.status === "IN_PROGRESS" && (
+                          <button
+                            type="button"
+                            onClick={() => setStatus(task.id, "PENDING")}
+                            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 focus:ring-amber-200"
+                          >
+                            <i className="ri-pause-circle-line text-sm" aria-hidden="true" />
+                            Pause
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setStatus(task.id, "COMPLETED")}
@@ -510,7 +520,7 @@ export default function TasksView({
                   id="taskPriority"
                   value={priority}
                   onChange={(value) => setPriority(value as LeadPriority)}
-                  options={LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }))}
+                  options={LEAD_PRIORITY_SELECT_OPTIONS}
                 />
               </div>
               <div className="flex flex-col gap-1.5">

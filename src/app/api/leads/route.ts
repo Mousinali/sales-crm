@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -8,10 +9,10 @@ import { listLeadsPage, LEAD_SORT_COLUMNS } from "@/lib/leads/list";
 import { parsePageParams } from "@/lib/pagination";
 import { listLeadServices } from "@/lib/leads/services";
 import { LeadActionNotAllowedError } from "@/lib/leads/errors";
-import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema } from "@/lib/validation";
+import { phoneSchema, pincodeSchema, gstSchema, websiteSchema, emailSchema, companyNameSchema, MAX_AMOUNT } from "@/lib/validation";
 
 const createLeadSchema = z.object({
-  companyName: z.string().trim().min(1),
+  companyName: companyNameSchema,
   contactPerson: z.string().trim().min(1).optional(),
   designation: z.string().trim().min(1).optional(),
   phone: phoneSchema,
@@ -27,7 +28,7 @@ const createLeadSchema = z.object({
   gstNumber: gstSchema.optional(),
   serviceRequirements: z.string().trim().min(1).optional(),
   serviceIds: z.array(z.number().int()).min(1),
-  estimatedBudget: z.number().optional(),
+  estimatedBudget: z.number().min(0).max(MAX_AMOUNT).optional(),
   budgetType: z.enum(LEAD_BUDGET_TYPES).optional(),
   leadSource: z.enum(LEAD_SOURCES),
   priority: z.enum(LEAD_PRIORITIES).optional(),
@@ -82,6 +83,7 @@ export async function POST(request: Request): Promise<Response> {
       ...parsed.data,
     });
     const services = await listLeadServices(pool, lead.id);
+    await logActivity(pool, { actorUserId: user.id, action: "lead.created", targetTable: "leads", targetId: lead.id, details: { name: lead.company_name } });
     return NextResponse.json({ ...lead, services }, { status: 201 });
   } catch (error) {
     if (error instanceof LeadActionNotAllowedError) {

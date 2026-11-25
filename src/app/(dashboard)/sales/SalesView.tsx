@@ -12,7 +12,6 @@ import FilterDropdown from "@/components/ui/FilterDropdown";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
-import { useViewportPageSize } from "@/lib/useViewportPageSize";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 const BUDGET_TYPE_LABELS: Record<SaleBudgetType, string> = {
@@ -49,11 +48,12 @@ export default function SalesView({
   // Filters are passed in explicitly rather than read off state: a setState
   // immediately followed by refetch() would still see the previous value and
   // send a request one change behind.
-  const pageSizeRef = useViewportPageSize(65, 380);
+  const [pageSize, setPageSize] = useState(15);
 
   async function refetch(overrides?: {
     search?: string;
     page?: number;
+    pageSize?: number;
     budgetType?: SaleBudgetType | "";
     dateFrom?: string;
     dateTo?: string;
@@ -62,6 +62,7 @@ export default function SalesView({
     const effectiveBudgetType = overrides?.budgetType ?? budgetTypeFilter;
     const effectiveFrom = overrides?.dateFrom ?? dateFrom;
     const effectiveTo = overrides?.dateTo ?? dateTo;
+    const effectivePageSize = overrides?.pageSize ?? pageSize;
     const targetPage = overrides?.page ?? page;
 
     const params = new URLSearchParams();
@@ -70,7 +71,7 @@ export default function SalesView({
     if (effectiveFrom) params.set("dateFrom", effectiveFrom);
     if (effectiveTo) params.set("dateTo", effectiveTo);
     params.set("page", String(targetPage));
-    params.set("pageSize", String(pageSizeRef.current));
+    params.set("pageSize", String(effectivePageSize));
 
     setListError(null);
     try {
@@ -89,14 +90,20 @@ export default function SalesView({
     }
   }
 
+  function changePageSize(next: number) {
+    setPageSize(next);
+    void refetch({ page: 1, pageSize: next });
+  }
+
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void refetch({ page: 1 });
   }
 
-  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  // Server renders the default page size; load the selector's default once on mount if it differs.
   useEffect(() => {
-    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pageSize !== DEFAULT_PAGE_SIZE) void refetch({ page: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -188,7 +195,7 @@ export default function SalesView({
             </span>
           )}
         </button>
-        {viewerRole !== "SUPER_ADMIN" && (
+        {viewerRole !== "HR" && (
           <Link
             href="/sales/new"
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
@@ -209,6 +216,7 @@ export default function SalesView({
         <table className="table-responsive w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs font-semibold text-zinc-500">
+              <th className="px-4 py-3">Sale ID</th>
               <th className="px-4 py-3">Company</th>
               <th className="px-4 py-3">Budget</th>
               <th className="px-4 py-3">Paid / Remaining</th>
@@ -219,7 +227,7 @@ export default function SalesView({
           <tbody>
             {sales.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
                   No sales recorded yet.
                 </td>
               </tr>
@@ -229,11 +237,12 @@ export default function SalesView({
               const paid = Number(sale.paid_amount ?? 0);
               return (
                 <tr key={sale.id} className="border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50/80">
+                  <td data-label="Sale ID" className="whitespace-nowrap px-4 py-3 font-mono text-xs text-zinc-600">{sale.sale_number}</td>
                   <td data-label="Company" className="px-4 py-3">
                     <Link href={`/sales/${sale.id}`} className="font-medium text-brand-700 hover:underline">
                       {sale.company_name}
                     </Link>
-                    <p className="text-xs text-zinc-500">{sale.sale_number}{sale.contact_person ? ` · ${sale.contact_person}` : ""}</p>
+                    {sale.contact_person && <p className="text-xs text-zinc-500">{sale.contact_person}</p>}
                   </td>
                   <td data-label="Budget" className="px-4 py-3">
                     <span className="font-medium text-zinc-900">₹{budget.toLocaleString("en-IN")}</span>
@@ -290,7 +299,7 @@ export default function SalesView({
         })}
       </div>
 
-      <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} />
+      <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch({ page: nextPage })} pageSize={pageSize} onPageSizeChange={changePageSize} />
 
       <FilterBottomSheet
         open={filterSheetOpen}

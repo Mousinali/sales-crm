@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Brand from "./Brand";
-import NavLinks, { type NavSection } from "./NavLinks";
+import NavLinks, { NavAccordion, type NavSection } from "./NavLinks";
 import NotificationsBell from "./NotificationsBell";
 import SignOutButton from "./SignOutButton";
 import Avatar from "@/components/ui/Avatar";
@@ -76,14 +76,16 @@ export default function MobileNav({ user, navSections }: { user: AuthUser; navSe
           </div>
 
           <div className="no-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto p-3">
-            {navSections.map((section, index) => (
-              <div key={section.label ?? `section-${index}`} className="flex flex-col gap-0">
-                {section.label && (
-                  <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-sidebar-muted uppercase">{section.label}</p>
-                )}
-                <NavLinks navItems={section.items} onNavigate={() => setOpen(false)} />
-              </div>
-            ))}
+            <NavAccordion>
+              {navSections.map((section, index) => (
+                <div key={section.label ?? `section-${index}`} className="flex flex-col gap-0">
+                  {section.label && (
+                    <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-sidebar-muted uppercase">{section.label}</p>
+                  )}
+                  <NavLinks navItems={section.items} onNavigate={() => setOpen(false)} />
+                </div>
+              ))}
+            </NavAccordion>
           </div>
 
           <div className="border-t border-sidebar-border p-3">

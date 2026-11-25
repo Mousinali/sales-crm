@@ -9,6 +9,7 @@ import type { CompanyDetail } from "@/lib/companies/get";
 import type { SaleBudgetType } from "@/lib/sales/types";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_BADGE_CLASSES, LEAD_SOURCE_LABELS, LEAD_SOURCE_ICONS } from "@/app/(dashboard)/leadDisplay";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import EditCompanyModal from "./EditCompanyModal";
 import BalanceText from "@/components/ui/BalanceText";
 import Avatar from "@/components/ui/Avatar";
 import { FormattedText } from "@/components/ui/RichTextField";
@@ -70,7 +71,7 @@ function formatDate(date: string | Date): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export default function CompanyDetailView({ company, showLeads, canDelete }: { company: CompanyDetail; showLeads: boolean; canDelete: boolean }) {
+export default function CompanyDetailView({ company, showLeads, canDelete, canEdit }: { company: CompanyDetail; showLeads: boolean; canDelete: boolean; canEdit: boolean }) {
   const { profile, leads, sales, payments, activity, owners, transfers } = company;
   // Only a Super Admin's query returns transfer history.
   const showTransfers = transfers.length > 0 || canDelete;
@@ -87,6 +88,7 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
   );
   const fullAddress = [profile.address, profile.location, profile.state, profile.pincode, profile.country].filter(Boolean).join(", ") || null;
 
+  const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
@@ -128,6 +130,16 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
             <Badge icon="ri-money-rupee-circle-line" className="bg-emerald-50 text-emerald-700">{sales.length} sale{sales.length === 1 ? "" : "s"}</Badge>
             <span className="h-6 w-px bg-zinc-200" aria-hidden="true" />
             <RefreshButton onRefresh={() => router.refresh()} />
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                <i className="ri-edit-line text-sm" aria-hidden="true" />
+                Edit
+              </button>
+            )}
             {canDelete && (
               <button
                 type="button"
@@ -143,6 +155,8 @@ export default function CompanyDetailView({ company, showLeads, canDelete }: { c
             )}
           </div>
         </div>
+
+        {editOpen && <EditCompanyModal profile={profile} onClose={() => setEditOpen(false)} />}
 
         {archiveOpen && (
           <ConfirmDialog

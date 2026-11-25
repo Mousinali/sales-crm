@@ -38,7 +38,7 @@ export async function createSale(pool: Pool, input: {
   initialPaymentMethod?: SalePaymentMethod;
   notes?: string;
 }): Promise<SaleRow> {
-  if (input.creatorRole === "HR" || input.creatorRole === "SUPER_ADMIN") {
+  if (input.creatorRole === "HR") {
     throw new SaleActionNotAllowedError(`${input.creatorRole} cannot record sales`);
   }
 

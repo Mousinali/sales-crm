@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -25,7 +26,9 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    return NextResponse.json(await bulkShareLeads(pool, user, parsed.data.leadIds, parsed.data.userIds));
+    const result = await bulkShareLeads(pool, user, parsed.data.leadIds, parsed.data.userIds);
+    await logActivity(pool, { actorUserId: user.id, action: "lead.shared", targetTable: "leads", details: { count: parsed.data.leadIds.length } });
+    return NextResponse.json(result);
   } catch (error) {
     if (error instanceof LeadActionNotAllowedError || error instanceof LeadNotAccessibleError) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

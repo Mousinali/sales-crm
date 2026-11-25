@@ -1,7 +1,7 @@
 "use client";
 
 import NavBadge from "./NavBadge";
-import { useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,6 +9,26 @@ export type NavItem = { href: string; label: string; icon: string; children?: Na
 // A group of items under an optional label (omitted for the top,
 // ungrouped section) — Sidebar/MobileNav render one NavLinks per section.
 export type NavSection = { label?: string; items: NavItem[] };
+
+// Lets every collapsible group in one sidebar share a single "which is open"
+// answer, so opening one closes the others — even though each section renders
+// its own NavLinks. `undefined` = nobody has toggled yet (the group holding the
+// current page is open); `null` = the user closed everything.
+const AccordionContext = createContext<{ openHref: string | null | undefined; setOpenHref: (href: string | null) => void } | null>(null);
+
+export function NavAccordion({ children }: { children: ReactNode }) {
+  const [openHref, setOpenHref] = useState<string | null | undefined>(undefined);
+  const pathname = usePathname();
+  // On navigation, revert to the default (`undefined` = the group holding the
+  // current page is open, the rest closed), so moving to a link outside the
+  // open group — e.g. Dashboard while Leads is expanded — collapses it.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpenHref(undefined);
+  }, [pathname]);
+  const value = useMemo(() => ({ openHref, setOpenHref }), [openHref]);
+  return <AccordionContext.Provider value={value}>{children}</AccordionContext.Provider>;
+}
 
 // Shared by every row (flat link, group button, sub-link): a neutral hover
 // for anything not on the current route, a tinted brand-red background for
@@ -102,13 +122,25 @@ function NavGroup({
 }) {
   const children = item.children ?? [];
   const childActive = children.some((child) => isActive(child.href));
-  const [open, setOpen] = useState(childActive);
+  // Inside a NavAccordion only one group is open at a time; on its own a group keeps its own state.
+  const accordion = useContext(AccordionContext);
+  const [localOpen, setLocalOpen] = useState(childActive);
+  const open = accordion ? (accordion.openHref === undefined ? childActive : accordion.openHref === item.href) : localOpen;
+  const setOpenHref = accordion?.setOpenHref;
+  function toggle() {
+    if (setOpenHref) setOpenHref(open ? null : item.href);
+    else setLocalOpen((value) => !value);
+  }
+  // Navigating to a page inside this group opens it (and so closes the others).
+  useEffect(() => {
+    if (childActive) setOpenHref?.(item.href);
+  }, [childActive, item.href, setOpenHref]);
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
         className={`${ROW_BASE} w-full justify-between gap-3 px-3 ${open ? "bg-sidebar-elevated" : ""} ${
           // The group header never gets the active pill — that's reserved

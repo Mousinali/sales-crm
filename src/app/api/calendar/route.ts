@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -35,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const event = await createCalendarEvent(pool, { creatorId: user.id, creatorName: user.name, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "calendar.created", targetTable: "calendar_events", targetId: event.id, details: { name: event.title } });
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "23503") {

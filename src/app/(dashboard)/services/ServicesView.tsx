@@ -154,6 +154,7 @@ export default function ServicesView({ initialServices }: { initialServices: Ser
       }
       const updated: ServiceRow = await response.json();
       setServices((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+      toast.success(updated.status === "ACTIVE" ? "Service activated" : "Service deactivated", updated.name);
     } catch {
       toast.error("Could not update status");
     }

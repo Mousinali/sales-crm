@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFloatingMenu } from "./useFloatingMenu";
+import { useDebouncedValue } from "./useDebouncedValue";
 
-export type SelectOption = { value: string; label: string; icon?: string };
+// `tone`: colours the closed control while this option is selected (e.g. a status
+// dropdown that wears its status colour); `icon` then follows the tone's text colour.
+export type SelectOption = { value: string; label: string; icon?: string; tone?: { trigger: string; icon: string } };
 
 // `ri-*` is a Remix icon class (the font used across the app, brand-coloured unless the string carries its own `text-*` class); anything else is an image URL.
 function OptionIcon({ icon }: { icon: string }) {
@@ -28,6 +31,10 @@ export default function CustomSelect({
   options,
   placeholder = "—",
   "aria-label": ariaLabel,
+  onSearch,
+  onLoadMore,
+  hasMore = false,
+  loading = false,
 }: {
   id?: string;
   value: string;
@@ -37,6 +44,14 @@ export default function CustomSelect({
   // Filter dropdowns have no visible <label>, so without this a screen reader
   // announces them by whichever option happens to be selected and nothing else.
   "aria-label"?: string;
+  // Server-driven mode: when `onSearch` is given the parent owns filtering
+  // (so `options` is already the server's result — no client-side filter),
+  // the search box always shows, and `onLoadMore` fetches the next page when
+  // the list is scrolled near its end. Omit all four for a plain static list.
+  onSearch?: (query: string) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -46,7 +61,15 @@ export default function CustomSelect({
   const position = useFloatingMenu(open, triggerRef);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const selectedOptionRef = useRef<HTMLButtonElement>(null);
-  const searchable = options.length > SEARCH_THRESHOLD;
+  const serverDriven = onSearch != null;
+  const searchable = serverDriven || options.length > SEARCH_THRESHOLD;
+
+  // Server-driven mode: push the (debounced) query up so the parent refetches.
+  const debouncedSearch = useDebouncedValue(search, 300);
+  useEffect(() => {
+    if (onSearch) onSearch(debouncedSearch.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   // Jumps straight to whichever option is already selected (if the list is
   // long enough that it might start off scrolled out of view) instead of
@@ -85,7 +108,8 @@ export default function CustomSelect({
 
   const selected = options.find((o) => o.value === value);
   const searchLower = search.trim().toLowerCase();
-  const filtered = searchLower ? options.filter((o) => o.label.toLowerCase().includes(searchLower)) : options;
+  // Server-driven mode already returns the filtered page; don't filter again.
+  const filtered = serverDriven || !searchLower ? options : options.filter((o) => o.label.toLowerCase().includes(searchLower));
 
   return (
     <div ref={containerRef} className="relative">
@@ -100,13 +124,15 @@ export default function CustomSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-left text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+        className={`flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 ${
+          selected?.tone ? `font-medium ${selected.tone.trigger}` : "border-zinc-300 bg-white text-zinc-900"
+        }`}
       >
         <span className="flex min-w-0 items-center gap-2">
-          {selected?.icon && <OptionIcon icon={selected.icon} />}
+          {selected?.icon && <OptionIcon icon={selected.tone ? selected.icon.replace(selected.tone.icon, "text-current") : selected.icon} />}
           <span className="truncate">{selected ? selected.label : placeholder}</span>
         </span>
-        <i className={`ri-arrow-down-s-line shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+        <i className={`ri-arrow-down-s-line shrink-0 transition-transform ${selected?.tone ? "opacity-60" : "text-zinc-400"} ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
       {open && position && createPortal(
@@ -116,8 +142,8 @@ export default function CustomSelect({
           className="z-[100] w-max overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
         >
           {searchable && (
-            <div className="relative border-b border-zinc-200">
-              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+            <div className="relative border-b border-zinc-200 p-2">
+              <i className="ri-search-line pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-brand-600" aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -125,12 +151,21 @@ export default function CustomSelect({
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search…"
                 aria-label="Search options"
-                className="w-full py-2 pr-3 pl-9 text-sm text-zinc-900 focus:outline-none"
+                className="w-full rounded-md border border-zinc-300 py-1.5 pr-3 pl-9 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
             </div>
           )}
-          <ul role="listbox" style={{ maxHeight: Math.min(position.maxHeight - 50, 280) }} className="overflow-y-auto overscroll-contain py-1">
-            {filtered.length === 0 && <li className="px-3 py-2 text-sm text-zinc-500">No matches.</li>}
+          <ul
+            role="listbox"
+            style={{ maxHeight: Math.min(position.maxHeight - 64, 280) }}
+            className="overflow-y-auto overscroll-contain py-1"
+            onScroll={(event) => {
+              if (!onLoadMore || !hasMore || loading) return;
+              const el = event.currentTarget;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 48) onLoadMore();
+            }}
+          >
+            {filtered.length === 0 && !loading && <li className="px-3 py-2 text-sm text-zinc-500">No matches.</li>}
             {filtered.map((o) => (
               <li key={o.value}>
                 <button
@@ -151,6 +186,7 @@ export default function CustomSelect({
                 </button>
               </li>
             ))}
+            {loading && <li className="px-3 py-2 text-sm text-zinc-500">Loading…</li>}
           </ul>
         </div>,
         document.body,

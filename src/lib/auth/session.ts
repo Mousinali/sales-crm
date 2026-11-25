@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { pool } from "@/lib/db";
+import { getIO } from "@/lib/socket";
 import type { Role } from "./roles";
 
 export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME!;
@@ -24,6 +25,11 @@ export function sessionTokenFromCookieHeader(cookieHeader: string): string | und
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/** The Socket.IO room of one session's connections, so ending the session can cut them off. */
+export function sessionRoom(token: string): string {
+  return `session:${hashToken(token)}`;
 }
 
 /**
@@ -96,6 +102,7 @@ export async function revokeSession(token: string): Promise<void> {
     `UPDATE sessions SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL`,
     [tokenHash],
   );
+  getIO()?.in(sessionRoom(token)).disconnectSockets(true);
 }
 
 /** Revokes every session for `userId` except the one named by `keepToken` — used after a password change to cut off any other active sessions (e.g. one held by an attacker) while leaving the caller's own session intact. */
@@ -106,6 +113,7 @@ export async function revokeOtherSessions(userId: number, keepToken: string): Pr
     `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL AND token_hash <> $2`,
     [userId, keepTokenHash],
   );
+  getIO()?.in(`user:${userId}`).except(sessionRoom(keepToken)).disconnectSockets(true);
 }
 
 /**
@@ -115,4 +123,5 @@ export async function revokeOtherSessions(userId: number, keepToken: string): Pr
  */
 export async function revokeAllSessions(userId: number): Promise<void> {
   await pool.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+  getIO()?.in(`user:${userId}`).disconnectSockets(true);
 }

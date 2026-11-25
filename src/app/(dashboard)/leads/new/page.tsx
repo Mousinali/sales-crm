@@ -10,7 +10,7 @@ export default async function NewLeadPage() {
   // Mirrors LeadsView's `canCreate` check — only these roles ever see
   // the "New Lead" entry point, but the page itself re-enforces it rather
   // than trusting that nobody navigates here directly.
-  if (user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
+  if (user.role !== "SUPER_ADMIN" && user.role !== "PRE_SALES" && user.role !== "MARKETING_HEAD" && user.role !== "SALESPERSON") {
     redirect("/leads");
   }
 

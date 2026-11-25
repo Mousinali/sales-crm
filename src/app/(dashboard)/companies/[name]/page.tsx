@@ -27,6 +27,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
       company={showLeads ? company : { ...company, leads: [] }}
       showLeads={showLeads}
       canDelete={user.role === "SUPER_ADMIN"}
+      canEdit={user.role === "SUPER_ADMIN"}
     />
   );
 }

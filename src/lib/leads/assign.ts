@@ -95,6 +95,7 @@ export async function assignLead(
   const client = await pool.connect();
   let previousSalespersonOwnerId: number | null;
   let previousPreSalesOwnerId: number | null;
+  let updatedLead: LeadRow;
   try {
     await client.query("BEGIN");
 
@@ -115,7 +116,7 @@ export async function assignLead(
        RETURNING *`,
       [input.salespersonId ?? null, input.preSalesOwnerId ?? null, input.leadId],
     );
-    const updatedLead = rows[0];
+    updatedLead = rows[0];
     if (!updatedLead) {
       // The status check above already passed, but the lead's status
       // changed between that read and this write (e.g. another Marketing
@@ -131,7 +132,16 @@ export async function assignLead(
     );
 
     await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 
+  // After release: these use the pool, and asking it for a connection while
+  // still holding this one deadlocks it once every connection is mid-assign.
+  {
     await recordLeadActivity(pool, {
       leadId: input.leadId,
       actorId: input.actorId,
@@ -162,10 +172,5 @@ export async function assignLead(
     }
 
     return updatedLead;
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  } finally {
-    client.release();
   }
 }

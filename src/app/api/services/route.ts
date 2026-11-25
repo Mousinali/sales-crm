@@ -8,7 +8,7 @@ import { createService } from "@/lib/services/create";
 import { ServiceActionNotAllowedError, ServiceNameAlreadyExistsError } from "@/lib/services/errors";
 
 const createServiceSchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(200),
   description: z.string().trim().min(1).optional(),
 });
 

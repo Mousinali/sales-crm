@@ -26,7 +26,7 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
-      <div role="dialog" aria-modal="true" aria-label={title} className={`w-full ${maxWidth} rounded-lg bg-white p-6 shadow-xl`}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={`w-full ${maxWidth} max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg bg-white p-6 shadow-xl`}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
           <button

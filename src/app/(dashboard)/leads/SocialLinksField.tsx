@@ -44,7 +44,7 @@ export default function SocialLinksField({
   }
 
   return (
-    <div className="col-span-3 flex flex-col gap-2">
+    <div className="col-span-full flex flex-col gap-2">
       <span className="text-sm font-medium text-zinc-700">Social links</span>
       <div className="flex flex-wrap gap-2">
         {PLATFORMS.map((p) => {

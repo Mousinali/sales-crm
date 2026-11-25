@@ -4,8 +4,8 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { parseErrorMessage } from "@/lib/parseErrorMessage";
-import { LEAD_PRIORITIES, type LeadPriority, type LeadBudgetType, type LeadRow } from "@/lib/leads/types";
-import { LEAD_PRIORITY_LABELS, LEAD_BUDGET_TYPE_LABELS, SELECTABLE_LEAD_BUDGET_TYPES } from "@/app/(dashboard)/leadDisplay";
+import { type LeadPriority, type LeadBudgetType, type LeadRow } from "@/lib/leads/types";
+import { LEAD_PRIORITY_SELECT_OPTIONS, LEAD_BUDGET_TYPE_LABELS, SELECTABLE_LEAD_BUDGET_TYPES } from "@/app/(dashboard)/leadDisplay";
 import { INDIAN_STATES } from "@/app/(dashboard)/indianStates";
 import MultiSelectSearch from "@/components/ui/MultiSelectSearch";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -369,7 +369,7 @@ export default function EditLeadForm({
             id="priority"
             value={priority}
             onChange={(value) => setPriority(value as LeadPriority)}
-            options={LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }))}
+            options={LEAD_PRIORITY_SELECT_OPTIONS}
           />
         </div>
 

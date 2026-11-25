@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -17,7 +18,7 @@ async function authed(request: Request, params: Promise<{ id: string }>): Promis
   if (!user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   if (user.mustChangePassword) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   const groupId = Number((await params).id);
-  if (!Number.isInteger(groupId)) return { error: NextResponse.json({ error: "Invalid id" }, { status: 400 }) };
+  if (!Number.isSafeInteger(groupId)) return { error: NextResponse.json({ error: "Invalid id" }, { status: 400 }) };
   return { user, groupId };
 }
 
@@ -42,6 +43,7 @@ export async function PATCH(request: Request, { params }: Ctx): Promise<Response
     if (parsed.data.addUserIds) {
       const added = await addGroupMembers(pool, a.user.id, a.groupId, parsed.data.addUserIds);
       for (const id of added) getIO()?.in(`user:${id}`).socketsJoin(`group:${a.groupId}`);
+      await logActivity(pool, { actorUserId: a.user.id, action: "team.members_added", targetTable: "chat_groups", targetId: a.groupId, details: { count: added.length } });
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -57,6 +59,7 @@ export async function DELETE(request: Request, { params }: Ctx): Promise<Respons
   try {
     await leaveGroup(pool, a.user.id, a.groupId);
     getIO()?.in(`user:${a.user.id}`).socketsLeave(`group:${a.groupId}`);
+    await logActivity(pool, { actorUserId: a.user.id, action: "team.left", targetTable: "chat_groups", targetId: a.groupId });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof ChatRecipientNotFoundError) return NextResponse.json({ error: "Not found" }, { status: 404 });

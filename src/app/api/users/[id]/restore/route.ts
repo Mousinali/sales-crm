@@ -18,7 +18,7 @@ export async function POST(
 
   const { id } = await params;
   const targetId = Number(id);
-  if (!Number.isInteger(targetId)) {
+  if (!Number.isSafeInteger(targetId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 

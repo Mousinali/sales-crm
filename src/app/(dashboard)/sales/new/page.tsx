@@ -5,7 +5,7 @@ import PageHeading from "@/components/ui/PageHeading";
 import NewSaleForm from "./NewSaleForm";
 
 export default async function NewSalePage() {
-  const user = await requireRole(["MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
+  const user = await requireRole(["SUPER_ADMIN", "MARKETING_HEAD", "PRE_SALES", "SALESPERSON", "ACCOUNTANT"]);
   const serviceOptions = await listServices(pool, { status: "ACTIVE" });
 
   return (

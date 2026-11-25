@@ -7,7 +7,7 @@ import LogsView from "./LogsView";
 
 export default async function LogsPage() {
   await requireRole(["SUPER_ADMIN"]);
-  const result = await listAuditLogsPage(pool, {}, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  const result = await listAuditLogsPage(pool, { period: "today" }, { page: 1, pageSize: DEFAULT_PAGE_SIZE });
 
   return (
     <div>

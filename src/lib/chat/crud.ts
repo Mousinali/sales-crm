@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { ChatRecipientNotFoundError, ChatMessageNotFoundError, ChatBlockedError, ChatAttachmentError } from "./errors";
-import { MAX_ATTACHMENT_BYTES, type ChatAttachmentInput, type ChatState, type ConversationSummary, type DirectMessageRow } from "./types";
+import { MAX_ATTACHMENT_BYTES, MAX_MESSAGE_CHARS, type ChatAttachmentInput, type ChatState, type ConversationSummary, type DirectMessageRow } from "./types";
 
 const MESSAGE_SELECT = `SELECT m.*, a.id AS attachment_id, a.file_name AS attachment_name, a.size_bytes AS attachment_size
   FROM direct_messages m LEFT JOIN chat_attachments a ON a.message_id = m.id`;
@@ -60,6 +60,7 @@ export async function sendMessage(
   if (!input.body.trim() && !input.attachment) {
     throw new ChatRecipientNotFoundError("Empty message");
   }
+  if (input.body.length > MAX_MESSAGE_CHARS) throw new ChatAttachmentError(`Messages can be at most ${MAX_MESSAGE_CHARS} characters`);
   if (input.attachment) {
     if (input.attachment.data.length === 0) throw new ChatAttachmentError("The file is empty");
     if (input.attachment.data.length > MAX_ATTACHMENT_BYTES) {
@@ -101,7 +102,8 @@ export async function sendMessage(
       );
     }
     await client.query("COMMIT");
-    const { rows: full } = await pool.query<DirectMessageRow>(`${MESSAGE_SELECT} WHERE m.id = $1`, [rows[0].id]);
+    // Same connection: asking the pool for a second one while holding this one deadlocks it once every connection is mid-send.
+    const { rows: full } = await client.query<DirectMessageRow>(`${MESSAGE_SELECT} WHERE m.id = $1`, [rows[0].id]);
     return full[0];
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -25,7 +26,7 @@ export async function GET(
 
   const { id } = await params;
   const leadId = Number(id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -54,7 +55,7 @@ export async function POST(
 
   const { id } = await params;
   const leadId = Number(id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -67,6 +68,7 @@ export async function POST(
   try {
     await assertLeadVisible(pool, user, leadId);
     await recordLeadActivity(pool, { leadId, actorId: user.id, type: parsed.data.type, notes: parsed.data.notes });
+    await logActivity(pool, { actorUserId: user.id, action: "lead.activity_added", targetTable: "leads", targetId: leadId, details: { type: parsed.data.type } });
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     if (error instanceof LeadNotFoundError || error instanceof LeadNotAccessibleError) {

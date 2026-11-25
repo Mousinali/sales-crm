@@ -5,7 +5,8 @@ import type { LeadRow } from "./types";
 
 // Only a Super Admin sees every lead; everyone else sees the leads they
 // created or own, plus ones an owner shared with them. A shared lead is
-// read-only: pass `requireOwner` for anything that changes it.
+// read-only apart from its status (see setLeadStatus): pass `requireOwner` for
+// anything else that changes it.
 export async function assertLeadVisible(
   pool: Pool,
   viewer: { id: number; role: Role },

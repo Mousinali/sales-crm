@@ -79,8 +79,9 @@ function buildLeadsWhere(viewer: { id: number; role: Role }, filters: LeadFilter
   }
   if (filters.q) {
     params.push(`%${filters.q}%`);
+    // Must stay byte-identical to idx_leads_search_trgm (migration 0040) so the planner uses it.
     conditions.push(
-      `(leads.company_name ILIKE $${params.length} OR leads.phone ILIKE $${params.length} OR leads.email ILIKE $${params.length} OR leads.website ILIKE $${params.length})`,
+      `(coalesce(leads.company_name, '') || ' ' || coalesce(leads.phone, '') || ' ' || coalesce(leads.email, '') || ' ' || coalesce(leads.website, '')) ILIKE $${params.length}`,
     );
   }
 
@@ -94,6 +95,7 @@ export type LeadWithSale = LeadRow & {
   latest_sale_paid_amount: string | null;
   pre_sales_owner_name: string | null;
   salesperson_owner_name: string | null;
+  created_by_name: string | null;
 };
 
 // A lead gets at most one "latest sale" badge — a company can be sold to
@@ -119,8 +121,9 @@ const LATEST_SALE_SELECT = `latest_sale.id AS latest_sale_id, latest_sale.budget
 const OWNER_JOIN = `
   LEFT JOIN users pre_sales_owner ON pre_sales_owner.id = leads.pre_sales_owner_id
   LEFT JOIN users salesperson_owner ON salesperson_owner.id = leads.salesperson_owner_id
+  LEFT JOIN users lead_creator ON lead_creator.id = leads.created_by
 `;
-const OWNER_SELECT = `pre_sales_owner.name AS pre_sales_owner_name, salesperson_owner.name AS salesperson_owner_name`;
+const OWNER_SELECT = `pre_sales_owner.name AS pre_sales_owner_name, salesperson_owner.name AS salesperson_owner_name, lead_creator.name AS created_by_name`;
 
 export async function listLeads(pool: Pool, viewer: { id: number; role: Role }, filters: LeadFilters): Promise<LeadWithSale[]> {
   if (viewer.role === "HR" || viewer.role === "ACCOUNTANT") return [];
@@ -143,11 +146,21 @@ export async function listLeadsPage(
   if (viewer.role === "HR" || viewer.role === "ACCOUNTANT") return { items: [], page: page.page, pageSize: page.pageSize, total: 0, totalPages: 1 };
 
   const { whereClause, params } = buildLeadsWhere(viewer, filters);
-  const { rows } = await pool.query<LeadWithSale & { total_count: number }>(
-    `SELECT leads.*, ${LATEST_SALE_SELECT}, ${OWNER_SELECT}, count(*) OVER() AS total_count FROM leads ${LATEST_SALE_JOIN} ${OWNER_JOIN} ${whereClause}
-     ${buildOrderBy(sort?.sortBy, sort?.sortDir)}
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, page.pageSize, (page.page - 1) * page.pageSize],
-  );
+  // Page and total are separate queries: count(*) OVER() or the sale/owner
+  // joins ahead of the LIMIT would run the per-lead sale lookup for every
+  // matching lead (300k+). Here the joins touch only the page's rows.
+  const orderBy = buildOrderBy(sort?.sortBy, sort?.sortDir);
+  const [pageResult, countResult] = await Promise.all([
+    pool.query<LeadWithSale>(
+      `SELECT leads.*, ${LATEST_SALE_SELECT}, ${OWNER_SELECT}
+       FROM (SELECT leads.* FROM leads ${whereClause} ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}) leads
+       ${LATEST_SALE_JOIN} ${OWNER_JOIN}
+       ${orderBy}`,
+      [...params, page.pageSize, (page.page - 1) * page.pageSize],
+    ),
+    pool.query<{ count: number }>(`SELECT count(*) FROM leads ${whereClause}`, params),
+  ]);
+  const total_count = countResult.rows[0].count;
+  const rows = pageResult.rows.map((row) => ({ ...row, total_count }));
   return toPagedResult(rows, page);
 }

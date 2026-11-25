@@ -42,9 +42,10 @@ function buildSalesWhere(viewer: { id: number; role: Role }, filters: SaleFilter
   if (filters.q) {
     // Company name alone missed the identifiers people search by on this
     // screen, so the sale number and contact person match the same box.
+    // Must stay byte-identical to idx_sales_search_trgm (migration 0040) so the planner uses it.
     params.push(`%${filters.q}%`);
     conditions.push(
-      `(sales.company_name ILIKE $${params.length} OR sales.sale_number ILIKE $${params.length} OR sales.contact_person ILIKE $${params.length})`,
+      `(coalesce(sales.company_name, '') || ' ' || coalesce(sales.sale_number, '') || ' ' || coalesce(sales.contact_person, '')) ILIKE $${params.length}`,
     );
   }
   if (filters.budgetType) {
@@ -84,12 +85,20 @@ export async function listSalesPage(
   if (viewer.role === "HR") return { items: [], page: page.page, pageSize: page.pageSize, total: 0, totalPages: 1 };
 
   const { whereClause, params } = buildSalesWhere(viewer, filters);
-  const { rows } = await pool.query<SaleRow & { total_count: number }>(
-    `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT}, count(*) OVER() AS total_count
-     FROM sales ${SOLD_BY_USER_JOIN} ${PAID_AMOUNT_JOIN} ${whereClause}
-     ORDER BY sale_date DESC, sales.created_at DESC
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, page.pageSize, (page.page - 1) * page.pageSize],
-  );
+  // Page and total are separate queries so the paid-amount lookup runs only
+  // for the page's rows, not every matching sale (count(*) OVER() forces all).
+  const orderBy = "ORDER BY sale_date DESC, sales.created_at DESC";
+  const [pageResult, countResult] = await Promise.all([
+    pool.query<SaleRow>(
+      `SELECT sales.*, ${SOLD_BY_DISPLAY_NAME_SELECT}, ${PAID_AMOUNT_SELECT}
+       FROM (SELECT sales.* FROM sales ${whereClause} ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}) sales
+       ${SOLD_BY_USER_JOIN} ${PAID_AMOUNT_JOIN}
+       ${orderBy}`,
+      [...params, page.pageSize, (page.page - 1) * page.pageSize],
+    ),
+    pool.query<{ count: number }>(`SELECT count(*) FROM sales ${whereClause}`, params),
+  ]);
+  const total_count = countResult.rows[0].count;
+  const rows = pageResult.rows.map((row) => ({ ...row, total_count }));
   return toPagedResult(rows, page);
 }

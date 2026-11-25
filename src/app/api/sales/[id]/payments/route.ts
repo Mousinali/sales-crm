@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
+import { amountSchema, dateSchema } from "@/lib/validation";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
 import { SALE_PAYMENT_METHODS } from "@/lib/sales/types";
 import { recordSalePayment, listSalePayments } from "@/lib/sales/payments";
 import { SaleNotFoundError, SaleNotAccessibleError } from "@/lib/sales/errors";
 
 const createPaymentSchema = z.object({
-  amount: z.number().positive(),
+  amount: amountSchema,
   paymentMethod: z.enum(SALE_PAYMENT_METHODS),
-  paymentDate: z.string().trim().min(1).optional(),
+  paymentDate: dateSchema.optional(),
   receiptNumber: z.string().trim().min(1).optional(),
   accountNumber: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional(),
@@ -29,7 +31,7 @@ export async function POST(
 
   const { id } = await params;
   const saleId = Number(id);
-  if (!Number.isInteger(saleId)) {
+  if (!Number.isSafeInteger(saleId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -41,6 +43,7 @@ export async function POST(
 
   try {
     const payment = await recordSalePayment(pool, { actorId: user.id, actorRole: user.role, saleId, ...parsed.data });
+    await logActivity(pool, { actorUserId: user.id, action: "payment.recorded", targetTable: "sales", targetId: saleId, details: { amount: payment.amount } });
     return NextResponse.json(payment, { status: 201 });
   } catch (error) {
     if (error instanceof SaleNotFoundError) {
@@ -67,7 +70,7 @@ export async function GET(
 
   const { id } = await params;
   const saleId = Number(id);
-  if (!Number.isInteger(saleId)) {
+  if (!Number.isSafeInteger(saleId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 

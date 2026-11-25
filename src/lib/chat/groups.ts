@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { ChatRecipientNotFoundError, ChatAttachmentError } from "./errors";
-import { MAX_ATTACHMENT_BYTES, type ChatAttachmentInput } from "./types";
+import { MAX_ATTACHMENT_BYTES, MAX_MESSAGE_CHARS, type ChatAttachmentInput } from "./types";
 
 export type GroupSummary = {
   id: number;
@@ -99,6 +99,7 @@ export async function sendGroupMessage(
 ): Promise<GroupMessageRow> {
   await assertMember(pool, input.groupId, input.senderId);
   if (!input.body.trim() && !input.attachment) throw new ChatRecipientNotFoundError("Empty message");
+  if (input.body.length > MAX_MESSAGE_CHARS) throw new ChatAttachmentError(`Messages can be at most ${MAX_MESSAGE_CHARS} characters`);
   if (input.attachment) {
     if (input.attachment.data.length === 0) throw new ChatAttachmentError("The file is empty");
     if (input.attachment.data.length > MAX_ATTACHMENT_BYTES) throw new ChatAttachmentError(`Files can be at most ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB`);
@@ -120,7 +121,8 @@ export async function sendGroupMessage(
     // Sending counts as having read everything up to now.
     await client.query("UPDATE chat_group_members SET last_read_at = now() WHERE group_id = $1 AND user_id = $2", [input.groupId, input.senderId]);
     await client.query("COMMIT");
-    const { rows: full } = await pool.query<GroupMessageRow>(`${MESSAGE_SELECT} WHERE m.id = $1`, [rows[0].id]);
+    // Same connection: asking the pool for a second one while holding this one deadlocks it once every connection is mid-send.
+    const { rows: full } = await client.query<GroupMessageRow>(`${MESSAGE_SELECT} WHERE m.id = $1`, [rows[0].id]);
     return full[0];
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});

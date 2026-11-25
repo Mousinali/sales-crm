@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logActivity } from "@/lib/audit/log";
 import { z } from "zod";
 import { pool } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth/rbac";
@@ -22,7 +23,7 @@ async function handle(
   }
 
   const leadId = Number((await params).id);
-  if (!Number.isInteger(leadId)) {
+  if (!Number.isSafeInteger(leadId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -54,7 +55,7 @@ export const GET = (request: Request, { params }: Ctx) =>
   handle(request, params, async (user, leadId) => ({ shares: await listLeadShares(pool, user, leadId) }), false);
 
 export const POST = (request: Request, { params }: Ctx) =>
-  handle(request, params, async (user, leadId, body) => (await shareLead(pool, user, leadId, body!.userId), { ok: true }), true);
+  handle(request, params, async (user, leadId, body) => (await shareLead(pool, user, leadId, body!.userId), await logActivity(pool, { actorUserId: user.id, action: "lead.shared", targetTable: "leads", targetId: leadId }), { ok: true }), true);
 
 export const DELETE = (request: Request, { params }: Ctx) =>
-  handle(request, params, async (user, leadId, body) => (await unshareLead(pool, user, leadId, body!.userId), { ok: true }), true);
+  handle(request, params, async (user, leadId, body) => (await unshareLead(pool, user, leadId, body!.userId), await logActivity(pool, { actorUserId: user.id, action: "lead.unshared", targetTable: "leads", targetId: leadId }), { ok: true }), true);

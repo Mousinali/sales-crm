@@ -33,6 +33,7 @@ import {
   LEAD_PRIORITY_LABELS,
   LEAD_PRIORITY_BADGE_CLASSES,
   LEAD_PRIORITY_ICONS,
+  LEAD_PRIORITY_SELECT_OPTIONS,
   LEAD_SOURCE_LABELS,
   LEAD_SOURCE_ICONS,
 } from "@/app/(dashboard)/leadDisplay";
@@ -45,7 +46,6 @@ import PageHeading from "@/components/ui/PageHeading";
 import { useDebouncedValue } from "@/components/ui/useDebouncedValue";
 import { useAutoRefresh } from "@/components/ui/useAutoRefresh";
 import CustomSelect from "@/components/ui/CustomSelect";
-import { useViewportPageSize } from "@/lib/useViewportPageSize";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import BulkShareModal from "./BulkShareModal";
 
@@ -60,6 +60,7 @@ type LeadWithSale = LeadRow & {
   latest_sale_budget_amount?: string | null;
   latest_sale_paid_amount?: string | null;
   pre_sales_owner_name?: string | null;
+  created_by_name?: string | null;
   salesperson_owner_name?: string | null;
 };
 
@@ -119,6 +120,7 @@ export default function LeadsView({
   ].filter(Boolean).length;
 
   const canCreate =
+    viewerRole === "SUPER_ADMIN" ||
     viewerRole === "PRE_SALES" ||
     viewerRole === "MARKETING_HEAD" ||
     viewerRole === "SALESPERSON";
@@ -128,12 +130,13 @@ export default function LeadsView({
     lead.pre_sales_owner_id === viewerId ||
     lead.salesperson_owner_id === viewerId;
 
-  const pageSizeRef = useViewportPageSize(53, 404);
+  const [pageSize, setPageSize] = useState(15);
 
   async function refetch(
     targetPage: number,
     overrideSortBy?: LeadSortColumn,
     overrideSortDir?: "asc" | "desc",
+    overridePageSize?: number,
   ) {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
@@ -145,7 +148,7 @@ export default function LeadsView({
     params.set("sortBy", overrideSortBy ?? sortBy);
     params.set("sortDir", overrideSortDir ?? sortDir);
     params.set("page", String(targetPage));
-    params.set("pageSize", String(pageSizeRef.current));
+    params.set("pageSize", String(overridePageSize ?? pageSize));
 
     setListError(null);
     try {
@@ -199,11 +202,17 @@ export default function LeadsView({
   // user click Apply filters — compared against the mount-time value
   // (not a ran-once flag) so React Strict Mode's double effect-invocation
   // in dev can't trip this into firing on mount anyway.
-  // The hook above has already set the viewport-fitted size; refetch once if it differs.
+  // Server renders the default page size; load the selector's default once on mount if it differs.
   useEffect(() => {
-    if (pageSizeRef.current !== DEFAULT_PAGE_SIZE) void refetch(1);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pageSize !== DEFAULT_PAGE_SIZE) void refetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function changePageSize(next: number) {
+    setPageSize(next);
+    void refetch(1, undefined, undefined, next);
+  }
 
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
@@ -580,10 +589,7 @@ export default function LeadsView({
               value={priorityFilter}
               options={[
                 { value: "", label: "All priorities" },
-                ...LEAD_PRIORITIES.map((p) => ({
-                  value: p,
-                  label: LEAD_PRIORITY_LABELS[p],
-                })),
+                ...LEAD_PRIORITY_SELECT_OPTIONS,
               ]}
               onChange={setPriorityFilter}
             />
@@ -656,12 +662,6 @@ export default function LeadsView({
                   className="px-4 py-3 text-left text-xs font-semibold text-zinc-500"
                 >
                   Status
-                </th>
-                <th
-                  scope="col"
-                  className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-zinc-500"
-                >
-                  Outcome
                 </th>
                 <th
                   scope="col"
@@ -757,28 +757,6 @@ export default function LeadsView({
                       {LEAD_STATUS_LABELS[lead.status]}
                     </Badge>
                   </td>
-                  <td data-label="Outcome" className="hidden lg:table-cell px-4 py-2 text-xs">
-                    {lead.latest_sale_id != null ? (
-                      <>
-                        <p className="font-medium text-emerald-700">
-                          Converted to sale
-                        </p>
-                        <p className="text-zinc-500">
-                          ₹
-                          {Number(
-                            lead.latest_sale_paid_amount ?? 0,
-                          ).toLocaleString("en-IN")}{" "}
-                          / ₹
-                          {Number(
-                            lead.latest_sale_budget_amount ?? 0,
-                          ).toLocaleString("en-IN")}{" "}
-                          paid
-                        </p>
-                      </>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
-                  </td>
                   <td data-label="Priority" className="px-4 py-2">
                     <Badge
                       icon={LEAD_PRIORITY_ICONS[lead.priority]}
@@ -797,14 +775,16 @@ export default function LeadsView({
                   </td>
                   <td data-label="Owner" className="hidden lg:table-cell px-4 py-2 text-xs">
                     {lead.salesperson_owner_name ||
-                    lead.pre_sales_owner_name ? (
+                    lead.pre_sales_owner_name ||
+                    lead.created_by_name ? (
                       <span className="inline-flex items-center gap-1.5 text-zinc-700">
                         <i
                           className="ri-user-line text-sm text-zinc-400"
                           aria-hidden="true"
                         />
                         {lead.salesperson_owner_name ||
-                          lead.pre_sales_owner_name}
+                          lead.pre_sales_owner_name ||
+                          lead.created_by_name}
                       </span>
                     ) : (
                       <span className="text-zinc-400">Unassigned</span>
@@ -849,6 +829,8 @@ export default function LeadsView({
           totalPages={totalPages}
           total={total}
           onChange={(nextPage) => refetch(nextPage)}
+          pageSize={pageSize}
+          onPageSizeChange={changePageSize}
         />
       </div>
 
@@ -950,6 +932,7 @@ export default function LeadsView({
                 <i className="ri-user-line text-zinc-400" aria-hidden="true" />
                 {lead.salesperson_owner_name ||
                   lead.pre_sales_owner_name ||
+                  lead.created_by_name ||
                   "Unassigned"}
               </span>
               <span className="flex items-center gap-1 text-zinc-700">
@@ -1011,6 +994,8 @@ export default function LeadsView({
             totalPages={totalPages}
             total={total}
             onChange={(nextPage) => refetch(nextPage)}
+            pageSize={pageSize}
+            onPageSizeChange={changePageSize}
           />
         </div>
       )}

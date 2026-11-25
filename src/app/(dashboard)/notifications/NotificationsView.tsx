@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PageHeading from "@/components/ui/PageHeading";
 import RefreshButton from "@/components/ui/RefreshButton";
 import Pagination from "@/components/ui/Pagination";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import Badge from "@/components/ui/Badge";
 import FilterDropdown from "@/components/ui/FilterDropdown";
 import FilterBottomSheet from "@/components/ui/FilterBottomSheet";
@@ -62,6 +63,7 @@ export default function NotificationsView({
   const [total, setTotal] = useState(initialTotal);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<NotificationType | "">("");
   const [readFilter, setReadFilter] = useState<ReadFilter | "">("");
@@ -71,8 +73,8 @@ export default function NotificationsView({
   const debouncedSearch = useDebouncedValue(search, 350);
   const lastSearch = useRef(debouncedSearch);
 
-  async function refetch(targetPage: number) {
-    const params = new URLSearchParams({ page: String(targetPage) });
+  async function refetch(targetPage: number, overridePageSize?: number) {
+    const params = new URLSearchParams({ page: String(targetPage), pageSize: String(overridePageSize ?? pageSize) });
     if (debouncedSearch) params.set("q", debouncedSearch);
     if (typeFilter) params.set("type", typeFilter);
     if (readFilter) params.set("read", readFilter);
@@ -97,6 +99,18 @@ export default function NotificationsView({
     void refetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
+
+  // Server renders the default page size; load the selector's default once on mount if it differs.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pageSize !== DEFAULT_PAGE_SIZE) void refetch(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function changePageSize(next: number) {
+    setPageSize(next);
+    void refetch(1, next);
+  }
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
@@ -256,7 +270,7 @@ export default function NotificationsView({
           ))
         )}
 
-        <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch(nextPage)} />
+        <Pagination page={page} totalPages={totalPages} total={total} onChange={(nextPage) => refetch(nextPage)} pageSize={pageSize} onPageSizeChange={changePageSize} />
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM notifications WHERE lead_id = $1", [lead.id]);
   await pool.query("DELETE FROM lead_shares WHERE lead_id = $1", [lead.id]);
   await pool.query("DELETE FROM leads WHERE id = $1", [lead.id]);
   await pool.query("DELETE FROM audit_logs WHERE actor_user_id = ANY(SELECT id FROM users WHERE email = ANY($1)) OR actor_user_id = $2", [[...createdEmails, adminEmail], superAdminId]);
